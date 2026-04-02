@@ -74,7 +74,7 @@ const DEFAULT_OPTIONS: Required<BlockParserOptions> = {
 }
 
 /** ATX heading pattern: 1-6 # followed by space or end of line */
-const RE_ATX_HEADING = /^(#{1,6})(?:\s+|$)(.*?)(?:\s+#*\s*)?$/
+const RE_ATX_HEADING = /^(#{1,6})(?:\s|$)/
 /** Setext heading underline */
 const RE_SETEXT_H1 = /^={1,}[ \t]*$/
 const RE_SETEXT_H2 = /^-{1,}[ \t]*$/
@@ -166,8 +166,8 @@ function parseBlockLines(
       }
     }
 
-    // 1. ATX Heading — starts with #
-    if (fc === 35) { // #
+    // 1. ATX Heading — starts with # (or 1-3 spaces then #)
+    if (fc === 35 || (firstChar === 32 && trimStart <= 3 && trimStart >= 0 && line.charCodeAt(trimStart) === 35)) { // #
       result = tryATXHeading(lines, i, opts)
       if (result) {
         blocks.push(result.node)
@@ -325,12 +325,20 @@ function tryATXHeading(
   i: number,
   _opts: Required<BlockParserOptions>,
 ): ParseResult | null {
-  const line = lines[i]!
-  const match = RE_ATX_HEADING.exec(line)
+  let line = lines[i]!
+  // Strip up to 3 leading spaces (CommonMark spec)
+  const stripped = line.replace(/^ {0,3}/, '')
+  const match = RE_ATX_HEADING.exec(stripped)
   if (!match) return null
 
   const depth = match[1]!.length as 1 | 2 | 3 | 4 | 5 | 6
-  const content = match[2]!.trim()
+  // Get content after opening # + space
+  let content = stripped.slice(match[0].length)
+  // Remove optional closing #s: trailing space + one or more # + optional space
+  content = content.replace(/\s+#+\s*$/, '')
+  // If content is only # characters, it's a closing sequence → empty heading
+  if (/^#+\s*$/.test(content)) content = ''
+  content = content.trim()
   const children = content ? parseInline(content) : []
 
   return {

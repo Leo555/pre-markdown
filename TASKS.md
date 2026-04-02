@@ -175,7 +175,7 @@
 - Images (8%) — 依赖 link reference
 
 ### 4.2 适度修复（投入产出比高的）
-- [ ] ATX heading 尾部 # 关闭 + 空标题
+- [x] ATX heading 尾部 # 关闭 + 空标题 + 1-3 前导空格 → 336/652 (51.5%)
 - [ ] Fenced code 关闭条件宽松化
 - [ ] Block quote 延迟续行
 - [ ] 实体引用快速路径（&amp; &lt; &gt; &quot;）
