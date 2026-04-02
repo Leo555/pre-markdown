@@ -782,7 +782,7 @@ function tryParagraphOrSetext(
       }
     }
 
-    paragraphLines.push(current)
+    paragraphLines.push(current.replace(/^ {1,3}(?! )/, ''))
     j++
   }
 

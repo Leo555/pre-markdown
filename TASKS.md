@@ -102,6 +102,7 @@
 - [x] 下载 CommonMark spec 0.31.2 测试数据集（652 examples, 26 sections）
 - [x] 搭建 spec 测试运行器（commonmark-spec.test.ts + commonmark-analysis.test.ts）
 - [x] 首轮运行，基线通过率 **242/652 (37.1%)**
+- [x] 修复渲染器尾部换行 + heading id 可选 + 代码块尾部 \\n + 段落前导空格 → **312/652 (47.9%)**
 - [ ] 修复 ATX 标题边界（尾部空格、空标题、标题中断）
 - [ ] 修复段落续行规则（Lazy continuation）
 - [ ] 修复列表松散/紧凑判定

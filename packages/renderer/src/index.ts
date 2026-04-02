@@ -55,8 +55,8 @@ export interface RendererOptions {
   sanitize?: boolean
   /** Enable syntax highlighting for code blocks */
   highlight?: (code: string, lang?: string) => string
-  /** Custom heading ID generator */
-  headingId?: (text: string, depth: number) => string
+  /** Custom heading ID generator (null = no id attribute, default: null) */
+  headingId?: ((text: string, depth: number) => string) | null
   /** Base URL for relative links */
   baseUrl?: string
 }
@@ -68,7 +68,7 @@ export function renderToHtml(doc: Document, options?: RendererOptions): string {
   const opts: Required<RendererOptions> = {
     sanitize: true,
     highlight: (code: string) => escapeHtml(code),
-    headingId: (text: string) => text.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, ''),
+    headingId: null,
     baseUrl: '',
     ...options,
   }
@@ -121,8 +121,9 @@ function renderBlockNode(node: BlockNode, opts: Required<RendererOptions>): stri
 
 function renderHeading(node: Heading, opts: Required<RendererOptions>): string {
   const text = getPlainText(node.children)
-  const id = opts.headingId(text, node.depth)
-  return `<h${node.depth} id="${escapeAttr(id)}">${renderInlineNodes(node.children, opts)}</h${node.depth}>\n`
+  const id = opts.headingId ? opts.headingId(text, node.depth) : ''
+  const idAttr = id ? ` id="${escapeAttr(id)}"` : ''
+  return `<h${node.depth}${idAttr}>${renderInlineNodes(node.children, opts)}</h${node.depth}>\n`
 }
 
 function renderParagraph(node: Paragraph, opts: Required<RendererOptions>): string {
@@ -155,7 +156,8 @@ function renderListItem(node: ListItem, opts: Required<RendererOptions>): string
 }
 
 function renderCodeBlock(node: CodeBlock, opts: Required<RendererOptions>): string {
-  const highlighted = opts.highlight(node.value, node.lang)
+  const code = node.value.endsWith('\n') ? node.value : node.value + '\n'
+  const highlighted = opts.highlight(code, node.lang)
   const langClass = node.lang ? ` class="language-${escapeAttr(node.lang)}"` : ''
   return `<pre><code${langClass}>${highlighted}</code></pre>\n`
 }

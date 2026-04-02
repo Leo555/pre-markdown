@@ -31,7 +31,9 @@ describe('Renderer Snapshot Tests', () => {
     })
 
     it('should render heading with id', () => {
-      const html = render('# Hello World')
+      resetNodeIds()
+      const headingId = (text: string) => text.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '')
+      const html = renderToHtml(parse('# Hello World'), { headingId })
       expect(html).toContain('id="hello-world"')
     })
 

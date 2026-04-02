@@ -22,7 +22,8 @@ describe('Renderer', () => {
 
     it('should render heading with id', () => {
       const doc = parse('## My Title')
-      const html = renderToHtml(doc)
+      const headingId = (text: string) => text.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '')
+      const html = renderToHtml(doc, { headingId })
       expect(html).toContain('id="my-title"')
     })
   })
