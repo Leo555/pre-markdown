@@ -62,18 +62,18 @@
 > **原则**：这是项目的核心竞争力，最高优先级
 
 ### 2.1 解析器热路径优化
-- [ ] Chrome DevTools / Node --prof 热路径 Profiling
-- [ ] 正则预编译 + 常量提取（避免 RE 对象重复创建）
-- [ ] 减少字符串拷贝（slice 替代 substring，索引偏移替代 input.slice()）
-- [ ] 内联解析器：单遍扫描 + 状态机，减少回溯
+- [x] 自定义 profiling 脚本（harness/profile.ts），基线测量
+- [x] 正则预编译 + sticky regex（y flag）+ lastIndex 替代 input.slice()
+- [x] charCodeAt 替代 charAt/字符比较，减少字符串创建
+- [ ] 内联解析器：进一步减少回溯，合并条件分支
 - [ ] 块级解析器：减少 RE.exec 重复编译
 - [ ] AST 节点对象池（复用节点减少 GC 压力）
 - [ ] 懒解析内联（仅在渲染时才解析段落内联内容）
 
 ### 2.2 渲染器热路径优化
-- [ ] 字符串拼接优化（数组 push + join 替代 +=）
-- [ ] escapeHtml 快速路径（无特殊字符时直接返回原字符串）
-- [ ] 模板字面量预计算（减少运行时拼接）
+- [x] escapeHtml 单遍扫描快速路径（无特殊字符时零拷贝返回）
+- [x] 字符串拼接优化（+ 替代 template literal，for 循环替代 map）
+- [x] escapeAttr 同样单遍扫描优化
 - [ ] DOM 渲染模式（renderToDOM — 直接创建 DOM 节点，跳过 innerHTML）
 - [ ] 增量渲染（Diff AST → 局部 DOM 更新）
 
@@ -228,6 +228,7 @@
 
 | 日期 | 变更内容 |
 |------|---------|
+| 2026-04-02 | 性能优化：sticky regex + charCodeAt + 单遍 escapeHtml → Render 2x, Pipeline 23% 提升 |
 | 2026-04-02 | 目标调整：性能第一 + pretext 深度利用，语法兼容性降级为次要 |
 | 2026-04-02 | CommonMark 51.1% (333/652)，7 sections 满分 |
 | 2026-04-02 | 7 引擎性能压测 + 语法兼容性测试（benchmark/） |

@@ -61,13 +61,71 @@ export interface RendererOptions {
   baseUrl?: string
 }
 
+// ============================================================
+// Fast escapeHtml — single-pass scan, no intermediate strings
+// ============================================================
+
+const ESCAPE_HTML_RE = /[&<>"]/
+
+function escapeHtml(str: string): string {
+  // Fast path: no special chars → return original (zero-copy)
+  if (!ESCAPE_HTML_RE.test(str)) return str
+
+  let out = ''
+  let last = 0
+  for (let i = 0; i < str.length; i++) {
+    const ch = str.charCodeAt(i)
+    let esc: string | undefined
+    if (ch === 38) esc = '&amp;'       // &
+    else if (ch === 60) esc = '&lt;'   // <
+    else if (ch === 62) esc = '&gt;'   // >
+    else if (ch === 34) esc = '&quot;' // "
+    if (esc !== undefined) {
+      if (last < i) out += str.slice(last, i)
+      out += esc
+      last = i + 1
+    }
+  }
+  if (last === 0) return str
+  if (last < str.length) out += str.slice(last)
+  return out
+}
+
+function escapeAttr(str: string): string {
+  if (!ESCAPE_HTML_RE.test(str) && !str.includes("'")) return str
+
+  let out = ''
+  let last = 0
+  for (let i = 0; i < str.length; i++) {
+    const ch = str.charCodeAt(i)
+    let esc: string | undefined
+    if (ch === 38) esc = '&amp;'
+    else if (ch === 34) esc = '&quot;'
+    else if (ch === 39) esc = '&#39;'
+    else if (ch === 60) esc = '&lt;'
+    else if (ch === 62) esc = '&gt;'
+    if (esc !== undefined) {
+      if (last < i) out += str.slice(last, i)
+      out += esc
+      last = i + 1
+    }
+  }
+  if (last === 0) return str
+  if (last < str.length) out += str.slice(last)
+  return out
+}
+
+// ============================================================
+// Main renderer
+// ============================================================
+
 /**
  * Render a Document AST to an HTML string.
  */
 export function renderToHtml(doc: Document, options?: RendererOptions): string {
   const opts: Required<RendererOptions> = {
     sanitize: true,
-    highlight: (code: string) => escapeHtml(code),
+    highlight: escapeHtml,
     headingId: null,
     baseUrl: '',
     ...options,
@@ -77,7 +135,15 @@ export function renderToHtml(doc: Document, options?: RendererOptions): string {
 }
 
 function renderBlockNodes(nodes: BlockNode[], opts: Required<RendererOptions>): string {
-  return nodes.map((node) => renderBlockNode(node, opts)).join('')
+  // Use array + join for many nodes (faster than += for > 3 elements)
+  const len = nodes.length
+  if (len === 0) return ''
+  if (len === 1) return renderBlockNode(nodes[0]!, opts)
+  const parts: string[] = new Array(len)
+  for (let i = 0; i < len; i++) {
+    parts[i] = renderBlockNode(nodes[i]!, opts)
+  }
+  return parts.join('')
 }
 
 function renderBlockNode(node: BlockNode, opts: Required<RendererOptions>): string {
@@ -101,11 +167,11 @@ function renderBlockNode(node: BlockNode, opts: Required<RendererOptions>): stri
     case 'table':
       return renderTable(node, opts)
     case 'tableRow':
-      return renderTableRow(node, opts)
+      return ''
     case 'tableCell':
-      return `<td>${renderInlineNodes(node.children, opts)}</td>`
+      return '<td>' + renderInlineNodes(node.children, opts) + '</td>'
     case 'mathBlock':
-      return `<div class="math-block">${escapeHtml(node.value)}</div>\n`
+      return '<div class="math-block">' + escapeHtml(node.value) + '</div>\n'
     case 'container':
       return renderContainer(node, opts)
     case 'details':
@@ -113,44 +179,50 @@ function renderBlockNode(node: BlockNode, opts: Required<RendererOptions>): stri
     case 'toc':
       return '<nav class="toc" data-toc></nav>\n'
     case 'footnoteDefinition':
-      return `<div class="footnote" id="fn-${escapeHtml(node.identifier)}"><sup>${escapeHtml(node.label)}</sup>${renderBlockNodes(node.children, opts)}</div>\n`
+      return '<div class="footnote" id="fn-' + escapeHtml(node.identifier) + '"><sup>' + escapeHtml(node.label) + '</sup>' + renderBlockNodes(node.children, opts) + '</div>\n'
     default:
       return ''
   }
 }
 
 function renderHeading(node: Heading, opts: Required<RendererOptions>): string {
-  const text = getPlainText(node.children)
-  const id = opts.headingId ? opts.headingId(text, node.depth) : ''
-  const idAttr = id ? ` id="${escapeAttr(id)}"` : ''
-  return `<h${node.depth}${idAttr}>${renderInlineNodes(node.children, opts)}</h${node.depth}>\n`
+  const inner = renderInlineNodes(node.children, opts)
+  if (opts.headingId) {
+    const text = getPlainText(node.children)
+    const id = opts.headingId(text, node.depth)
+    if (id) return '<h' + node.depth + ' id="' + escapeAttr(id) + '">' + inner + '</h' + node.depth + '>\n'
+  }
+  return '<h' + node.depth + '>' + inner + '</h' + node.depth + '>\n'
 }
 
 function renderParagraph(node: Paragraph, opts: Required<RendererOptions>): string {
-  return `<p>${renderInlineNodes(node.children, opts)}</p>\n`
+  return '<p>' + renderInlineNodes(node.children, opts) + '</p>\n'
 }
 
 function renderBlockquote(node: Blockquote, opts: Required<RendererOptions>): string {
-  return `<blockquote>\n${renderBlockNodes(node.children, opts)}</blockquote>\n`
+  return '<blockquote>\n' + renderBlockNodes(node.children, opts) + '</blockquote>\n'
 }
 
 function renderList(node: List, opts: Required<RendererOptions>): string {
   const tag = node.ordered ? 'ol' : 'ul'
   const startAttr = node.ordered && node.start !== undefined && node.start !== 1
-    ? ` start="${node.start}"`
+    ? ' start="' + node.start + '"'
     : ''
-  const items = node.children.map((item) => renderListItem(item, opts, node.spread)).join('')
-  return `<${tag}${startAttr}>\n${items}</${tag}>\n`
+  const len = node.children.length
+  const parts: string[] = new Array(len)
+  const loose = node.spread
+  for (let i = 0; i < len; i++) {
+    parts[i] = renderListItem(node.children[i]!, opts, loose)
+  }
+  return '<' + tag + startAttr + '>\n' + parts.join('') + '</' + tag + '>\n'
 }
 
 function renderListItem(node: ListItem, opts: Required<RendererOptions>, loose = true): string {
   let content: string
 
   if (!loose && node.children.length === 1 && node.children[0]!.type === 'paragraph') {
-    // Tight list: render paragraph content without <p> wrapper
     content = renderInlineNodes((node.children[0] as Paragraph).children, opts)
   } else if (!loose && node.children.every(c => c.type === 'paragraph')) {
-    // Tight list with multiple paragraphs: still no <p> wrapper
     content = node.children
       .map(c => renderInlineNodes((c as Paragraph).children, opts))
       .join('\n')
@@ -160,70 +232,81 @@ function renderListItem(node: ListItem, opts: Required<RendererOptions>, loose =
 
   if (node.checked !== undefined) {
     const checked = node.checked ? ' checked disabled' : ' disabled'
-    content = `<input type="checkbox"${checked} /> ${content}`
-    return `<li class="task-list-item">${content}</li>\n`
+    return '<li class="task-list-item"><input type="checkbox"' + checked + ' /> ' + content + '</li>\n'
   }
 
-  return `<li>${content}</li>\n`
+  return '<li>' + content + '</li>\n'
 }
 
 function renderCodeBlock(node: CodeBlock, opts: Required<RendererOptions>): string {
   let code = node.value
-  if (code.length > 0 && !code.endsWith('\n')) {
+  if (code.length > 0 && code.charCodeAt(code.length - 1) !== 10) {
     code += '\n'
   }
   const highlighted = opts.highlight(code, node.lang)
-  const langClass = node.lang ? ` class="language-${escapeAttr(node.lang)}"` : ''
-  return `<pre><code${langClass}>${highlighted}</code></pre>\n`
+  if (node.lang) {
+    return '<pre><code class="language-' + escapeAttr(node.lang) + '">' + highlighted + '</code></pre>\n'
+  }
+  return '<pre><code>' + highlighted + '</code></pre>\n'
 }
 
 function renderTable(node: Table, opts: Required<RendererOptions>): string {
-  const rows = node.children.map((row, _i) => {
+  const parts: string[] = ['<table>']
+  let inHeader = true
+
+  for (let i = 0; i < node.children.length; i++) {
+    const row = node.children[i]!
+    if (row.isHeader) {
+      if (i === 0) parts.push('<thead>')
+    } else if (inHeader) {
+      parts.push('</thead><tbody>')
+      inHeader = false
+    }
+    parts.push('<tr>')
     const cellTag = row.isHeader ? 'th' : 'td'
-    const cells = row.children
-      .map((cell, j) => {
-        const align = node.align[j]
-        const alignAttr = align ? ` style="text-align:${align}"` : ''
-        return `<${cellTag}${alignAttr}>${renderInlineNodes(cell.children, opts)}</${cellTag}>`
-      })
-      .join('')
-    return `<tr>${cells}</tr>`
-  })
-
-  const headerRows = rows.filter((_, i) => node.children[i]?.isHeader)
-  const bodyRows = rows.filter((_, i) => !node.children[i]?.isHeader)
-
-  let html = '<table>'
-  if (headerRows.length > 0) {
-    html += `<thead>${headerRows.join('')}</thead>`
+    for (let j = 0; j < row.children.length; j++) {
+      const cell = row.children[j]!
+      const align = node.align[j]
+      if (align) {
+        parts.push('<' + cellTag + ' style="text-align:' + align + '">' + renderInlineNodes(cell.children, opts) + '</' + cellTag + '>')
+      } else {
+        parts.push('<' + cellTag + '>' + renderInlineNodes(cell.children, opts) + '</' + cellTag + '>')
+      }
+    }
+    parts.push('</tr>')
   }
-  if (bodyRows.length > 0) {
-    html += `<tbody>${bodyRows.join('')}</tbody>`
-  }
-  html += '</table>\n'
-  return html
-}
 
-function renderTableRow(_node: TableRow, _opts: Required<RendererOptions>): string {
-  // Handled in renderTable for proper thead/tbody grouping
-  return ''
+  if (inHeader && node.children.some(r => r.isHeader)) {
+    parts.push('</thead>')
+  } else if (!inHeader) {
+    parts.push('</tbody>')
+  }
+  parts.push('</table>\n')
+  return parts.join('')
 }
 
 function renderContainer(node: Container, opts: Required<RendererOptions>): string {
-  const title = node.title ? `<p class="container-title">${escapeHtml(node.title)}</p>` : ''
-  return `<div class="container container-${escapeAttr(node.kind)}">${title}${renderBlockNodes(node.children, opts)}</div>\n`
+  const title = node.title ? '<p class="container-title">' + escapeHtml(node.title) + '</p>' : ''
+  return '<div class="container container-' + escapeAttr(node.kind) + '">' + title + renderBlockNodes(node.children, opts) + '</div>\n'
 }
 
 function renderDetails(node: Details, opts: Required<RendererOptions>): string {
-  return `<details><summary>${escapeHtml(node.summary)}</summary>${renderBlockNodes(node.children, opts)}</details>\n`
+  return '<details><summary>' + escapeHtml(node.summary) + '</summary>' + renderBlockNodes(node.children, opts) + '</details>\n'
 }
 
 // ============================================================
-// Inline Rendering
+// Inline Rendering — optimized with string concat (faster than template literals for hot path)
 // ============================================================
 
 function renderInlineNodes(nodes: InlineNode[], opts: Required<RendererOptions>): string {
-  return nodes.map((node) => renderInlineNode(node, opts)).join('')
+  const len = nodes.length
+  if (len === 0) return ''
+  if (len === 1) return renderInlineNode(nodes[0]!, opts)
+  let out = ''
+  for (let i = 0; i < len; i++) {
+    out += renderInlineNode(nodes[i]!, opts)
+  }
+  return out
 }
 
 function renderInlineNode(node: InlineNode, opts: Required<RendererOptions>): string {
@@ -231,20 +314,26 @@ function renderInlineNode(node: InlineNode, opts: Required<RendererOptions>): st
     case 'text':
       return escapeHtml(node.value)
     case 'emphasis':
-      return `<em>${renderInlineNodes(node.children, opts)}</em>`
+      return '<em>' + renderInlineNodes(node.children, opts) + '</em>'
     case 'strong':
-      return `<strong>${renderInlineNodes(node.children, opts)}</strong>`
+      return '<strong>' + renderInlineNodes(node.children, opts) + '</strong>'
     case 'strikethrough':
-      return `<del>${renderInlineNodes(node.children, opts)}</del>`
+      return '<del>' + renderInlineNodes(node.children, opts) + '</del>'
     case 'inlineCode':
-      return `<code>${escapeHtml(node.value)}</code>`
+      return '<code>' + escapeHtml(node.value) + '</code>'
     case 'link': {
       const safeUrl = opts.sanitize ? sanitizeUrl(node.url) : node.url
-      return `<a href="${escapeAttr(safeUrl)}"${node.title ? ` title="${escapeAttr(node.title)}"` : ''}>${renderInlineNodes(node.children, opts)}</a>`
+      let r = '<a href="' + escapeAttr(safeUrl) + '"'
+      if (node.title) r += ' title="' + escapeAttr(node.title) + '"'
+      return r + '>' + renderInlineNodes(node.children, opts) + '</a>'
     }
     case 'image': {
       const safeSrc = opts.sanitize ? sanitizeUrl(node.url) : node.url
-      return `<img src="${escapeAttr(safeSrc)}" alt="${escapeAttr(node.alt)}"${node.title ? ` title="${escapeAttr(node.title)}"` : ''}${node.width ? ` width="${node.width}"` : ''}${node.height ? ` height="${node.height}"` : ''} />`
+      let r = '<img src="' + escapeAttr(safeSrc) + '" alt="' + escapeAttr(node.alt) + '"'
+      if (node.title) r += ' title="' + escapeAttr(node.title) + '"'
+      if (node.width) r += ' width="' + node.width + '"'
+      if (node.height) r += ' height="' + node.height + '"'
+      return r + ' />'
     }
     case 'htmlInline':
       return opts.sanitize ? escapeHtml(node.value) : node.value
@@ -253,43 +342,47 @@ function renderInlineNode(node: InlineNode, opts: Required<RendererOptions>): st
     case 'softBreak':
       return '\n'
     case 'footnoteReference':
-      return `<sup class="footnote-ref"><a href="#fn-${escapeAttr(node.identifier)}">[${escapeHtml(node.label)}]</a></sup>`
+      return '<sup class="footnote-ref"><a href="#fn-' + escapeAttr(node.identifier) + '">[' + escapeHtml(node.label) + ']</a></sup>'
     case 'mathInline':
-      return `<span class="math-inline">${escapeHtml(node.value)}</span>`
+      return '<span class="math-inline">' + escapeHtml(node.value) + '</span>'
     case 'highlight':
-      return `<mark>${renderInlineNodes(node.children, opts)}</mark>`
+      return '<mark>' + renderInlineNodes(node.children, opts) + '</mark>'
     case 'superscript':
-      return `<sup>${renderInlineNodes(node.children, opts)}</sup>`
+      return '<sup>' + renderInlineNodes(node.children, opts) + '</sup>'
     case 'subscript':
-      return `<sub>${renderInlineNodes(node.children, opts)}</sub>`
+      return '<sub>' + renderInlineNodes(node.children, opts) + '</sub>'
     case 'fontColor': {
       const safeColor = opts.sanitize ? sanitizeCssValue(node.color) : node.color
-      return `<span style="color:${escapeAttr(safeColor)}">${renderInlineNodes(node.children, opts)}</span>`
+      return '<span style="color:' + escapeAttr(safeColor) + '">' + renderInlineNodes(node.children, opts) + '</span>'
     }
     case 'fontSize': {
       const safeSize = opts.sanitize ? sanitizeCssValue(node.size) : node.size
-      return `<span style="font-size:${escapeAttr(safeSize)}">${renderInlineNodes(node.children, opts)}</span>`
+      return '<span style="font-size:' + escapeAttr(safeSize) + '">' + renderInlineNodes(node.children, opts) + '</span>'
     }
     case 'fontBgColor': {
       const safeBgColor = opts.sanitize ? sanitizeCssValue(node.color) : node.color
-      return `<span style="background-color:${escapeAttr(safeBgColor)}">${renderInlineNodes(node.children, opts)}</span>`
+      return '<span style="background-color:' + escapeAttr(safeBgColor) + '">' + renderInlineNodes(node.children, opts) + '</span>'
     }
     case 'ruby':
-      return `<ruby>${escapeHtml(node.base)}<rp>(</rp><rt>${escapeHtml(node.annotation)}</rt><rp>)</rp></ruby>`
+      return '<ruby>' + escapeHtml(node.base) + '<rp>(</rp><rt>' + escapeHtml(node.annotation) + '</rt><rp>)</rp></ruby>'
     case 'emoji':
       return node.value
     case 'audio': {
       const safeAudioUrl = opts.sanitize ? sanitizeUrl(node.url) : node.url
-      return `<audio controls src="${escapeAttr(safeAudioUrl)}"${node.title ? ` title="${escapeAttr(node.title)}"` : ''}></audio>`
+      let r = '<audio controls src="' + escapeAttr(safeAudioUrl) + '"'
+      if (node.title) r += ' title="' + escapeAttr(node.title) + '"'
+      return r + '></audio>'
     }
     case 'video': {
       const safeVideoUrl = opts.sanitize ? sanitizeUrl(node.url) : node.url
-      return `<video controls src="${escapeAttr(safeVideoUrl)}"${node.title ? ` title="${escapeAttr(node.title)}"` : ''}></video>`
+      let r = '<video controls src="' + escapeAttr(safeVideoUrl) + '"'
+      if (node.title) r += ' title="' + escapeAttr(node.title) + '"'
+      return r + '></video>'
     }
     case 'autolink':
-      return `<a href="${escapeAttr(node.url)}">${escapeHtml(node.url.replace(/^mailto:/, ''))}</a>`
+      return '<a href="' + escapeAttr(node.url) + '">' + escapeHtml(node.url.replace(/^mailto:/, '')) + '</a>'
     case 'underline':
-      return `<span style="text-decoration:underline">${renderInlineNodes(node.children, opts)}</span>`
+      return '<span style="text-decoration:underline">' + renderInlineNodes(node.children, opts) + '</span>'
     default:
       return ''
   }
@@ -299,27 +392,9 @@ function renderInlineNode(node: InlineNode, opts: Required<RendererOptions>): st
 // Utility Functions
 // ============================================================
 
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-}
-
-function escapeAttr(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-}
-
 /** Sanitize a URL — block dangerous protocols */
 function sanitizeUrl(url: string): string {
   const trimmed = url.trim().toLowerCase()
-  // Block javascript:, vbscript:, data: (except safe data: images)
   if (
     trimmed.startsWith('javascript:') ||
     trimmed.startsWith('vbscript:') ||
@@ -332,21 +407,20 @@ function sanitizeUrl(url: string): string {
 
 /** Sanitize a CSS value — strip anything that looks like script injection */
 function sanitizeCssValue(value: string): string {
-  // Remove anything that contains expression(), url(), javascript:, or event-handler-like patterns
   return value
     .replace(/expression\s*\(/gi, '')
     .replace(/url\s*\(/gi, '')
     .replace(/javascript\s*:/gi, '')
-    .replace(/;[^}]*$/g, '') // strip anything after semicolon (prevent style injection)
+    .replace(/;[^}]*$/g, '')
 }
 
 function getPlainText(nodes: InlineNode[]): string {
-  return nodes
-    .map((node) => {
-      if (node.type === 'text') return node.value
-      if (node.type === 'inlineCode') return node.value
-      if ('children' in node) return getPlainText(node.children)
-      return ''
-    })
-    .join('')
+  let out = ''
+  for (let i = 0; i < nodes.length; i++) {
+    const node = nodes[i]!
+    if (node.type === 'text') out += node.value
+    else if (node.type === 'inlineCode') out += node.value
+    else if ('children' in node) out += getPlainText(node.children)
+  }
+  return out
 }

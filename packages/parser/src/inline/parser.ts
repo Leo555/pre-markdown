@@ -3,6 +3,8 @@
  *
  * Parses inline Markdown content into inline AST nodes.
  * Handles emphasis, links, images, code spans, and extensions.
+ *
+ * Performance: Uses sticky regex (y flag) + lastIndex to avoid input.slice() calls.
  */
 
 import type { InlineNode } from '@pre-markdown/core'
@@ -34,6 +36,31 @@ import {
   createUnderline,
 } from '@pre-markdown/core'
 
+// ============================================================
+// Pre-compiled sticky regexes (avoid slice + re-creation)
+// ============================================================
+
+const RE_ESCAPE = /[!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~]/
+const RE_FOOTNOTE_REF = /\[\^([^\]]+)\]/y
+const RE_AUTOLINK_URI = /<([a-zA-Z][a-zA-Z0-9+.\-]{1,31}:[^\s<>]*)>/y
+const RE_AUTOLINK_EMAIL = /<([a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*)>/y
+const RE_HTML_INLINE = /<\/?[a-zA-Z][a-zA-Z0-9-]*(?:\s+[a-zA-Z_:][a-zA-Z0-9_.:-]*(?:\s*=\s*(?:[^\s"'=<>`]+|'[^']*'|"[^"]*"))?)*\s*\/?>/y
+const RE_CHERRY_COLOR = /!!(#[0-9a-zA-Z]{3,6}|[a-z]{3,20})\s([\w\W]+?)!!/y
+const RE_CHERRY_SIZE = /!([0-9]{1,2})\s([\w\W]*?)!/y
+const RE_CHERRY_BGCOLOR = /!!!(#[0-9a-zA-Z]{3,6}|[a-z]{3,10})\s([\w\W]+?)!!!/y
+const RE_FONT_COLOR = /\{color:([^}]+)\}/y
+const RE_FONT_SIZE = /\{size:([^}]+)\}/y
+const RE_FONT_BGCOLOR = /\{bgcolor:([^}]+)\}/y
+const RE_EMOJI = /:([a-zA-Z0-9_+-]+):/y
+const RE_AUDIO = /!audio\[([^\]]*)\]\(([^)]+)\)/y
+const RE_VIDEO = /!video\[([^\]]*)\]\(([^)]+)\)/y
+
+/** Execute a sticky regex at a given position, returns match or null */
+function execAt(re: RegExp, input: string, pos: number): RegExpExecArray | null {
+  re.lastIndex = pos
+  return re.exec(input)
+}
+
 /**
  * Parse inline content from a string.
  */
@@ -50,13 +77,13 @@ export function parseInline(input: string): InlineNode[] {
   }
 
   while (pos < len) {
-    const ch = input[pos]!
+    const ch = input.charCodeAt(pos)
 
     // Hard line break: two or more spaces before newline, or backslash before newline
-    if (ch === '\n') {
+    if (ch === 10) { // \n
       const prevText = input.slice(textStart, pos)
       if (prevText.endsWith('  ') || prevText.endsWith('\\')) {
-        const trimmed = prevText.endsWith('\\')
+        const trimmed = prevText.charCodeAt(prevText.length - 1) === 92 // backslash
           ? prevText.slice(0, -1)
           : prevText.replace(/ +$/, '')
         if (trimmed) nodes.push(createText(trimmed))
@@ -70,15 +97,15 @@ export function parseInline(input: string): InlineNode[] {
       }
       pos++
       // Skip leading spaces on next line (CommonMark spec)
-      while (pos < len && input[pos] === ' ') pos++
+      while (pos < len && input.charCodeAt(pos) === 32) pos++
       textStart = pos
       continue
     }
 
     // Escape: backslash followed by punctuation
-    if (ch === '\\' && pos + 1 < len) {
+    if (ch === 92 && pos + 1 < len) { // backslash
       const next = input[pos + 1]!
-      if (/[!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~]/.test(next)) {
+      if (RE_ESCAPE.test(next)) {
         flushText()
         pos++
         textStart = pos
@@ -88,7 +115,7 @@ export function parseInline(input: string): InlineNode[] {
     }
 
     // Inline code: backtick
-    if (ch === '`') {
+    if (ch === 96) { // `
       const result = tryInlineCode(input, pos)
       if (result) {
         flushText()
@@ -100,7 +127,7 @@ export function parseInline(input: string): InlineNode[] {
     }
 
     // Math inline: $...$
-    if (ch === '$' && input[pos + 1] !== '$') {
+    if (ch === 36 && input.charCodeAt(pos + 1) !== 36) { // $
       const result = tryMathInline(input, pos)
       if (result) {
         flushText()
@@ -112,67 +139,70 @@ export function parseInline(input: string): InlineNode[] {
     }
 
     // Cherry-style background color: !!!color text!!!
-    if (ch === '!' && input[pos + 1] === '!' && input[pos + 2] === '!') {
-      const result = tryCherryBgColor(input, pos)
-      if (result) {
+    if (ch === 33 && input.charCodeAt(pos + 1) === 33 && input.charCodeAt(pos + 2) === 33) { // !!!
+      const match = execAt(RE_CHERRY_BGCOLOR, input, pos)
+      if (match) {
         flushText()
-        nodes.push(result.node)
-        pos = result.end
+        nodes.push(createFontBgColor(match[1]!, parseInline(match[2]!)))
+        pos = pos + match[0].length
         textStart = pos
         continue
       }
     }
 
     // Cherry-style font color: !!color text!!
-    if (ch === '!' && input[pos + 1] === '!' && input[pos + 2] !== '!') {
-      const result = tryCherryFontColor(input, pos)
-      if (result) {
+    if (ch === 33 && input.charCodeAt(pos + 1) === 33 && input.charCodeAt(pos + 2) !== 33) { // !!
+      const match = execAt(RE_CHERRY_COLOR, input, pos)
+      if (match) {
         flushText()
-        nodes.push(result.node)
-        pos = result.end
+        nodes.push(createFontColor(match[1]!, parseInline(match[2]!)))
+        pos = pos + match[0].length
         textStart = pos
         continue
       }
     }
 
     // Cherry-style font size: !size text!
-    if (ch === '!' && input[pos + 1] !== '!' && input[pos + 1] !== '[' && input[pos + 1] !== 'a' && input[pos + 1] !== 'v') {
-      const result = tryCherryFontSize(input, pos)
-      if (result) {
-        flushText()
-        nodes.push(result.node)
-        pos = result.end
-        textStart = pos
-        continue
+    if (ch === 33) { // !
+      const next = input.charCodeAt(pos + 1)
+      if (next !== 33 && next !== 91 && next !== 97 && next !== 118) { // not !, [, a, v
+        const match = execAt(RE_CHERRY_SIZE, input, pos)
+        if (match) {
+          flushText()
+          nodes.push(createFontSize(match[1]! + 'px', parseInline(match[2]!)))
+          pos = pos + match[0].length
+          textStart = pos
+          continue
+        }
       }
     }
 
     // Audio: !audio[title](url)
-    if (ch === '!' && input.slice(pos, pos + 7) === '!audio[') {
-      const result = tryAudio(input, pos)
-      if (result) {
+    if (ch === 33 && input.charCodeAt(pos + 1) === 97) { // !a
+      const match = execAt(RE_AUDIO, input, pos)
+      if (match) {
         flushText()
-        nodes.push(result.node)
-        pos = result.end
+        nodes.push(createAudio(match[2]!, match[1] || undefined))
+        pos = pos + match[0].length
         textStart = pos
         continue
       }
     }
 
     // Video: !video[title](url)
-    if (ch === '!' && input.slice(pos, pos + 7) === '!video[') {
-      const result = tryVideo(input, pos)
-      if (result) {
+    if (ch === 33 && input.charCodeAt(pos + 1) === 118) { // !v
+      const match = execAt(RE_VIDEO, input, pos)
+      if (match) {
         flushText()
-        nodes.push(result.node)
-        pos = result.end
+        nodes.push(createVideo(match[2]!, match[1] || undefined))
+        pos = pos + match[0].length
         textStart = pos
         continue
       }
     }
 
     // Image: ![alt](url)
-    if (ch === '!' && input[pos + 1] === '[') {
+    if (ch === 33 && input.charCodeAt(pos + 1) === 91) { // ![
       const result = tryImage(input, pos)
       if (result) {
         flushText()
@@ -183,15 +213,14 @@ export function parseInline(input: string): InlineNode[] {
       }
     }
 
-    // Link: [text](url)
-    if (ch === '[') {
-      // Check for footnote reference: [^id]
-      if (input[pos + 1] === '^') {
-        const result = tryFootnoteRef(input, pos)
-        if (result) {
+    // Link: [text](url) or [^id]
+    if (ch === 91) { // [
+      if (input.charCodeAt(pos + 1) === 94) { // [^
+        const match = execAt(RE_FOOTNOTE_REF, input, pos)
+        if (match) {
           flushText()
-          nodes.push(result.node)
-          pos = result.end
+          nodes.push(createFootnoteReference(match[1]!, match[1]!))
+          pos = pos + match[0].length
           textStart = pos
           continue
         }
@@ -208,29 +237,38 @@ export function parseInline(input: string): InlineNode[] {
     }
 
     // Autolink: <url> or <email>
-    if (ch === '<') {
-      const result = tryAutolink(input, pos)
-      if (result) {
+    if (ch === 60) { // <
+      const uriMatch = execAt(RE_AUTOLINK_URI, input, pos)
+      if (uriMatch) {
         flushText()
-        nodes.push(result.node)
-        pos = result.end
+        nodes.push(createAutolink(uriMatch[1]!, false))
+        pos = pos + uriMatch[0].length
+        textStart = pos
+        continue
+      }
+
+      const emailMatch = execAt(RE_AUTOLINK_EMAIL, input, pos)
+      if (emailMatch) {
+        flushText()
+        nodes.push(createAutolink('mailto:' + emailMatch[1]!, true))
+        pos = pos + emailMatch[0].length
         textStart = pos
         continue
       }
 
       // HTML inline
-      const htmlResult = tryHtmlInline(input, pos)
-      if (htmlResult) {
+      const htmlMatch = execAt(RE_HTML_INLINE, input, pos)
+      if (htmlMatch) {
         flushText()
-        nodes.push(htmlResult.node)
-        pos = htmlResult.end
+        nodes.push(createHtmlInline(htmlMatch[0]))
+        pos = pos + htmlMatch[0].length
         textStart = pos
         continue
       }
     }
 
     // Emphasis/Strong: * or _
-    if (ch === '*' || ch === '_') {
+    if (ch === 42 || ch === 95) { // * or _
       const result = tryEmphasis(input, pos)
       if (result) {
         flushText()
@@ -242,7 +280,7 @@ export function parseInline(input: string): InlineNode[] {
     }
 
     // Strikethrough: ~~
-    if (ch === '~' && input[pos + 1] === '~') {
+    if (ch === 126 && input.charCodeAt(pos + 1) === 126) { // ~~
       const result = tryStrikethrough(input, pos)
       if (result) {
         flushText()
@@ -254,7 +292,7 @@ export function parseInline(input: string): InlineNode[] {
     }
 
     // Highlight: ==
-    if (ch === '=' && input[pos + 1] === '=') {
+    if (ch === 61 && input.charCodeAt(pos + 1) === 61) { // ==
       const result = tryHighlight(input, pos)
       if (result) {
         flushText()
@@ -266,7 +304,7 @@ export function parseInline(input: string): InlineNode[] {
     }
 
     // Superscript: ^text^
-    if (ch === '^' && input[pos + 1] !== '^') {
+    if (ch === 94 && input.charCodeAt(pos + 1) !== 94) { // ^
       const result = trySuperscript(input, pos)
       if (result) {
         flushText()
@@ -277,8 +315,8 @@ export function parseInline(input: string): InlineNode[] {
       }
     }
 
-    // Cherry-style subscript: ^^text^^ (must check before single ^)
-    if (ch === '^' && input[pos + 1] === '^') {
+    // Cherry-style subscript: ^^text^^
+    if (ch === 94 && input.charCodeAt(pos + 1) === 94) { // ^^
       const result = tryCherrySubscript(input, pos)
       if (result) {
         flushText()
@@ -289,8 +327,8 @@ export function parseInline(input: string): InlineNode[] {
       }
     }
 
-    // Subscript: ~text~  (single tilde, not double)
-    if (ch === '~' && input[pos + 1] !== '~') {
+    // Subscript: ~text~
+    if (ch === 126 && input.charCodeAt(pos + 1) !== 126) { // ~
       const result = trySubscript(input, pos)
       if (result) {
         flushText()
@@ -301,20 +339,57 @@ export function parseInline(input: string): InlineNode[] {
       }
     }
 
-    // Font color/size/bgcolor: {color:red}text{/color} style
-    if (ch === '{') {
-      const result = tryFontColor(input, pos) || tryFontSize(input, pos) || tryFontBgColor(input, pos)
-      if (result) {
-        flushText()
-        nodes.push(result.node)
-        pos = result.end
-        textStart = pos
-        continue
+    // Font color/size/bgcolor: {color:red}text{/color} or Ruby: {text|ann}
+    if (ch === 123) { // {
+      const colorMatch = execAt(RE_FONT_COLOR, input, pos)
+      if (colorMatch) {
+        const closeTag = '{/color}'
+        const closeIdx = input.indexOf(closeTag, pos + colorMatch[0].length)
+        if (closeIdx !== -1) {
+          const content = input.slice(pos + colorMatch[0].length, closeIdx)
+          if (content.length > 0) {
+            flushText()
+            nodes.push(createFontColor(colorMatch[1]!, parseInline(content)))
+            pos = closeIdx + closeTag.length
+            textStart = pos
+            continue
+          }
+        }
       }
-    }
 
-    // Ruby: {text}(annotation) or Cherry-style {text|annotation}
-    if (ch === '{') {
+      const sizeMatch = execAt(RE_FONT_SIZE, input, pos)
+      if (sizeMatch) {
+        const closeTag = '{/size}'
+        const closeIdx = input.indexOf(closeTag, pos + sizeMatch[0].length)
+        if (closeIdx !== -1) {
+          const content = input.slice(pos + sizeMatch[0].length, closeIdx)
+          if (content.length > 0) {
+            flushText()
+            nodes.push(createFontSize(sizeMatch[1]!, parseInline(content)))
+            pos = closeIdx + closeTag.length
+            textStart = pos
+            continue
+          }
+        }
+      }
+
+      const bgMatch = execAt(RE_FONT_BGCOLOR, input, pos)
+      if (bgMatch) {
+        const closeTag = '{/bgcolor}'
+        const closeIdx = input.indexOf(closeTag, pos + bgMatch[0].length)
+        if (closeIdx !== -1) {
+          const content = input.slice(pos + bgMatch[0].length, closeIdx)
+          if (content.length > 0) {
+            flushText()
+            nodes.push(createFontBgColor(bgMatch[1]!, parseInline(content)))
+            pos = closeIdx + closeTag.length
+            textStart = pos
+            continue
+          }
+        }
+      }
+
+      // Ruby: {text|annotation} or {text}(annotation)
       const result = tryRuby(input, pos)
       if (result) {
         flushText()
@@ -325,8 +400,8 @@ export function parseInline(input: string): InlineNode[] {
       }
     }
 
-    // Underline (Cherry-style): /text/ (requires space or line boundary)
-    if (ch === '/') {
+    // Underline (Cherry-style): /text/
+    if (ch === 47) { // /
       const result = tryUnderline(input, pos)
       if (result) {
         flushText()
@@ -338,14 +413,17 @@ export function parseInline(input: string): InlineNode[] {
     }
 
     // Emoji shortcode: :smile:
-    if (ch === ':') {
-      const result = tryEmoji(input, pos)
-      if (result) {
-        flushText()
-        nodes.push(result.node)
-        pos = result.end
-        textStart = pos
-        continue
+    if (ch === 58) { // :
+      const match = execAt(RE_EMOJI, input, pos)
+      if (match) {
+        const value = EMOJI_MAP[match[1]!]
+        if (value) {
+          flushText()
+          nodes.push(createEmoji(match[1]!, value))
+          pos = pos + match[0].length
+          textStart = pos
+          continue
+        }
       }
     }
 
@@ -372,7 +450,7 @@ interface InlineResult {
 function tryInlineCode(input: string, start: number): InlineResult | null {
   let pos = start
   let ticks = 0
-  while (pos < input.length && input[pos] === '`') {
+  while (pos < input.length && input.charCodeAt(pos) === 96) {
     ticks++
     pos++
   }
@@ -381,13 +459,11 @@ function tryInlineCode(input: string, start: number): InlineResult | null {
   const closePattern = '`'.repeat(ticks)
   let closePos = input.indexOf(closePattern, pos)
   while (closePos !== -1) {
-    // Ensure exact match (not more backticks)
-    if (closePos + ticks >= input.length || input[closePos + ticks] !== '`') {
+    if (closePos + ticks >= input.length || input.charCodeAt(closePos + ticks) !== 96) {
       const content = input.slice(pos, closePos)
-      // Collapse internal whitespace if not all spaces
       const trimmed = content.replace(/\n/g, ' ')
       const normalized =
-        trimmed.length > 0 && trimmed.trim().length > 0 && trimmed.startsWith(' ') && trimmed.endsWith(' ')
+        trimmed.length > 0 && trimmed.trim().length > 0 && trimmed.charCodeAt(0) === 32 && trimmed.charCodeAt(trimmed.length - 1) === 32
           ? trimmed.slice(1, -1)
           : trimmed
 
@@ -403,30 +479,20 @@ function tryInlineCode(input: string, start: number): InlineResult | null {
 }
 
 function tryMathInline(input: string, start: number): InlineResult | null {
-  if (input[start] !== '$') return null
   const pos = start + 1
-
-  // Find closing $
   const closePos = input.indexOf('$', pos)
   if (closePos === -1 || closePos === pos) return null
+  if (input.charCodeAt(pos) === 32 || input.charCodeAt(closePos - 1) === 32) return null
 
-  // Must not have space right after opening or before closing
-  if (input[pos] === ' ' || input[closePos - 1] === ' ') return null
-
-  const value = input.slice(pos, closePos)
   return {
-    node: createMathInline(value),
+    node: createMathInline(input.slice(pos, closePos)),
     end: closePos + 1,
   }
 }
 
 function tryImage(input: string, start: number): InlineResult | null {
-  // ![alt](url "title")
-  if (input[start] !== '!' || input[start + 1] !== '[') return null
-
   const altClose = findClosingBracket(input, start + 1)
-  if (altClose === -1) return null
-  if (input[altClose + 1] !== '(') return null
+  if (altClose === -1 || input.charCodeAt(altClose + 1) !== 40) return null // (
 
   const alt = input.slice(start + 2, altClose)
   const urlResult = parseUrlAndTitle(input, altClose + 1)
@@ -439,70 +505,16 @@ function tryImage(input: string, start: number): InlineResult | null {
 }
 
 function tryLink(input: string, start: number): InlineResult | null {
-  // [text](url "title")
-  if (input[start] !== '[') return null
-
   const textClose = findClosingBracket(input, start)
-  if (textClose === -1) return null
-  if (input[textClose + 1] !== '(') return null
+  if (textClose === -1 || input.charCodeAt(textClose + 1) !== 40) return null // (
 
   const text = input.slice(start + 1, textClose)
   const urlResult = parseUrlAndTitle(input, textClose + 1)
   if (!urlResult) return null
 
-  const children = parseInline(text)
-
   return {
-    node: createLink(urlResult.url, children, urlResult.title),
+    node: createLink(urlResult.url, parseInline(text), urlResult.title),
     end: urlResult.end,
-  }
-}
-
-function tryFootnoteRef(input: string, start: number): InlineResult | null {
-  // [^identifier]
-  const match = /^\[\^([^\]]+)\]/.exec(input.slice(start))
-  if (!match) return null
-
-  const identifier = match[1]!
-  return {
-    node: createFootnoteReference(identifier, identifier),
-    end: start + match[0].length,
-  }
-}
-
-function tryAutolink(input: string, start: number): InlineResult | null {
-  // <scheme:path> or <email@address>
-  const match = /^<([a-zA-Z][a-zA-Z0-9+.\-]{1,31}:[^\s<>]*)>/.exec(input.slice(start))
-  if (match) {
-    return {
-      node: createAutolink(match[1]!, false),
-      end: start + match[0].length,
-    }
-  }
-
-  const emailMatch = /^<([a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*)>/.exec(
-    input.slice(start),
-  )
-  if (emailMatch) {
-    return {
-      node: createAutolink(`mailto:${emailMatch[1]!}`, true),
-      end: start + emailMatch[0].length,
-    }
-  }
-
-  return null
-}
-
-function tryHtmlInline(input: string, start: number): InlineResult | null {
-  // Match HTML tags
-  const match = /^<\/?[a-zA-Z][a-zA-Z0-9-]*(?:\s+[a-zA-Z_:][a-zA-Z0-9_.:-]*(?:\s*=\s*(?:[^\s"'=<>`]+|'[^']*'|"[^"]*"))?)*\s*\/?>/.exec(
-    input.slice(start),
-  )
-  if (!match) return null
-
-  return {
-    node: createHtmlInline(match[0]),
-    end: start + match[0].length,
   }
 }
 
@@ -517,14 +529,12 @@ function tryEmphasis(input: string, start: number): InlineResult | null {
 
   if (count === 0 || count > 3) return null
 
-  // Find matching closing delimiter
   const closePattern = ch.repeat(count)
   let searchPos = pos
   while (searchPos < input.length) {
     const closeIdx = input.indexOf(closePattern, searchPos)
     if (closeIdx === -1) return null
 
-    // Verify it's a proper closing delimiter
     if (closeIdx + count < input.length && input[closeIdx + count] === ch) {
       searchPos = closeIdx + 1
       continue
@@ -536,21 +546,11 @@ function tryEmphasis(input: string, start: number): InlineResult | null {
     const children = parseInline(content)
 
     if (count === 1) {
-      return {
-        node: createEmphasis(children),
-        end: closeIdx + count,
-      }
+      return { node: createEmphasis(children), end: closeIdx + count }
     } else if (count === 2) {
-      return {
-        node: createStrong(children),
-        end: closeIdx + count,
-      }
+      return { node: createStrong(children), end: closeIdx + count }
     } else {
-      // ***bold italic***
-      return {
-        node: createStrong([createEmphasis(children)]),
-        end: closeIdx + count,
-      }
+      return { node: createStrong([createEmphasis(children)]), end: closeIdx + count }
     }
   }
 
@@ -558,65 +558,44 @@ function tryEmphasis(input: string, start: number): InlineResult | null {
 }
 
 function tryStrikethrough(input: string, start: number): InlineResult | null {
-  if (input[start] !== '~' || input[start + 1] !== '~') return null
-
   const closeIdx = input.indexOf('~~', start + 2)
   if (closeIdx === -1) return null
-
   const content = input.slice(start + 2, closeIdx)
   if (content.length === 0) return null
-
-  return {
-    node: createStrikethrough(parseInline(content)),
-    end: closeIdx + 2,
-  }
+  return { node: createStrikethrough(parseInline(content)), end: closeIdx + 2 }
 }
 
 function tryHighlight(input: string, start: number): InlineResult | null {
-  if (input[start] !== '=' || input[start + 1] !== '=') return null
-
   const closeIdx = input.indexOf('==', start + 2)
   if (closeIdx === -1) return null
-
   const content = input.slice(start + 2, closeIdx)
   if (content.length === 0) return null
-
-  return {
-    node: createHighlight(parseInline(content)),
-    end: closeIdx + 2,
-  }
+  return { node: createHighlight(parseInline(content)), end: closeIdx + 2 }
 }
 
 function trySuperscript(input: string, start: number): InlineResult | null {
-  if (input[start] !== '^') return null
-
   const closeIdx = input.indexOf('^', start + 1)
   if (closeIdx === -1 || closeIdx === start + 1) return null
-
-  // Must not contain spaces
   const content = input.slice(start + 1, closeIdx)
   if (content.includes(' ')) return null
-
-  return {
-    node: createSuperscript(parseInline(content)),
-    end: closeIdx + 1,
-  }
+  return { node: createSuperscript(parseInline(content)), end: closeIdx + 1 }
 }
 
 function trySubscript(input: string, start: number): InlineResult | null {
-  if (input[start] !== '~') return null
-  if (input[start + 1] === '~') return null // Not strikethrough
-
+  if (input.charCodeAt(start + 1) === 126) return null // ~~
   const closeIdx = input.indexOf('~', start + 1)
   if (closeIdx === -1 || closeIdx === start + 1) return null
-
   const content = input.slice(start + 1, closeIdx)
   if (content.includes(' ')) return null
+  return { node: createSubscript(parseInline(content)), end: closeIdx + 1 }
+}
 
-  return {
-    node: createSubscript(parseInline(content)),
-    end: closeIdx + 1,
-  }
+function tryCherrySubscript(input: string, start: number): InlineResult | null {
+  const closeIdx = input.indexOf('^^', start + 2)
+  if (closeIdx === -1) return null
+  const content = input.slice(start + 2, closeIdx)
+  if (content.length === 0) return null
+  return { node: createSubscript(parseInline(content)), end: closeIdx + 2 }
 }
 
 // ============================================================
@@ -627,11 +606,12 @@ function findClosingBracket(input: string, start: number): number {
   let depth = 0
   let pos = start
   while (pos < input.length) {
-    if (input[pos] === '[') depth++
-    else if (input[pos] === ']') {
+    const c = input.charCodeAt(pos)
+    if (c === 91) depth++       // [
+    else if (c === 93) {        // ]
       depth--
       if (depth === 0) return pos
-    } else if (input[pos] === '\\') {
+    } else if (c === 92) {      // backslash
       pos++ // skip escaped character
     }
     pos++
@@ -643,47 +623,46 @@ function parseUrlAndTitle(
   input: string,
   start: number,
 ): { url: string; title?: string; end: number } | null {
-  if (input[start] !== '(') return null
+  if (input.charCodeAt(start) !== 40) return null // (
 
   let pos = start + 1
   // Skip whitespace
-  while (pos < input.length && /\s/.test(input[pos]!)) pos++
+  while (pos < input.length && isWhitespace(input.charCodeAt(pos))) pos++
 
   // Parse URL
   let url = ''
-  if (input[pos] === '<') {
-    // Angle-bracketed URL
+  if (input.charCodeAt(pos) === 60) { // <
     const closeAngle = input.indexOf('>', pos + 1)
     if (closeAngle === -1) return null
     url = input.slice(pos + 1, closeAngle)
     pos = closeAngle + 1
   } else {
-    // Regular URL
     let depth = 0
     const urlStart = pos
     while (pos < input.length) {
-      const ch = input[pos]!
-      if (ch === '(') depth++
-      else if (ch === ')') {
+      const c = input.charCodeAt(pos)
+      if (c === 40) depth++      // (
+      else if (c === 41) {       // )
         if (depth === 0) break
         depth--
-      } else if (/\s/.test(ch)) break
+      } else if (isWhitespace(c)) break
       pos++
     }
     url = input.slice(urlStart, pos)
   }
 
   // Skip whitespace
-  while (pos < input.length && /\s/.test(input[pos]!)) pos++
+  while (pos < input.length && isWhitespace(input.charCodeAt(pos))) pos++
 
   // Parse optional title
   let title: string | undefined
-  if (pos < input.length && (input[pos] === '"' || input[pos] === "'" || input[pos] === '(')) {
-    const quote = input[pos] === '(' ? ')' : input[pos]!
+  const tc = input.charCodeAt(pos)
+  if (tc === 34 || tc === 39 || tc === 40) { // " ' (
+    const quote = tc === 40 ? 41 : tc // ) for (, same char otherwise
     const titleStart = pos + 1
     pos++
-    while (pos < input.length && input[pos] !== quote) {
-      if (input[pos] === '\\') pos++
+    while (pos < input.length && input.charCodeAt(pos) !== quote) {
+      if (input.charCodeAt(pos) === 92) pos++ // backslash
       pos++
     }
     if (pos >= input.length) return null
@@ -692,17 +671,70 @@ function parseUrlAndTitle(
   }
 
   // Skip whitespace and find closing paren
-  while (pos < input.length && /\s/.test(input[pos]!)) pos++
-  if (pos >= input.length || input[pos] !== ')') return null
+  while (pos < input.length && isWhitespace(input.charCodeAt(pos))) pos++
+  if (pos >= input.length || input.charCodeAt(pos) !== 41) return null // )
 
   return { url, title, end: pos + 1 }
 }
 
+function isWhitespace(code: number): boolean {
+  return code === 32 || code === 9 || code === 10 || code === 13
+}
+
+function tryRuby(input: string, start: number): InlineResult | null {
+  const braceClose = input.indexOf('}', start + 1)
+  if (braceClose === -1) return null
+
+  const innerContent = input.slice(start + 1, braceClose)
+  if (innerContent.length === 0) return null
+
+  // Avoid matching font color/size/bgcolor patterns
+  if (innerContent.charCodeAt(0) === 99 && innerContent.startsWith('color:')) return null   // color:
+  if (innerContent.charCodeAt(0) === 115 && innerContent.startsWith('size:')) return null    // size:
+  if (innerContent.charCodeAt(0) === 98 && innerContent.startsWith('bgcolor:')) return null  // bgcolor:
+  if (innerContent.charCodeAt(0) === 47) return null // /
+
+  // Cherry format: {text|annotation}
+  const pipeIdx = innerContent.indexOf('|')
+  if (pipeIdx !== -1) {
+    const base = innerContent.slice(0, pipeIdx)
+    const annotation = innerContent.slice(pipeIdx + 1)
+    if (base.length > 0 && annotation.length > 0) {
+      return { node: createRuby(base, annotation), end: braceClose + 1 }
+    }
+  }
+
+  // Our format: {base text}(annotation)
+  if (input.charCodeAt(braceClose + 1) !== 40) return null // (
+  const parenClose = input.indexOf(')', braceClose + 2)
+  if (parenClose === -1) return null
+
+  const annotation = input.slice(braceClose + 2, parenClose)
+  if (annotation.length === 0) return null
+
+  return { node: createRuby(innerContent, annotation), end: parenClose + 1 }
+}
+
+function tryUnderline(input: string, start: number): InlineResult | null {
+  // Must be preceded by space or start of string
+  if (start > 0 && input.charCodeAt(start - 1) !== 32 && input.charCodeAt(start - 1) !== 10) return null
+
+  const closeIdx = input.indexOf('/', start + 1)
+  if (closeIdx === -1 || closeIdx === start + 1) return null
+
+  const content = input.slice(start + 1, closeIdx)
+  if (content.includes('\n')) return null
+
+  // Must be followed by space or end of string
+  if (closeIdx + 1 < input.length && input.charCodeAt(closeIdx + 1) !== 32 && input.charCodeAt(closeIdx + 1) !== 10) return null
+
+  return { node: createUnderline(parseInline(content)), end: closeIdx + 1 }
+}
+
 // ============================================================
-// Extended Inline Parsers
+// Emoji Map
 // ============================================================
 
-/** Emoji shortcode mapping (common subset) */
 const EMOJI_MAP: Record<string, string> = {
   smile: '😄', laughing: '😆', blush: '😊', smiley: '😃', relaxed: '☺️',
   heart: '❤️', 'thumbsup': '👍', 'thumbsdown': '👎', ok_hand: '👌',
@@ -724,234 +756,4 @@ const EMOJI_MAP: Record<string, string> = {
   earth_americas: '🌎', sunny: '☀️', cloud: '☁️', umbrella: '☂️',
   snowflake: '❄️', rainbow: '🌈', ocean: '🌊',
   '+1': '👍', '-1': '👎',
-}
-
-function tryFontColor(input: string, start: number): InlineResult | null {
-  // {color:red}text{/color} or {color:#ff0000}text{/color}
-  const match = /^\{color:([^}]+)\}/.exec(input.slice(start))
-  if (!match) return null
-
-  const color = match[1]!
-  const afterOpen = start + match[0].length
-
-  const closeTag = '{/color}'
-  const closeIdx = input.indexOf(closeTag, afterOpen)
-  if (closeIdx === -1) return null
-
-  const content = input.slice(afterOpen, closeIdx)
-  if (content.length === 0) return null
-
-  return {
-    node: createFontColor(color, parseInline(content)),
-    end: closeIdx + closeTag.length,
-  }
-}
-
-function tryFontSize(input: string, start: number): InlineResult | null {
-  // {size:20px}text{/size} or {size:1.5em}text{/size}
-  const match = /^\{size:([^}]+)\}/.exec(input.slice(start))
-  if (!match) return null
-
-  const size = match[1]!
-  const afterOpen = start + match[0].length
-
-  const closeTag = '{/size}'
-  const closeIdx = input.indexOf(closeTag, afterOpen)
-  if (closeIdx === -1) return null
-
-  const content = input.slice(afterOpen, closeIdx)
-  if (content.length === 0) return null
-
-  return {
-    node: createFontSize(size, parseInline(content)),
-    end: closeIdx + closeTag.length,
-  }
-}
-
-function tryFontBgColor(input: string, start: number): InlineResult | null {
-  // {bgcolor:yellow}text{/bgcolor} or {bgcolor:#ffff00}text{/bgcolor}
-  const match = /^\{bgcolor:([^}]+)\}/.exec(input.slice(start))
-  if (!match) return null
-
-  const color = match[1]!
-  const afterOpen = start + match[0].length
-
-  const closeTag = '{/bgcolor}'
-  const closeIdx = input.indexOf(closeTag, afterOpen)
-  if (closeIdx === -1) return null
-
-  const content = input.slice(afterOpen, closeIdx)
-  if (content.length === 0) return null
-
-  return {
-    node: createFontBgColor(color, parseInline(content)),
-    end: closeIdx + closeTag.length,
-  }
-}
-
-function tryRuby(input: string, start: number): InlineResult | null {
-  // Format 1 (our style): {base text}(annotation)
-  // Format 2 (Cherry style): {base text|annotation}
-  if (input[start] !== '{') return null
-
-  // Find closing brace
-  const braceClose = input.indexOf('}', start + 1)
-  if (braceClose === -1) return null
-
-  const innerContent = input.slice(start + 1, braceClose)
-  if (innerContent.length === 0) return null
-
-  // Avoid matching font color/size/bgcolor patterns
-  if (/^(?:color:|size:|bgcolor:)/.test(innerContent)) return null
-  // Avoid matching {/color} etc close tags
-  if (/^\//.test(innerContent)) return null
-
-  // Cherry format: {text|annotation}
-  if (innerContent.includes('|')) {
-    const pipeIdx = innerContent.indexOf('|')
-    const base = innerContent.slice(0, pipeIdx)
-    const annotation = innerContent.slice(pipeIdx + 1)
-    if (base.length > 0 && annotation.length > 0) {
-      return {
-        node: createRuby(base, annotation),
-        end: braceClose + 1,
-      }
-    }
-  }
-
-  // Our format: {base text}(annotation)
-  if (input[braceClose + 1] !== '(') return null
-
-  const parenClose = input.indexOf(')', braceClose + 2)
-  if (parenClose === -1) return null
-
-  const annotation = input.slice(braceClose + 2, parenClose)
-  if (annotation.length === 0) return null
-
-  return {
-    node: createRuby(innerContent, annotation),
-    end: parenClose + 1,
-  }
-}
-
-function tryEmoji(input: string, start: number): InlineResult | null {
-  // :shortcode:
-  const match = /^:([a-zA-Z0-9_+-]+):/.exec(input.slice(start))
-  if (!match) return null
-
-  const shortcode = match[1]!
-  const value = EMOJI_MAP[shortcode]
-  if (!value) return null
-
-  return {
-    node: createEmoji(shortcode, value),
-    end: start + match[0].length,
-  }
-}
-
-function tryAudio(input: string, start: number): InlineResult | null {
-  // !audio[title](url)
-  const match = /^!audio\[([^\]]*)\]\(([^)]+)\)/.exec(input.slice(start))
-  if (!match) return null
-
-  const title = match[1] || undefined
-  const url = match[2]!
-
-  return {
-    node: createAudio(url, title),
-    end: start + match[0].length,
-  }
-}
-
-function tryVideo(input: string, start: number): InlineResult | null {
-  // !video[title](url)
-  const match = /^!video\[([^\]]*)\]\(([^)]+)\)/.exec(input.slice(start))
-  if (!match) return null
-
-  const title = match[1] || undefined
-  const url = match[2]!
-
-  return {
-    node: createVideo(url, title),
-    end: start + match[0].length,
-  }
-}
-
-// ============================================================
-// Cherry-Compatible Inline Parsers
-// ============================================================
-
-/** Cherry-style font color: !!color text!! (ref: Cherry Color.js) */
-function tryCherryFontColor(input: string, start: number): InlineResult | null {
-  // !!#hex text!! or !!colorname text!!
-  const match = /^!!(#[0-9a-zA-Z]{3,6}|[a-z]{3,20})\s([\w\W]+?)!!/.exec(input.slice(start))
-  if (!match) return null
-
-  return {
-    node: createFontColor(match[1]!, parseInline(match[2]!)),
-    end: start + match[0].length,
-  }
-}
-
-/** Cherry-style font size: !size text! (ref: Cherry Size.js) */
-function tryCherryFontSize(input: string, start: number): InlineResult | null {
-  // !24 text! — size is 1-2 digit number (px)
-  const match = /^!([0-9]{1,2})\s([\w\W]*?)!/.exec(input.slice(start))
-  if (!match) return null
-
-  return {
-    node: createFontSize(`${match[1]!}px`, parseInline(match[2]!)),
-    end: start + match[0].length,
-  }
-}
-
-/** Cherry-style background color: !!!color text!!! (ref: Cherry BackgroundColor.js) */
-function tryCherryBgColor(input: string, start: number): InlineResult | null {
-  // !!!#hex text!!! or !!!colorname text!!!
-  const match = /^!!!(#[0-9a-zA-Z]{3,6}|[a-z]{3,10})\s([\w\W]+?)!!!/.exec(input.slice(start))
-  if (!match) return null
-
-  return {
-    node: createFontBgColor(match[1]!, parseInline(match[2]!)),
-    end: start + match[0].length,
-  }
-}
-
-/** Cherry-style subscript: ^^text^^ (ref: Cherry Sub.js) */
-function tryCherrySubscript(input: string, start: number): InlineResult | null {
-  if (input[start] !== '^' || input[start + 1] !== '^') return null
-
-  const closeIdx = input.indexOf('^^', start + 2)
-  if (closeIdx === -1) return null
-
-  const content = input.slice(start + 2, closeIdx)
-  if (content.length === 0) return null
-
-  return {
-    node: createSubscript(parseInline(content)),
-    end: closeIdx + 2,
-  }
-}
-
-/** Cherry-style underline: /text/ (ref: Cherry Underline.js) — requires space/boundary */
-function tryUnderline(input: string, start: number): InlineResult | null {
-  if (input[start] !== '/') return null
-
-  // Must be preceded by space or start of string
-  if (start > 0 && input[start - 1] !== ' ' && input[start - 1] !== '\n') return null
-
-  const closeIdx = input.indexOf('/', start + 1)
-  if (closeIdx === -1 || closeIdx === start + 1) return null
-
-  // Must not contain newlines
-  const content = input.slice(start + 1, closeIdx)
-  if (content.includes('\n')) return null
-
-  // Must be followed by space or end of string
-  if (closeIdx + 1 < input.length && input[closeIdx + 1] !== ' ' && input[closeIdx + 1] !== '\n') return null
-
-  return {
-    node: createUnderline(parseInline(content)),
-    end: closeIdx + 1,
-  }
 }
