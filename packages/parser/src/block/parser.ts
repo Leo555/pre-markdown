@@ -186,7 +186,7 @@ function parseBlockLines(
       }
     }
 
-    // 3. Fenced code block — starts with ` or ~
+    // 3. Fenced code block — starts with ` or ~ (or 1-3 spaces then ` or ~)
     if (fc === 96 || fc === 126) { // ` ~
       result = tryFencedCode(lines, i, end)
       if (result) {
@@ -359,29 +359,43 @@ function tryThematicBreak(lines: string[], i: number): ParseResult | null {
 
 function tryFencedCode(lines: string[], i: number, end: number): ParseResult | null {
   const line = lines[i]!
-  const openMatch = RE_FENCE_OPEN.exec(line)
+  // Strip up to 3 leading spaces
+  const indent = line.match(/^ {0,3}/)![0].length
+  const stripped = line.slice(indent)
+  const openMatch = RE_FENCE_OPEN.exec(stripped)
   if (!openMatch) return null
 
   const fence = openMatch[1]!
   const lang = openMatch[2] ?? undefined
   const isBacktick = fence[0] === '`'
-  const closeRe = isBacktick ? RE_FENCE_CLOSE_BACKTICK : RE_FENCE_CLOSE_TILDE
   const fenceLen = fence.length
+
+  // Backtick fences: info string must not contain backticks (CommonMark spec)
+  if (isBacktick && lang && lang.includes('`')) return null
 
   const contentLines: string[] = []
   let j = i + 1
   while (j < end) {
     const current = lines[j]!
-    // Check for closing fence (must be at least as long as opening)
-    if (isBacktick && /^`{3,}\s*$/.test(current) && current.trim().length >= fenceLen) {
+    // Strip up to 3 leading spaces for close fence detection
+    const closeStripped = current.replace(/^ {0,3}/, '')
+    // Check for closing fence (must be at least as long as opening, only fence chars + optional spaces)
+    if (isBacktick && /^`{3,}\s*$/.test(closeStripped) && closeStripped.trim().length >= fenceLen) {
       j++
       break
     }
-    if (!isBacktick && /^~{3,}\s*$/.test(current) && current.trim().length >= fenceLen) {
+    if (!isBacktick && /^~{3,}\s*$/.test(closeStripped) && closeStripped.trim().length >= fenceLen) {
       j++
       break
     }
-    contentLines.push(current)
+    // Strip indent from content lines (up to the fence indent)
+    if (indent > 0 && current.length > 0) {
+      let strip = 0
+      for (let k = 0; k < indent && k < current.length && current[k] === ' '; k++) strip++
+      contentLines.push(current.slice(strip))
+    } else {
+      contentLines.push(current)
+    }
     j++
   }
 
