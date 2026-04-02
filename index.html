@@ -93,9 +93,14 @@
       flex-shrink: 0;
     }
     .divider {
-      width: 1px;
+      width: 5px;
       background: var(--border);
       flex-shrink: 0;
+      cursor: col-resize;
+      transition: background 0.15s;
+    }
+    .divider:hover, .divider.dragging {
+      background: var(--accent);
     }
 
     textarea#editor {
@@ -252,15 +257,15 @@
 </header>
 
 <main>
-  <div class="pane">
+  <div class="pane" id="editor-pane">
     <div class="pane-header">Markdown 编辑器</div>
     <div class="editor-wrapper">
       <div class="line-numbers" id="line-numbers"></div>
       <textarea id="editor" spellcheck="false" placeholder="输入 Markdown 内容..."></textarea>
     </div>
   </div>
-  <div class="divider"></div>
-  <div class="pane">
+  <div class="divider" id="divider"></div>
+  <div class="pane" id="preview-pane">
     <div class="pane-header">实时预览</div>
     <div id="preview"></div>
   </div>

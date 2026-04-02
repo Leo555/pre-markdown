@@ -355,3 +355,40 @@ editor.addEventListener('scroll', () => {
   // Sync line numbers scroll with editor
   lineNumbers.scrollTop = editor.scrollTop
 })
+
+// ============================================================
+// Draggable Divider (resize panes)
+// ============================================================
+
+const divider = document.getElementById('divider')!
+const editorPane = document.getElementById('editor-pane')!
+const previewPane = document.getElementById('preview-pane')!
+const mainEl = document.querySelector('main')!
+
+let isDragging = false
+
+divider.addEventListener('mousedown', (e) => {
+  isDragging = true
+  divider.classList.add('dragging')
+  document.body.style.cursor = 'col-resize'
+  document.body.style.userSelect = 'none'
+  e.preventDefault()
+})
+
+document.addEventListener('mousemove', (e) => {
+  if (!isDragging) return
+  const mainRect = mainEl.getBoundingClientRect()
+  const pct = ((e.clientX - mainRect.left) / mainRect.width) * 100
+  const clamped = Math.max(20, Math.min(80, pct))
+  editorPane.style.flex = `0 0 ${clamped}%`
+  previewPane.style.flex = `0 0 ${100 - clamped}%`
+})
+
+document.addEventListener('mouseup', () => {
+  if (isDragging) {
+    isDragging = false
+    divider.classList.remove('dragging')
+    document.body.style.cursor = ''
+    document.body.style.userSelect = ''
+  }
+})
