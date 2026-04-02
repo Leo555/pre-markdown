@@ -413,3 +413,54 @@ document.addEventListener('mouseup', () => {
     document.body.style.userSelect = ''
   }
 })
+
+// ============================================================
+// Toolbar Actions
+// ============================================================
+
+const toolbar = document.getElementById('toolbar')!
+
+toolbar.addEventListener('click', (e) => {
+  const btn = (e.target as HTMLElement).closest('button')
+  if (!btn) return
+  const action = btn.dataset.action
+  if (!action) return
+
+  editor.focus()
+
+  switch (action) {
+    case 'h1': insertLinePrefix('# '); break
+    case 'h2': insertLinePrefix('## '); break
+    case 'h3': insertLinePrefix('### '); break
+    case 'bold': wrapSelection('**', '**'); break
+    case 'italic': wrapSelection('*', '*'); break
+    case 'strike': wrapSelection('~~', '~~'); break
+    case 'code': wrapSelection('`', '`'); break
+    case 'link': {
+      const sel = editor.value.substring(editor.selectionStart, editor.selectionEnd)
+      if (sel) wrapSelection('[', '](url)')
+      else insertAtCursor('[link text](url)')
+      break
+    }
+    case 'image': insertAtCursor('![alt text](url)'); break
+    case 'ul': insertLinePrefix('- '); break
+    case 'ol': insertLinePrefix('1. '); break
+    case 'task': insertLinePrefix('- [ ] '); break
+    case 'quote': insertLinePrefix('> '); break
+    case 'codeblock': insertAtCursor('\n```\n\n```\n'); break
+    case 'table': insertAtCursor('\n| Column A | Column B | Column C |\n|----------|----------|----------|\n| Cell 1   | Cell 2   | Cell 3   |\n'); break
+    case 'hr': insertAtCursor('\n---\n'); break
+  }
+})
+
+/** Insert prefix at the start of the current line */
+function insertLinePrefix(prefix: string): void {
+  const pos = editor.selectionStart
+  const textBefore = editor.value.slice(0, pos)
+  const lineStart = textBefore.lastIndexOf('\n') + 1
+  editor.value = editor.value.substring(0, lineStart) + prefix + editor.value.substring(lineStart)
+  editor.selectionStart = editor.selectionEnd = pos + prefix.length
+  editor.focus()
+  update(editor.value)
+  updateLineNumbers(editor.value)
+}
