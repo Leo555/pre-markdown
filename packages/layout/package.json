@@ -1,0 +1,18 @@
+{
+  "name": "@pre-markdown/layout",
+  "version": "0.1.0",
+  "description": "Pretext-based layout engine for PreMarkdown",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -b",
+    "dev": "tsc -b --watch",
+    "clean": "rimraf dist *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@pre-markdown/core": "workspace:*",
+    "@chenglou/pretext": "^0.0.4"
+  },
+  "files": ["dist"]
+}

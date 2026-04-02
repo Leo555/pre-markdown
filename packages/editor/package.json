@@ -1,0 +1,20 @@
+{
+  "name": "@pre-markdown/editor",
+  "version": "0.1.0",
+  "description": "PreMarkdown editor UI layer",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -b",
+    "dev": "tsc -b --watch",
+    "clean": "rimraf dist *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@pre-markdown/core": "workspace:*",
+    "@pre-markdown/parser": "workspace:*",
+    "@pre-markdown/layout": "workspace:*",
+    "@pre-markdown/renderer": "workspace:*"
+  },
+  "files": ["dist"]
+}

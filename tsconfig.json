@@ -1,0 +1,37 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "exactOptionalPropertyTypes": false,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "composite": true,
+    "paths": {
+      "@pre-markdown/core": ["./packages/core/src"],
+      "@pre-markdown/parser": ["./packages/parser/src"],
+      "@pre-markdown/layout": ["./packages/layout/src"],
+      "@pre-markdown/renderer": ["./packages/renderer/src"],
+      "@pre-markdown/editor": ["./packages/editor/src"]
+    }
+  },
+  "references": [
+    { "path": "./packages/core" },
+    { "path": "./packages/parser" },
+    { "path": "./packages/layout" },
+    { "path": "./packages/renderer" },
+    { "path": "./packages/editor" }
+  ],
+  "exclude": ["node_modules", "dist"]
+}

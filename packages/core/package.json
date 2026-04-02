@@ -1,0 +1,20 @@
+{
+  "name": "@pre-markdown/core",
+  "version": "0.1.0",
+  "description": "Core AST types, state management, and event system for PreMarkdown",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "dev": "tsc -b --watch",
+    "clean": "rimraf dist *.tsbuildinfo"
+  },
+  "files": ["dist"]
+}

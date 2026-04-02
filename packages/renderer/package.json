@@ -1,0 +1,17 @@
+{
+  "name": "@pre-markdown/renderer",
+  "version": "0.1.0",
+  "description": "DOM and Canvas renderers for PreMarkdown",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -b",
+    "dev": "tsc -b --watch",
+    "clean": "rimraf dist *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@pre-markdown/core": "workspace:*"
+  },
+  "files": ["dist"]
+}

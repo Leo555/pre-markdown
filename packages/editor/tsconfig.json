@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": "./src"
+  },
+  "references": [
+    { "path": "../core" },
+    { "path": "../parser" },
+    { "path": "../layout" },
+    { "path": "../renderer" }
+  ],
+  "include": ["src"]
+}

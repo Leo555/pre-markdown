@@ -1,0 +1,39 @@
+{
+  "name": "pre-markdown",
+  "version": "0.1.0",
+  "private": true,
+  "description": "High-performance Markdown editor powered by pretext layout engine",
+  "license": "MIT",
+  "scripts": {
+    "build": "pnpm -r build",
+    "dev": "pnpm -r --parallel dev",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:conformance": "vitest run --project conformance",
+    "bench": "vitest bench",
+    "bench:report": "tsx harness/benchmarks/runner.ts",
+    "lint": "eslint packages/ --ext .ts,.tsx",
+    "format": "prettier --write 'packages/**/*.{ts,tsx}'",
+    "typecheck": "tsc --noEmit",
+    "clean": "pnpm -r clean && rimraf node_modules"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "@vitest/coverage-v8": "^2.0.0",
+    "eslint": "^8.56.0",
+    "eslint-config-prettier": "^9.1.0",
+    "prettier": "^3.2.0",
+    "rimraf": "^5.0.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.5.0",
+    "vite": "^5.4.0",
+    "vitest": "^2.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
+  }
+}
