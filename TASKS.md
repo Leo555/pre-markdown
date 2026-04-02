@@ -177,6 +177,7 @@
 ### 4.2 适度修复（投入产出比高的）
 - [x] ATX heading 尾部 # 关闭 + 空标题 + 1-3 前导空格 → 336/652 (51.5%)
 - [x] Fenced code 1-3 前导空格 + 关闭 fence 前导空格 + backtick info 不含 ` → 342/652 (52.5%)
+- [x] Thematic break 1-3 前导空格 + blockquote 前导空格/懒续行收紧 + setext 前导空格 + backslash escape 解码 → 356/652 (54.6%)
 - [ ] Fenced code 关闭条件宽松化
 - [ ] Block quote 延迟续行
 - [ ] 实体引用快速路径（&amp; &lt; &gt; &quot;）

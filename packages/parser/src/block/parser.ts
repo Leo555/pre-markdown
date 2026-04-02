@@ -76,8 +76,8 @@ const DEFAULT_OPTIONS: Required<BlockParserOptions> = {
 /** ATX heading pattern: 1-6 # followed by space or end of line */
 const RE_ATX_HEADING = /^(#{1,6})(?:\s|$)/
 /** Setext heading underline */
-const RE_SETEXT_H1 = /^={1,}[ \t]*$/
-const RE_SETEXT_H2 = /^-{1,}[ \t]*$/
+const RE_SETEXT_H1 = /^ {0,3}={1,}[ \t]*$/
+const RE_SETEXT_H2 = /^ {0,3}-{1,}[ \t]*$/
 /** Thematic break */
 const RE_THEMATIC_BREAK = /^(?:\*[ \t]*){3,}$|^(?:-[ \t]*){3,}$|^(?:_[ \t]*){3,}$/
 /** Unordered list marker */
@@ -176,7 +176,7 @@ function parseBlockLines(
       }
     }
 
-    // 2. Thematic break — starts with *, -, _
+    // 2. Thematic break — starts with *, -, _ (or 1-3 spaces then these)
     if (fc === 42 || fc === 45 || fc === 95) { // * - _
       result = tryThematicBreak(lines, i)
       if (result) {
@@ -349,7 +349,9 @@ function tryATXHeading(
 
 function tryThematicBreak(lines: string[], i: number): ParseResult | null {
   const line = lines[i]!
-  if (!RE_THEMATIC_BREAK.test(line)) return null
+  // Strip up to 3 leading spaces (CommonMark spec)
+  const stripped = line.replace(/^ {0,3}/, '')
+  if (!RE_THEMATIC_BREAK.test(stripped)) return null
 
   return {
     node: createThematicBreak(),
@@ -496,17 +498,31 @@ function tryBlockquote(
   opts: Required<BlockParserOptions>,
 ): ParseResult | null {
   const line = lines[i]!
-  if (!RE_BLOCKQUOTE.test(line)) return null
+  // Strip up to 3 leading spaces
+  const stripped = line.replace(/^ {0,3}/, '')
+  if (!RE_BLOCKQUOTE.test(stripped)) return null
 
   // Gather all consecutive blockquote lines
   const contentLines: string[] = []
   let j = i
   while (j < end) {
     const current = lines[j]!
-    if (RE_BLOCKQUOTE.test(current)) {
-      contentLines.push(current.replace(RE_BLOCKQUOTE, ''))
+    const curStripped = current.replace(/^ {0,3}/, '')
+    if (RE_BLOCKQUOTE.test(curStripped)) {
+      contentLines.push(curStripped.replace(RE_BLOCKQUOTE, ''))
       j++
-    } else if (!RE_BLANK.test(current) && contentLines.length > 0) {
+    } else if (
+      !RE_BLANK.test(current) &&
+      contentLines.length > 0 &&
+      // Don't lazily continue if the line starts a new block element
+      !RE_ATX_HEADING.test(current.replace(/^ {0,3}/, '')) &&
+      !RE_THEMATIC_BREAK.test(current.replace(/^ {0,3}/, '')) &&
+      !RE_FENCE_OPEN.test(current.replace(/^ {0,3}/, '')) &&
+      !RE_UL_MARKER.test(current.replace(/^ {0,3}/, '')) &&
+      !RE_OL_MARKER.test(current.replace(/^ {0,3}/, '')) &&
+      !RE_HTML_BLOCK_1.test(current) &&
+      !RE_HTML_BLOCK_6.test(current)
+    ) {
       // Lazy continuation
       contentLines.push(current)
       j++

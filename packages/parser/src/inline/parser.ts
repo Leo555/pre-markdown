@@ -685,11 +685,17 @@ function parseUrlAndTitle(
   while (pos < input.length && isWhitespace(input.charCodeAt(pos))) pos++
   if (pos >= input.length || input.charCodeAt(pos) !== 41) return null // )
 
-  return { url, title, end: pos + 1 }
+  return { url: decodeBackslashEscapes(url), title: title ? decodeBackslashEscapes(title) : title, end: pos + 1 }
 }
 
 function isWhitespace(code: number): boolean {
   return code === 32 || code === 9 || code === 10 || code === 13
+}
+
+/** Decode backslash escapes in URL/title strings */
+const RE_BACKSLASH_ESCAPE = /\\([!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~])/g
+function decodeBackslashEscapes(str: string): string {
+  return str.replace(RE_BACKSLASH_ESCAPE, '$1')
 }
 
 function tryRuby(input: string, start: number): InlineResult | null {
