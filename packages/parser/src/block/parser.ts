@@ -101,9 +101,15 @@ const RE_CONTAINER_CLOSE = /^:::[ \t]*$/
 const RE_TOC = /^(?:\[toc\]|\[\[toc\]\]|【【toc】】)$/i
 /** GFM table delimiter row */
 const RE_TABLE_DELIM = /^\|?(?:\s*:?-+:?\s*\|)+\s*:?-+:?\s*\|?\s*$/
-/** HTML block start patterns (simplified) */
+/** HTML block start patterns */
 const RE_HTML_BLOCK_1 = /^<(?:script|pre|style|textarea)(?:\s|>|$)/i
+const RE_HTML_BLOCK_2 = /^<!--/  // HTML comment
+const RE_HTML_BLOCK_3 = /^<\?/   // Processing instruction
+const RE_HTML_BLOCK_4 = /^<![A-Z]/  // Declaration
+const RE_HTML_BLOCK_5 = /^<!\[CDATA\[/  // CDATA
 const RE_HTML_BLOCK_6 = /^<\/?(?:address|article|aside|base|basefont|blockquote|body|caption|center|col|colgroup|dd|details|dialog|dir|div|dl|dt|fieldset|figcaption|figure|footer|form|frame|frameset|h1|h2|h3|h4|h5|h6|head|header|hr|html|iframe|legend|li|link|main|menu|menuitem|nav|noframes|ol|optgroup|option|p|param|search|section|summary|table|tbody|td|tfoot|th|thead|title|tr|track|ul)(?:\s|\/?>|$)/i
+/** HTML block Type 7: open/close tag that is not covered by Type 1-6, on a line by itself */
+const RE_HTML_BLOCK_7 = /^<\/?[a-zA-Z][a-zA-Z0-9-]*(?:\s+[a-zA-Z_:][a-zA-Z0-9_.:-]*(?:\s*=\s*(?:[^\s"'=<>`]+|'[^']*'|"[^"]*"))?)*\s*\/?>[ \t]*$/
 /** Indented code block (4+ spaces) */
 const RE_INDENT_CODE = /^(?: {4}|\t)/
 /** Blank line */
@@ -368,12 +374,15 @@ function tryFencedCode(lines: string[], i: number, end: number): ParseResult | n
   if (!openMatch) return null
 
   const fence = openMatch[1]!
-  const lang = openMatch[2] ?? undefined
+  const rawLang = openMatch[2] ?? undefined
   const isBacktick = fence[0] === '`'
   const fenceLen = fence.length
 
   // Backtick fences: info string must not contain backticks (CommonMark spec)
-  if (isBacktick && lang && lang.includes('`')) return null
+  if (isBacktick && rawLang && rawLang.includes('`')) return null
+
+  // Decode backslash escapes in info string
+  const lang = rawLang ? rawLang.replace(/\\([!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~])/g, '$1') : undefined
 
   const contentLines: string[] = []
   let j = i + 1
@@ -647,9 +656,11 @@ function tryList(
 
 function tryHtmlBlock(lines: string[], i: number, end: number): ParseResult | null {
   const line = lines[i]!
+  // Strip up to 3 leading spaces for matching
+  const stripped = line.replace(/^ {0,3}/, '')
 
-  // Type 1: <script>, <pre>, <style>, <textarea>
-  if (RE_HTML_BLOCK_1.test(line)) {
+  // Type 1: <script>, <pre>, <style>, <textarea> — ends at closing tag
+  if (RE_HTML_BLOCK_1.test(stripped)) {
     const htmlLines: string[] = []
     let j = i
     while (j < end) {
@@ -666,8 +677,78 @@ function tryHtmlBlock(lines: string[], i: number, end: number): ParseResult | nu
     }
   }
 
-  // Type 6: other block-level HTML elements
-  if (RE_HTML_BLOCK_6.test(line)) {
+  // Type 2: <!-- HTML comment --> — ends at -->
+  if (RE_HTML_BLOCK_2.test(stripped)) {
+    const htmlLines: string[] = []
+    let j = i
+    while (j < end) {
+      htmlLines.push(lines[j]!)
+      if (lines[j]!.includes('-->')) {
+        j++
+        break
+      }
+      j++
+    }
+    return {
+      node: createHtmlBlock(htmlLines.join('\n')),
+      nextLine: j,
+    }
+  }
+
+  // Type 3: <? processing instruction ?> — ends at ?>
+  if (RE_HTML_BLOCK_3.test(stripped)) {
+    const htmlLines: string[] = []
+    let j = i
+    while (j < end) {
+      htmlLines.push(lines[j]!)
+      if (lines[j]!.includes('?>')) { j++; break }
+      j++
+    }
+    return { node: createHtmlBlock(htmlLines.join('\n')), nextLine: j }
+  }
+
+  // Type 4: <!DECLARATION> — ends at >
+  if (RE_HTML_BLOCK_4.test(stripped)) {
+    const htmlLines: string[] = []
+    let j = i
+    while (j < end) {
+      htmlLines.push(lines[j]!)
+      if (lines[j]!.includes('>')) { j++; break }
+      j++
+    }
+    return { node: createHtmlBlock(htmlLines.join('\n')), nextLine: j }
+  }
+
+  // Type 5: <![CDATA[ — ends at ]]>
+  if (RE_HTML_BLOCK_5.test(stripped)) {
+    const htmlLines: string[] = []
+    let j = i
+    while (j < end) {
+      htmlLines.push(lines[j]!)
+      if (lines[j]!.includes(']]>')) { j++; break }
+      j++
+    }
+    return { node: createHtmlBlock(htmlLines.join('\n')), nextLine: j }
+  }
+
+  // Type 6: block-level HTML elements — ends at blank line
+  if (RE_HTML_BLOCK_6.test(stripped)) {
+    const htmlLines: string[] = []
+    let j = i
+    while (j < end) {
+      if (j > i && RE_BLANK.test(lines[j]!)) break
+      htmlLines.push(lines[j]!)
+      j++
+    }
+    return {
+      node: createHtmlBlock(htmlLines.join('\n')),
+      nextLine: j,
+    }
+  }
+
+  // Type 7: any open/close tag on a line by itself — ends at blank line
+  // Must not interrupt a paragraph (only called when not in paragraph context)
+  if (RE_HTML_BLOCK_7.test(stripped)) {
     const htmlLines: string[] = []
     let j = i
     while (j < end) {
@@ -827,13 +908,19 @@ function tryParagraphOrSetext(
 
     // Check for interrupt patterns (block elements that interrupt a paragraph)
     if (paragraphLines.length > 0) {
+      // Strip up to 3 spaces for interrupt check
+      const currentStripped = current.replace(/^ {0,3}/, '')
       if (
-        RE_ATX_HEADING.test(current) ||
-        RE_THEMATIC_BREAK.test(current) ||
-        RE_FENCE_OPEN.test(current) ||
-        RE_BLOCKQUOTE.test(current) ||
-        RE_HTML_BLOCK_1.test(current) ||
-        RE_HTML_BLOCK_6.test(current)
+        RE_ATX_HEADING.test(currentStripped) ||
+        RE_THEMATIC_BREAK.test(currentStripped) ||
+        RE_FENCE_OPEN.test(currentStripped) ||
+        RE_BLOCKQUOTE.test(currentStripped) ||
+        RE_HTML_BLOCK_1.test(currentStripped) ||
+        RE_HTML_BLOCK_2.test(currentStripped) ||
+        RE_HTML_BLOCK_3.test(currentStripped) ||
+        RE_HTML_BLOCK_4.test(currentStripped) ||
+        RE_HTML_BLOCK_5.test(currentStripped) ||
+        RE_HTML_BLOCK_6.test(currentStripped)
       ) {
         break
       }
@@ -874,6 +961,9 @@ function tryFrontMatter(lines: string[], i: number, end: number): ParseResult | 
   if (!foundClose) return null
   const hasContent = contentLines.some((l) => l.trim().length > 0)
   if (!hasContent) return null
+  // Content must look like YAML/JSON (contain : or { or [) — avoid matching thematic break sequences
+  const looksLikeYaml = contentLines.some((l) => /[:{\[]/.test(l))
+  if (!looksLikeYaml) return null
 
   const content = contentLines.join('\n')
   return {
