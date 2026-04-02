@@ -143,7 +143,7 @@ export function parseInline(input: string): InlineNode[] {
       const match = execAt(RE_CHERRY_BGCOLOR, input, pos)
       if (match) {
         flushText()
-        nodes.push(createFontBgColor(match[1]!, parseInline(match[2]!)))
+        nodes.push(createFontBgColor(match[1]!, parseInlineFast(match[2]!)))
         pos = pos + match[0].length
         textStart = pos
         continue
@@ -155,7 +155,7 @@ export function parseInline(input: string): InlineNode[] {
       const match = execAt(RE_CHERRY_COLOR, input, pos)
       if (match) {
         flushText()
-        nodes.push(createFontColor(match[1]!, parseInline(match[2]!)))
+        nodes.push(createFontColor(match[1]!, parseInlineFast(match[2]!)))
         pos = pos + match[0].length
         textStart = pos
         continue
@@ -169,7 +169,7 @@ export function parseInline(input: string): InlineNode[] {
         const match = execAt(RE_CHERRY_SIZE, input, pos)
         if (match) {
           flushText()
-          nodes.push(createFontSize(match[1]! + 'px', parseInline(match[2]!)))
+          nodes.push(createFontSize(match[1]! + 'px', parseInlineFast(match[2]!)))
           pos = pos + match[0].length
           textStart = pos
           continue
@@ -349,7 +349,7 @@ export function parseInline(input: string): InlineNode[] {
           const content = input.slice(pos + colorMatch[0].length, closeIdx)
           if (content.length > 0) {
             flushText()
-            nodes.push(createFontColor(colorMatch[1]!, parseInline(content)))
+            nodes.push(createFontColor(colorMatch[1]!, parseInlineFast(content)))
             pos = closeIdx + closeTag.length
             textStart = pos
             continue
@@ -365,7 +365,7 @@ export function parseInline(input: string): InlineNode[] {
           const content = input.slice(pos + sizeMatch[0].length, closeIdx)
           if (content.length > 0) {
             flushText()
-            nodes.push(createFontSize(sizeMatch[1]!, parseInline(content)))
+            nodes.push(createFontSize(sizeMatch[1]!, parseInlineFast(content)))
             pos = closeIdx + closeTag.length
             textStart = pos
             continue
@@ -381,7 +381,7 @@ export function parseInline(input: string): InlineNode[] {
           const content = input.slice(pos + bgMatch[0].length, closeIdx)
           if (content.length > 0) {
             flushText()
-            nodes.push(createFontBgColor(bgMatch[1]!, parseInline(content)))
+            nodes.push(createFontBgColor(bgMatch[1]!, parseInlineFast(content)))
             pos = closeIdx + closeTag.length
             textStart = pos
             continue
@@ -445,6 +445,17 @@ export function parseInline(input: string): InlineNode[] {
 interface InlineResult {
   node: InlineNode
   end: number
+}
+
+// Special chars that trigger inline parsing — if content has none, just return [Text]
+const INLINE_SPECIAL_CHARS = /[`*_~\[!<$\\={^:/{}\n]/
+
+/** Fast path: if content has no special inline chars, return single Text node */
+function parseInlineFast(content: string): InlineNode[] {
+  if (!INLINE_SPECIAL_CHARS.test(content)) {
+    return content.length > 0 ? [createText(content)] : []
+  }
+  return parseInline(content)
 }
 
 function tryInlineCode(input: string, start: number): InlineResult | null {
@@ -513,7 +524,7 @@ function tryLink(input: string, start: number): InlineResult | null {
   if (!urlResult) return null
 
   return {
-    node: createLink(urlResult.url, parseInline(text), urlResult.title),
+    node: createLink(urlResult.url, parseInlineFast(text), urlResult.title),
     end: urlResult.end,
   }
 }
@@ -543,7 +554,7 @@ function tryEmphasis(input: string, start: number): InlineResult | null {
     const content = input.slice(pos, closeIdx)
     if (content.length === 0) return null
 
-    const children = parseInline(content)
+    const children = parseInlineFast(content)
 
     if (count === 1) {
       return { node: createEmphasis(children), end: closeIdx + count }
@@ -562,7 +573,7 @@ function tryStrikethrough(input: string, start: number): InlineResult | null {
   if (closeIdx === -1) return null
   const content = input.slice(start + 2, closeIdx)
   if (content.length === 0) return null
-  return { node: createStrikethrough(parseInline(content)), end: closeIdx + 2 }
+  return { node: createStrikethrough(parseInlineFast(content)), end: closeIdx + 2 }
 }
 
 function tryHighlight(input: string, start: number): InlineResult | null {
@@ -570,7 +581,7 @@ function tryHighlight(input: string, start: number): InlineResult | null {
   if (closeIdx === -1) return null
   const content = input.slice(start + 2, closeIdx)
   if (content.length === 0) return null
-  return { node: createHighlight(parseInline(content)), end: closeIdx + 2 }
+  return { node: createHighlight(parseInlineFast(content)), end: closeIdx + 2 }
 }
 
 function trySuperscript(input: string, start: number): InlineResult | null {
@@ -578,7 +589,7 @@ function trySuperscript(input: string, start: number): InlineResult | null {
   if (closeIdx === -1 || closeIdx === start + 1) return null
   const content = input.slice(start + 1, closeIdx)
   if (content.includes(' ')) return null
-  return { node: createSuperscript(parseInline(content)), end: closeIdx + 1 }
+  return { node: createSuperscript(parseInlineFast(content)), end: closeIdx + 1 }
 }
 
 function trySubscript(input: string, start: number): InlineResult | null {
@@ -587,7 +598,7 @@ function trySubscript(input: string, start: number): InlineResult | null {
   if (closeIdx === -1 || closeIdx === start + 1) return null
   const content = input.slice(start + 1, closeIdx)
   if (content.includes(' ')) return null
-  return { node: createSubscript(parseInline(content)), end: closeIdx + 1 }
+  return { node: createSubscript(parseInlineFast(content)), end: closeIdx + 1 }
 }
 
 function tryCherrySubscript(input: string, start: number): InlineResult | null {
@@ -595,7 +606,7 @@ function tryCherrySubscript(input: string, start: number): InlineResult | null {
   if (closeIdx === -1) return null
   const content = input.slice(start + 2, closeIdx)
   if (content.length === 0) return null
-  return { node: createSubscript(parseInline(content)), end: closeIdx + 2 }
+  return { node: createSubscript(parseInlineFast(content)), end: closeIdx + 2 }
 }
 
 // ============================================================
@@ -728,7 +739,7 @@ function tryUnderline(input: string, start: number): InlineResult | null {
   // Must be followed by space or end of string
   if (closeIdx + 1 < input.length && input.charCodeAt(closeIdx + 1) !== 32 && input.charCodeAt(closeIdx + 1) !== 10) return null
 
-  return { node: createUnderline(parseInline(content)), end: closeIdx + 1 }
+  return { node: createUnderline(parseInlineFast(content)), end: closeIdx + 1 }
 }
 
 // ============================================================
