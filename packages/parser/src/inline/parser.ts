@@ -45,6 +45,14 @@ const RE_FOOTNOTE_REF = /\[\^([^\]]+)\]/y
 const RE_AUTOLINK_URI = /<([a-zA-Z][a-zA-Z0-9+.\-]{1,31}:[^\s<>]*)>/y
 const RE_AUTOLINK_EMAIL = /<([a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*)>/y
 const RE_HTML_INLINE = /<\/?[a-zA-Z][a-zA-Z0-9-]*(?:\s+[a-zA-Z_:][a-zA-Z0-9_.:-]*(?:\s*=\s*(?:[^\s"'=<>`]+|'[^']*'|"[^"]*"))?)*\s*\/?>/y
+/** Inline HTML comment: <!-- ... --> (not <!--> or <!--->)  */
+const RE_HTML_COMMENT = /<!--(?!>)(?!->)[\s\S]*?-->/y
+/** Inline processing instruction: <? ... ?> */
+const RE_HTML_PI = /<\?[\s\S]*?\?>/y
+/** Inline declaration: <!LETTER ... > */
+const RE_HTML_DECL = /<![A-Z]+[^>]*>/y
+/** Inline CDATA: <![CDATA[ ... ]]> */
+const RE_HTML_CDATA = /<!\[CDATA\[[\s\S]*?\]\]>/y
 const RE_CHERRY_COLOR = /!!(#[0-9a-zA-Z]{3,6}|[a-z]{3,20})\s([\w\W]+?)!!/y
 const RE_CHERRY_SIZE = /!([0-9]{1,2})\s([\w\W]*?)!/y
 const RE_CHERRY_BGCOLOR = /!!!(#[0-9a-zA-Z]{3,6}|[a-z]{3,10})\s([\w\W]+?)!!!/y
@@ -284,12 +292,52 @@ export function parseInline(input: string): InlineNode[] {
         continue
       }
 
-      // HTML inline
+      // HTML inline tag
       const htmlMatch = execAt(RE_HTML_INLINE, input, pos)
       if (htmlMatch) {
         flushText()
         nodes.push(createHtmlInline(htmlMatch[0]))
         pos = pos + htmlMatch[0].length
+        textStart = pos
+        continue
+      }
+
+      // HTML comment inline
+      const commentMatch = execAt(RE_HTML_COMMENT, input, pos)
+      if (commentMatch) {
+        flushText()
+        nodes.push(createHtmlInline(commentMatch[0]))
+        pos = pos + commentMatch[0].length
+        textStart = pos
+        continue
+      }
+
+      // Processing instruction inline
+      const piMatch = execAt(RE_HTML_PI, input, pos)
+      if (piMatch) {
+        flushText()
+        nodes.push(createHtmlInline(piMatch[0]))
+        pos = pos + piMatch[0].length
+        textStart = pos
+        continue
+      }
+
+      // CDATA inline
+      const cdataMatch = execAt(RE_HTML_CDATA, input, pos)
+      if (cdataMatch) {
+        flushText()
+        nodes.push(createHtmlInline(cdataMatch[0]))
+        pos = pos + cdataMatch[0].length
+        textStart = pos
+        continue
+      }
+
+      // Declaration inline
+      const declMatch = execAt(RE_HTML_DECL, input, pos)
+      if (declMatch) {
+        flushText()
+        nodes.push(createHtmlInline(declMatch[0]))
+        pos = pos + declMatch[0].length
         textStart = pos
         continue
       }
