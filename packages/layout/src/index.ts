@@ -45,6 +45,10 @@ export interface LayoutConfig {
   whiteSpace?: 'normal' | 'pre-wrap'
   /** Viewport buffer multiplier (default 2 = 2x viewport above & below) */
   viewportBuffer?: number
+  /** Font for code blocks / inline code (defaults to main font) */
+  codeFont?: string
+  /** Line height for code blocks (defaults to main lineHeight) */
+  codeLineHeight?: number
 }
 
 // ============================================================
@@ -304,6 +308,26 @@ export class LayoutEngine {
   computeLayout(text: string): LayoutResult {
     const prepared = this.getPrepared(text)
     const result = this.backend.layout(prepared, this.config.maxWidth, this.config.lineHeight)
+    return {
+      height: result.height,
+      lineCount: result.lineCount,
+    }
+  }
+
+  /**
+   * Compute layout for code blocks using code font.
+   * Falls back to main font if codeFont is not configured.
+   */
+  computeCodeLayout(text: string): LayoutResult {
+    const font = this.config.codeFont ?? this.config.font
+    const lineHeight = this.config.codeLineHeight ?? this.config.lineHeight
+    const key = `${font}|pre-wrap|${text}`
+    let prepared = this.preparedCache.get(key)
+    if (!prepared) {
+      prepared = this.backend.prepare(text, font, { whiteSpace: 'pre-wrap' })
+      this.preparedCache.set(key, prepared)
+    }
+    const result = this.backend.layout(prepared, this.config.maxWidth, lineHeight)
     return {
       height: result.height,
       lineCount: result.lineCount,

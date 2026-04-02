@@ -13,7 +13,7 @@
 |------|------|------|
 | Phase 1：核心引擎 | ✅ 已完成 | 100% |
 | Phase 2：性能优化（核心） | 🔨 进行中 | 55% |
-| Phase 3：Pretext 深度集成（核心） | 🔨 进行中 | 30% |
+| Phase 3：Pretext 深度集成（核心） | 🔨 进行中 | 50% |
 | Phase 4：语法兼容性（次要） | 🔨 进行中 | 51% |
 | Phase 5：生态与文档 | ⏳ 待开始 | 0% |
 
@@ -115,7 +115,7 @@
 - [x] 可插拔 MeasurementBackend（浏览器=pretext / Node.js=fallback）
 - [ ] Web Worker 离线 prepare()（大文档不阻塞主线程）
 - [x] prepare() 增量更新（updateDocumentLayout — 只重算变更段落，复用未变更高度）
-- [ ] 多字体混排支持（根据 AST 节点类型切换字体）
+- [x] 多字体混排支持（computeCodeLayout — 代码块用 codeFont/codeLineHeight）
 
 ### 3.2 Pretext 虚拟化滚动
 - [x] 视口虚拟化布局（computeViewportLayout，2x 缓冲区）

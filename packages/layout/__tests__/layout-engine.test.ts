@@ -418,4 +418,38 @@ describe('LayoutEngine', () => {
       expect(engine.getCachedTotalHeight()).toBe(result.totalHeight)
     })
   })
+
+  describe('Multi-font Support (Code Layout)', () => {
+    it('should compute code layout with default font', () => {
+      const result = engine.computeCodeLayout('const x = 1;')
+      expect(result.lineCount).toBeGreaterThanOrEqual(1)
+      expect(result.height).toBeGreaterThan(0)
+    })
+
+    it('should use code font when configured', () => {
+      const codeEngine = new LayoutEngine(
+        {
+          font: '16px Inter',
+          lineHeight: 24,
+          maxWidth: 400,
+          codeFont: '14px Fira Code',
+          codeLineHeight: 20,
+        },
+        fallback,
+      )
+      const normalResult = codeEngine.computeLayout('const x = 1;')
+      const codeResult = codeEngine.computeCodeLayout('const x = 1;')
+      // Code uses different lineHeight so height differs
+      expect(codeResult.height).not.toBe(normalResult.height)
+    })
+
+    it('should cache code layout separately from normal layout', () => {
+      const text = 'Hello world'
+      engine.computeLayout(text)
+      engine.computeCodeLayout(text)
+      // Both should be cached (2 entries)
+      const stats = engine.getCacheStats()
+      expect(stats.preparedSize).toBeGreaterThanOrEqual(2)
+    })
+  })
 })
