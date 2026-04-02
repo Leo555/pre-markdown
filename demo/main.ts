@@ -251,8 +251,102 @@ editor.addEventListener('keydown', (e) => {
     editor.selectionStart = editor.selectionEnd = start + 2
     update(editor.value)
     updateLineNumbers(editor.value)
+    return
+  }
+
+  // Ctrl/Cmd shortcuts
+  const mod = e.metaKey || e.ctrlKey
+  if (mod) {
+    if (e.key === 'b') {
+      e.preventDefault()
+      wrapSelection('**', '**')
+    } else if (e.key === 'i') {
+      e.preventDefault()
+      wrapSelection('*', '*')
+    } else if (e.key === 'k') {
+      e.preventDefault()
+      const sel = editor.value.substring(editor.selectionStart, editor.selectionEnd)
+      if (sel) {
+        wrapSelection('[', '](url)')
+      } else {
+        insertAtCursor('[link text](url)')
+      }
+    } else if (e.key === '`') {
+      e.preventDefault()
+      wrapSelection('`', '`')
+    } else if (e.key === 'd') {
+      e.preventDefault()
+      wrapSelection('~~', '~~')
+    }
+    return
+  }
+
+  // Enter: auto-continue lists
+  if (e.key === 'Enter') {
+    const pos = editor.selectionStart
+    const textBefore = editor.value.slice(0, pos)
+    const currentLineText = textBefore.split('\n').pop() ?? ''
+
+    // Auto-continue unordered list
+    const ulMatch = /^(\s*)([-*+])\s+(.*)$/.exec(currentLineText)
+    if (ulMatch && ulMatch[3]!.length > 0) {
+      e.preventDefault()
+      insertAtCursor('\n' + ulMatch[1] + ulMatch[2] + ' ')
+      return
+    }
+    // Empty list item → end list
+    if (ulMatch && ulMatch[3]!.length === 0) {
+      e.preventDefault()
+      // Remove the empty list marker
+      const lineStart = textBefore.lastIndexOf('\n') + 1
+      editor.value = editor.value.substring(0, lineStart) + editor.value.substring(pos)
+      editor.selectionStart = editor.selectionEnd = lineStart
+      insertAtCursor('\n')
+      return
+    }
+
+    // Auto-continue ordered list
+    const olMatch = /^(\s*)(\d+)([.)]\s+)(.*)$/.exec(currentLineText)
+    if (olMatch && olMatch[4]!.length > 0) {
+      e.preventDefault()
+      const nextNum = parseInt(olMatch[2]!, 10) + 1
+      insertAtCursor('\n' + olMatch[1] + nextNum + olMatch[3])
+      return
+    }
+
+    // Auto-continue blockquote
+    const bqMatch = /^(\s*>+\s?)(.*)$/.exec(currentLineText)
+    if (bqMatch && bqMatch[2]!.length > 0) {
+      e.preventDefault()
+      insertAtCursor('\n' + bqMatch[1])
+      return
+    }
   }
 })
+
+/** Wrap current selection with prefix/suffix */
+function wrapSelection(prefix: string, suffix: string): void {
+  const start = editor.selectionStart
+  const end = editor.selectionEnd
+  const selected = editor.value.substring(start, end)
+  const replacement = prefix + selected + suffix
+  editor.value = editor.value.substring(0, start) + replacement + editor.value.substring(end)
+  editor.selectionStart = start + prefix.length
+  editor.selectionEnd = end + prefix.length
+  editor.focus()
+  update(editor.value)
+  updateLineNumbers(editor.value)
+}
+
+/** Insert text at cursor position */
+function insertAtCursor(text: string): void {
+  const start = editor.selectionStart
+  editor.value = editor.value.substring(0, start) + text + editor.value.substring(editor.selectionEnd)
+  editor.selectionStart = editor.selectionEnd = start + text.length
+  editor.focus()
+  update(editor.value)
+  updateLineNumbers(editor.value)
+}
 
 // Sync scroll (editor → preview + line numbers)
 editor.addEventListener('scroll', () => {
