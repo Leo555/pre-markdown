@@ -247,8 +247,37 @@ editor.addEventListener('keydown', (e) => {
     e.preventDefault()
     const start = editor.selectionStart
     const end = editor.selectionEnd
-    editor.value = editor.value.substring(0, start) + '  ' + editor.value.substring(end)
-    editor.selectionStart = editor.selectionEnd = start + 2
+    const value = editor.value
+
+    if (start === end && !e.shiftKey) {
+      // Single cursor: insert 2 spaces
+      editor.value = value.substring(0, start) + '  ' + value.substring(end)
+      editor.selectionStart = editor.selectionEnd = start + 2
+    } else {
+      // Multi-line: indent/unindent selected lines
+      const lineStart = value.lastIndexOf('\n', start - 1) + 1
+      const lineEnd = value.indexOf('\n', end) === -1 ? value.length : value.indexOf('\n', end)
+      const selectedText = value.substring(lineStart, lineEnd)
+      const lines = selectedText.split('\n')
+
+      let modified: string[]
+      let delta = 0
+      if (e.shiftKey) {
+        // Unindent: remove up to 2 leading spaces
+        modified = lines.map(l => {
+          if (l.startsWith('  ')) { delta -= 2; return l.slice(2) }
+          if (l.startsWith(' ')) { delta -= 1; return l.slice(1) }
+          return l
+        })
+      } else {
+        // Indent: add 2 spaces
+        modified = lines.map(l => { delta += 2; return '  ' + l })
+      }
+
+      editor.value = value.substring(0, lineStart) + modified.join('\n') + value.substring(lineEnd)
+      editor.selectionStart = lineStart
+      editor.selectionEnd = lineStart + modified.join('\n').length
+    }
     update(editor.value)
     updateLineNumbers(editor.value)
     return
