@@ -65,6 +65,7 @@
 - [x] 自定义 profiling 脚本（harness/profile.ts），基线测量
 - [x] 正则预编译 + sticky regex（y flag）+ lastIndex 替代 input.slice()
 - [x] charCodeAt 替代 charAt/字符比较，减少字符串创建
+- [x] 块级解析器首字符快速路径（charCodeAt 分发，减少 ~80% 无效正则测试）
 - [ ] 内联解析器：进一步减少回溯，合并条件分支
 - [ ] 块级解析器：减少 RE.exec 重复编译
 - [ ] AST 节点对象池（复用节点减少 GC 压力）

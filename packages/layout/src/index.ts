@@ -90,7 +90,6 @@ export interface ViewportLayoutResult {
 
 interface CacheEntry<T> {
   value: T
-  lastAccess: number
 }
 
 class LRUCache<T> {
@@ -104,15 +103,21 @@ class LRUCache<T> {
   get(key: string): T | undefined {
     const entry = this.map.get(key)
     if (!entry) return undefined
-    entry.lastAccess = Date.now()
+    // Move to end (most recently used) — Map preserves insertion order
+    this.map.delete(key)
+    this.map.set(key, entry)
     return entry.value
   }
 
   set(key: string, value: T): void {
-    if (this.map.size >= this.maxSize) {
-      this.evict()
+    if (this.map.has(key)) {
+      this.map.delete(key)
+    } else if (this.map.size >= this.maxSize) {
+      // Evict oldest (first entry in Map — O(1))
+      const first = this.map.keys().next().value
+      if (first !== undefined) this.map.delete(first)
     }
-    this.map.set(key, { value, lastAccess: Date.now() })
+    this.map.set(key, { value })
   }
 
   has(key: string): boolean {
@@ -129,20 +134,6 @@ class LRUCache<T> {
 
   get size(): number {
     return this.map.size
-  }
-
-  private evict(): void {
-    let oldest = Infinity
-    let oldestKey: string | undefined
-    for (const [key, entry] of this.map) {
-      if (entry.lastAccess < oldest) {
-        oldest = entry.lastAccess
-        oldestKey = key
-      }
-    }
-    if (oldestKey) {
-      this.map.delete(oldestKey)
-    }
   }
 }
 
