@@ -254,6 +254,27 @@ editor.addEventListener('keydown', (e) => {
     return
   }
 
+  // Auto-wrap selection with paired characters
+  const hasSelection = editor.selectionStart !== editor.selectionEnd
+  if (hasSelection) {
+    const wrapPairs: Record<string, [string, string]> = {
+      '*': ['*', '*'],
+      '_': ['_', '_'],
+      '`': ['`', '`'],
+      '~': ['~', '~'],
+      '[': ['[', ']'],
+      '(': ['(', ')'],
+      '"': ['"', '"'],
+      "'": ["'", "'"],
+    }
+    const pair = wrapPairs[e.key]
+    if (pair) {
+      e.preventDefault()
+      wrapSelection(pair[0], pair[1])
+      return
+    }
+  }
+
   // Ctrl/Cmd shortcuts
   const mod = e.metaKey || e.ctrlKey
   if (mod) {
