@@ -4,26 +4,28 @@
 
 ## 为什么是 PreMarkdown？
 
+**性能第一** — 充分利用 pretext 零 DOM 重排布局，打造 JS 生态中最快的 Markdown 引擎。
+
 | | PreMarkdown | marked | markdown-it | commonmark.js | Cherry |
 |---|---|---|---|---|---|
-| **架构** | AST 两阶段流水线 | 单遍正则 | 状态机 | 严格规范实现 | 正则一体化 |
-| **AST** | ✅ 完整结构化 AST | ❌ 无 AST | ❌ Token 流 | ✅ AST | ❌ 无 AST |
-| **增量解析** | ✅ 局部重解析 | ❌ 全量 | ❌ 全量 | ❌ 全量 | ✅ 局部渲染 |
-| **布局引擎** | ✅ pretext 零回流 | ❌ 无 | ❌ 无 | ❌ 无 | ❌ DOM 依赖 |
-| **CommonMark** | 🎯 目标 100% | ~95% | ~100% | 100% | ~80% |
-| **GFM** | 🎯 目标 100% | ✅ 完整 | 需插件 | 需插件 | ✅ 完整 |
-| **扩展语法** | ✅ Cherry 全兼容 | 需插件 | 需插件 | 需插件 | ✅ 原生 |
+| **定位** | **性能极致** | 速度型 | 插件丰富 | 规范参考 | 功能全面 |
+| **架构** | AST 两阶段流水线 | 单遍正则 | 状态机 | 严格规范 | 正则一体化 |
+| **AST** | ✅ 完整结构化 | ❌ 无 | ❌ Token 流 | ✅ | ❌ 无 |
+| **增量解析** | ✅ 局部重解析 | ❌ 全量 | ❌ 全量 | ❌ 全量 | ✅ 局部 |
+| **布局引擎** | ✅ **pretext 零回流** | ❌ 无 | ❌ 无 | ❌ 无 | ❌ DOM |
+| **零 DOM 测量** | ✅ pretext | ❌ | ❌ | ❌ | ❌ |
+| **虚拟化滚动** | ✅ pretext 精确高度 | ❌ | ❌ | ❌ | ❌ |
 | **Tree-shakeable** | ✅ ESM | ✅ | ✅ | ❌ | ❌ |
 | **核心体积** | < 30KB gzip | ~12KB | ~30KB | ~20KB | ~700KB |
 
 ## 核心优势
 
-- 🚀 **性能** — Parse + Render 两阶段分离，纯算术热路径；基于 pretext 零 DOM 重排测量
-- 🎯 **兼容** — 目标 CommonMark 652 + GFM 200 + Cherry 扩展全量通过
-- 🌲 **AST** — 完整结构化抽象语法树，支持 walk/find/transform/serialize
-- ⚡ **增量** — 编辑时只重解析变更行，复用已有 AST 节点
-- 🔌 **可插拔** — 核心零依赖，KaTeX/Mermaid/ECharts 按需加载
-- 📦 **轻量** — 核心引擎 < 30KB gzip，Tree-shakeable ESM
+- **pretext 驱动** — 文本测量、行断开、光标定位全部通过 pretext 纯算术计算，零 DOM reflow
+- **极致性能** — Parse + Render 热路径优化，目标击败 marked/markdown-it
+- **增量更新** — 编辑时只重解析变更行，复用已有 AST 节点，< 1ms 响应
+- **虚拟化滚动** — 基于 pretext 精确行高，万行文档流畅滚动
+- **结构化 AST** — 完整 AST，支持 walk/find/transform
+- **轻量可插拔** — 核心 < 30KB gzip，Tree-shakeable ESM
 
 ## 安装
 
@@ -108,25 +110,27 @@ const viewport = engine.computeViewportLayout(text, scrollTop, viewportHeight)
 
 ## 语法支持
 
-### CommonMark（目标: 652/652 通过）
+### CommonMark（主流语法 ≥ 80% 通过）
 标题、段落、引用、列表、代码块、水平线、链接、图片、强调、行内代码、HTML、硬换行、转义
 
-### GFM（目标: 200/200 通过）
+### GFM
 表格、删除线、任务列表、URL 自动链接
 
 ### 扩展语法（Cherry 兼容）
 数学公式、高亮、上标、下标、脚注、字体颜色/大小/背景色、Ruby 注音、下划线、Emoji、面板、折叠块、FrontMatter、TOC、音频、视频
 
-## 性能目标
+## 性能目标（核心指标）
 
-| 指标 | 目标 | 对比基准 |
-|------|------|---------|
-| 解析 1000 行 | < 5ms | marked ~8ms |
-| 解析 10000 行 | < 50ms | marked ~80ms |
-| 渲染 1000 行 | < 3ms | - |
-| 增量更新（单行编辑）| < 1ms | 全量重解析 |
-| pretext layout() | < 0.1ms | DOM reflow ~50ms |
-| 核心体积 | < 30KB gzip | marked 12KB, markdown-it 30KB |
+| 指标 | 目标 | 说明 |
+|------|------|------|
+| Parse+Render 1KB | < 0.3ms | 快于 marked |
+| Parse+Render 100KB | < 10ms | 快于 marked |
+| Parse+Render 1MB | < 100ms | 快于 markdown-it |
+| 增量更新（单行） | < 1ms | 增量优势 |
+| pretext prepare() | ≤ 19ms/500段 | 零 DOM 测量 |
+| pretext layout() | < 0.1ms/500段 | DOM reflow ~50ms |
+| 光标定位 | < 0.5ms | getBoundingClientRect ~5ms |
+| 核心体积 | < 30KB gzip | 与 markdown-it 相当 |
 
 ## Benchmark
 

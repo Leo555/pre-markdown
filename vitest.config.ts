@@ -1,6 +1,8 @@
 import { defineConfig } from 'vitest/config'
 import { resolve } from 'path'
 
+const benchNodeModules = resolve(__dirname, 'benchmark/node_modules')
+
 export default defineConfig({
   resolve: {
     alias: {
@@ -9,6 +11,12 @@ export default defineConfig({
       '@pre-markdown/layout': resolve(__dirname, 'packages/layout/src'),
       '@pre-markdown/renderer': resolve(__dirname, 'packages/renderer/src'),
       '@pre-markdown/editor': resolve(__dirname, 'packages/editor/src'),
+      // Benchmark libs (from benchmark/node_modules)
+      'marked': resolve(benchNodeModules, 'marked'),
+      'markdown-it': resolve(benchNodeModules, 'markdown-it'),
+      'commonmark': resolve(benchNodeModules, 'commonmark'),
+      'showdown': resolve(benchNodeModules, 'showdown'),
+      'remarkable': resolve(benchNodeModules, 'remarkable'),
     },
     extensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],
   },
