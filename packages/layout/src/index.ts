@@ -420,6 +420,69 @@ export class LayoutEngine {
   }
 
   // --------------------------------------------------------
+  // Incremental Document Layout
+  // --------------------------------------------------------
+
+  private _lastParagraphs: string[] = []
+  private _lastHeights: number[] = []
+  private _lastTotalHeight = 0
+
+  /**
+   * Incremental document layout — reuses cached heights for unchanged paragraphs.
+   * Only recomputes layout for paragraphs that changed since the last call.
+   * Use this for real-time editing instead of computeDocumentLayout().
+   *
+   * Returns the same structure as computeDocumentLayout().
+   */
+  updateDocumentLayout(paragraphs: string[]): {
+    totalHeight: number
+    paragraphOffsets: number[]
+    paragraphHeights: number[]
+    changedIndices: number[]
+  } {
+    const prev = this._lastParagraphs
+    const prevHeights = this._lastHeights
+    const len = paragraphs.length
+    const heights: number[] = new Array(len)
+    const offsets: number[] = new Array(len)
+    const changedIndices: number[] = []
+    let cumHeight = 0
+
+    for (let i = 0; i < len; i++) {
+      const text = paragraphs[i]!
+      // Reuse if same paragraph text
+      if (i < prev.length && prev[i] === text) {
+        heights[i] = prevHeights[i]!
+      } else {
+        heights[i] = this.computeLayout(text).height
+        changedIndices.push(i)
+      }
+      offsets[i] = cumHeight
+      cumHeight += heights[i]!
+    }
+
+    // Track for next call
+    this._lastParagraphs = paragraphs
+    this._lastHeights = heights
+    this._lastTotalHeight = cumHeight
+
+    return {
+      totalHeight: cumHeight,
+      paragraphOffsets: offsets,
+      paragraphHeights: heights,
+      changedIndices,
+    }
+  }
+
+  /**
+   * Get the cached total height from the last updateDocumentLayout() call.
+   * O(1) — no recomputation.
+   */
+  getCachedTotalHeight(): number {
+    return this._lastTotalHeight
+  }
+
+  // --------------------------------------------------------
   // Cache Management
   // --------------------------------------------------------
 

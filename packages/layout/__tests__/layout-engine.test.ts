@@ -369,4 +369,53 @@ describe('LayoutEngine', () => {
       expect(result.lineCount).toBeGreaterThanOrEqual(1)
     })
   })
+
+  describe('Incremental Document Layout', () => {
+    it('should compute initial layout for all paragraphs', () => {
+      const paras = ['Hello world', 'Second paragraph', 'Third one']
+      const result = engine.updateDocumentLayout(paras)
+
+      expect(result.paragraphHeights.length).toBe(3)
+      expect(result.paragraphOffsets.length).toBe(3)
+      expect(result.paragraphOffsets[0]).toBe(0)
+      expect(result.totalHeight).toBeGreaterThan(0)
+      expect(result.changedIndices).toEqual([0, 1, 2])
+    })
+
+    it('should reuse unchanged paragraphs on second call', () => {
+      const paras = ['Hello world', 'Second paragraph', 'Third one']
+      engine.updateDocumentLayout(paras)
+
+      // Same paragraphs → no changes
+      const result2 = engine.updateDocumentLayout(paras)
+      expect(result2.changedIndices).toEqual([])
+      expect(result2.totalHeight).toBeGreaterThan(0)
+    })
+
+    it('should detect changed paragraphs', () => {
+      const paras1 = ['Hello world', 'Second paragraph', 'Third one']
+      engine.updateDocumentLayout(paras1)
+
+      // Change middle paragraph
+      const paras2 = ['Hello world', 'MODIFIED paragraph', 'Third one']
+      const result = engine.updateDocumentLayout(paras2)
+      expect(result.changedIndices).toEqual([1])
+    })
+
+    it('should handle added paragraphs', () => {
+      const paras1 = ['Hello', 'World']
+      engine.updateDocumentLayout(paras1)
+
+      const paras2 = ['Hello', 'World', 'New paragraph']
+      const result = engine.updateDocumentLayout(paras2)
+      expect(result.changedIndices).toEqual([2])
+      expect(result.paragraphHeights.length).toBe(3)
+    })
+
+    it('should return cached total height', () => {
+      const paras = ['Hello world', 'Second']
+      const result = engine.updateDocumentLayout(paras)
+      expect(engine.getCachedTotalHeight()).toBe(result.totalHeight)
+    })
+  })
 })

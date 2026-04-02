@@ -66,6 +66,7 @@
 - [x] 正则预编译 + sticky regex（y flag）+ lastIndex 替代 input.slice()
 - [x] charCodeAt 替代 charAt/字符比较，减少字符串创建
 - [x] 块级解析器首字符快速路径（charCodeAt 分发，减少 ~80% 无效正则测试）
+- [x] parseInlineFast 快速路径（纯文本内容跳过递归，emphasis 2.3x 提速）
 - [ ] 内联解析器：进一步减少回溯，合并条件分支
 - [ ] 块级解析器：减少 RE.exec 重复编译
 - [ ] AST 节点对象池（复用节点减少 GC 压力）
@@ -113,7 +114,7 @@
 - [x] LRU 缓存（512 PreparedText + 256 WithSegments）
 - [x] 可插拔 MeasurementBackend（浏览器=pretext / Node.js=fallback）
 - [ ] Web Worker 离线 prepare()（大文档不阻塞主线程）
-- [ ] prepare() 增量更新（仅重新 prepare 变更段落）
+- [x] prepare() 增量更新（updateDocumentLayout — 只重算变更段落，复用未变更高度）
 - [ ] 多字体混排支持（根据 AST 节点类型切换字体）
 
 ### 3.2 Pretext 虚拟化滚动
