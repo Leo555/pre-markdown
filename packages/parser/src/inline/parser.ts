@@ -62,10 +62,15 @@ export function parseInline(input: string): InlineNode[] {
         if (trimmed) nodes.push(createText(trimmed))
         nodes.push(createBreak())
       } else {
-        flushText()
+        // Soft break: strip trailing spaces from current text
+        const trimmedPrev = prevText.replace(/ +$/, '')
+        if (trimmedPrev) nodes.push(createText(trimmedPrev))
+        else flushText()
         nodes.push(createSoftBreak())
       }
       pos++
+      // Skip leading spaces on next line (CommonMark spec)
+      while (pos < len && input[pos] === ' ') pos++
       textStart = pos
       continue
     }

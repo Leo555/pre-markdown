@@ -103,6 +103,8 @@
 - [x] 搭建 spec 测试运行器（commonmark-spec.test.ts + commonmark-analysis.test.ts）
 - [x] 首轮运行，基线通过率 **242/652 (37.1%)**
 - [x] 修复渲染器尾部换行 + heading id 可选 + 代码块尾部 \\n + 段落前导空格 → **312/652 (47.9%)**
+- [x] 修复紧凑列表渲染 + 空代码块 + hard/soft break 空格处理 → **333/652 (51.1%)**
+  - 满分 sections: Precedence, Paragraphs, Blank lines, Inlines, Hard line breaks, Soft line breaks, Textual content
 - [ ] 修复 ATX 标题边界（尾部空格、空标题、标题中断）
 - [ ] 修复段落续行规则（Lazy continuation）
 - [ ] 修复列表松散/紧凑判定

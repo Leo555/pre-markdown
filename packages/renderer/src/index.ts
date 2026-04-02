@@ -139,12 +139,24 @@ function renderList(node: List, opts: Required<RendererOptions>): string {
   const startAttr = node.ordered && node.start !== undefined && node.start !== 1
     ? ` start="${node.start}"`
     : ''
-  const items = node.children.map((item) => renderListItem(item, opts)).join('')
+  const items = node.children.map((item) => renderListItem(item, opts, node.spread)).join('')
   return `<${tag}${startAttr}>\n${items}</${tag}>\n`
 }
 
-function renderListItem(node: ListItem, opts: Required<RendererOptions>): string {
-  let content = renderBlockNodes(node.children, opts)
+function renderListItem(node: ListItem, opts: Required<RendererOptions>, loose = true): string {
+  let content: string
+
+  if (!loose && node.children.length === 1 && node.children[0]!.type === 'paragraph') {
+    // Tight list: render paragraph content without <p> wrapper
+    content = renderInlineNodes((node.children[0] as Paragraph).children, opts)
+  } else if (!loose && node.children.every(c => c.type === 'paragraph')) {
+    // Tight list with multiple paragraphs: still no <p> wrapper
+    content = node.children
+      .map(c => renderInlineNodes((c as Paragraph).children, opts))
+      .join('\n')
+  } else {
+    content = renderBlockNodes(node.children, opts)
+  }
 
   if (node.checked !== undefined) {
     const checked = node.checked ? ' checked disabled' : ' disabled'
@@ -156,7 +168,10 @@ function renderListItem(node: ListItem, opts: Required<RendererOptions>): string
 }
 
 function renderCodeBlock(node: CodeBlock, opts: Required<RendererOptions>): string {
-  const code = node.value.endsWith('\n') ? node.value : node.value + '\n'
+  let code = node.value
+  if (code.length > 0 && !code.endsWith('\n')) {
+    code += '\n'
+  }
   const highlighted = opts.highlight(code, node.lang)
   const langClass = node.lang ? ` class="language-${escapeAttr(node.lang)}"` : ''
   return `<pre><code${langClass}>${highlighted}</code></pre>\n`
