@@ -42,7 +42,7 @@ describe('Renderer Snapshot Tests', () => {
 
     it('should render paragraph', () => {
       const html = render('Simple paragraph text.')
-      expect(html).toBe('<p>Simple paragraph text.</p>')
+      expect(html).toBe('<p>Simple paragraph text.</p>\n')
     })
 
     it('should render blockquote', () => {
@@ -96,7 +96,7 @@ describe('Renderer Snapshot Tests', () => {
 
     it('should render thematic break', () => {
       const html = render('---')
-      expect(html).toBe('<hr />')
+      expect(html).toBe('<hr />\n')
     })
 
     it('should render table with alignment', () => {

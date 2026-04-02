@@ -77,7 +77,7 @@ export function renderToHtml(doc: Document, options?: RendererOptions): string {
 }
 
 function renderBlockNodes(nodes: BlockNode[], opts: Required<RendererOptions>): string {
-  return nodes.map((node) => renderBlockNode(node, opts)).join('\n')
+  return nodes.map((node) => renderBlockNode(node, opts)).join('')
 }
 
 function renderBlockNode(node: BlockNode, opts: Required<RendererOptions>): string {
@@ -95,9 +95,9 @@ function renderBlockNode(node: BlockNode, opts: Required<RendererOptions>): stri
     case 'codeBlock':
       return renderCodeBlock(node, opts)
     case 'thematicBreak':
-      return '<hr />'
+      return '<hr />\n'
     case 'htmlBlock':
-      return opts.sanitize ? escapeHtml(node.value) : node.value
+      return (opts.sanitize ? escapeHtml(node.value) : node.value) + '\n'
     case 'table':
       return renderTable(node, opts)
     case 'tableRow':
@@ -105,15 +105,15 @@ function renderBlockNode(node: BlockNode, opts: Required<RendererOptions>): stri
     case 'tableCell':
       return `<td>${renderInlineNodes(node.children, opts)}</td>`
     case 'mathBlock':
-      return `<div class="math-block">${escapeHtml(node.value)}</div>`
+      return `<div class="math-block">${escapeHtml(node.value)}</div>\n`
     case 'container':
       return renderContainer(node, opts)
     case 'details':
       return renderDetails(node, opts)
     case 'toc':
-      return '<nav class="toc" data-toc></nav>'
+      return '<nav class="toc" data-toc></nav>\n'
     case 'footnoteDefinition':
-      return `<div class="footnote" id="fn-${escapeHtml(node.identifier)}"><sup>${escapeHtml(node.label)}</sup>${renderBlockNodes(node.children, opts)}</div>`
+      return `<div class="footnote" id="fn-${escapeHtml(node.identifier)}"><sup>${escapeHtml(node.label)}</sup>${renderBlockNodes(node.children, opts)}</div>\n`
     default:
       return ''
   }
@@ -122,15 +122,15 @@ function renderBlockNode(node: BlockNode, opts: Required<RendererOptions>): stri
 function renderHeading(node: Heading, opts: Required<RendererOptions>): string {
   const text = getPlainText(node.children)
   const id = opts.headingId(text, node.depth)
-  return `<h${node.depth} id="${escapeAttr(id)}">${renderInlineNodes(node.children, opts)}</h${node.depth}>`
+  return `<h${node.depth} id="${escapeAttr(id)}">${renderInlineNodes(node.children, opts)}</h${node.depth}>\n`
 }
 
 function renderParagraph(node: Paragraph, opts: Required<RendererOptions>): string {
-  return `<p>${renderInlineNodes(node.children, opts)}</p>`
+  return `<p>${renderInlineNodes(node.children, opts)}</p>\n`
 }
 
 function renderBlockquote(node: Blockquote, opts: Required<RendererOptions>): string {
-  return `<blockquote>\n${renderBlockNodes(node.children, opts)}\n</blockquote>`
+  return `<blockquote>\n${renderBlockNodes(node.children, opts)}</blockquote>\n`
 }
 
 function renderList(node: List, opts: Required<RendererOptions>): string {
@@ -138,8 +138,8 @@ function renderList(node: List, opts: Required<RendererOptions>): string {
   const startAttr = node.ordered && node.start !== undefined && node.start !== 1
     ? ` start="${node.start}"`
     : ''
-  const items = node.children.map((item) => renderListItem(item, opts)).join('\n')
-  return `<${tag}${startAttr}>\n${items}\n</${tag}>`
+  const items = node.children.map((item) => renderListItem(item, opts)).join('')
+  return `<${tag}${startAttr}>\n${items}</${tag}>\n`
 }
 
 function renderListItem(node: ListItem, opts: Required<RendererOptions>): string {
@@ -148,16 +148,16 @@ function renderListItem(node: ListItem, opts: Required<RendererOptions>): string
   if (node.checked !== undefined) {
     const checked = node.checked ? ' checked disabled' : ' disabled'
     content = `<input type="checkbox"${checked} /> ${content}`
-    return `<li class="task-list-item">${content}</li>`
+    return `<li class="task-list-item">${content}</li>\n`
   }
 
-  return `<li>${content}</li>`
+  return `<li>${content}</li>\n`
 }
 
 function renderCodeBlock(node: CodeBlock, opts: Required<RendererOptions>): string {
   const highlighted = opts.highlight(node.value, node.lang)
   const langClass = node.lang ? ` class="language-${escapeAttr(node.lang)}"` : ''
-  return `<pre><code${langClass}>${highlighted}</code></pre>`
+  return `<pre><code${langClass}>${highlighted}</code></pre>\n`
 }
 
 function renderTable(node: Table, opts: Required<RendererOptions>): string {
@@ -183,7 +183,7 @@ function renderTable(node: Table, opts: Required<RendererOptions>): string {
   if (bodyRows.length > 0) {
     html += `<tbody>${bodyRows.join('')}</tbody>`
   }
-  html += '</table>'
+  html += '</table>\n'
   return html
 }
 
@@ -194,11 +194,11 @@ function renderTableRow(_node: TableRow, _opts: Required<RendererOptions>): stri
 
 function renderContainer(node: Container, opts: Required<RendererOptions>): string {
   const title = node.title ? `<p class="container-title">${escapeHtml(node.title)}</p>` : ''
-  return `<div class="container container-${escapeAttr(node.kind)}">${title}${renderBlockNodes(node.children, opts)}</div>`
+  return `<div class="container container-${escapeAttr(node.kind)}">${title}${renderBlockNodes(node.children, opts)}</div>\n`
 }
 
 function renderDetails(node: Details, opts: Required<RendererOptions>): string {
-  return `<details><summary>${escapeHtml(node.summary)}</summary>${renderBlockNodes(node.children, opts)}</details>`
+  return `<details><summary>${escapeHtml(node.summary)}</summary>${renderBlockNodes(node.children, opts)}</details>\n`
 }
 
 // ============================================================

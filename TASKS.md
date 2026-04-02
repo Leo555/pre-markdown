@@ -11,7 +11,7 @@
 | 阶段 | 状态 | 进度 |
 |------|------|------|
 | Phase 1：核心引擎 | ✅ 已完成 | 100% |
-| Phase 2：语法兼容性 | 🔨 进行中 | 30% |
+| Phase 2：语法兼容性 | 🔨 进行中 | 35% |
 | Phase 3：性能优化 | 🔨 进行中 | 40% |
 | Phase 4：规范合规 | ⏳ 待开始 | 0% |
 | Phase 5：生态与文档 | ⏳ 待开始 | 0% |
@@ -99,9 +99,9 @@
 > **验证标准**：CommonMark 652 cases 通过率 ≥ 98%，GFM 200 cases 通过率 ≥ 95%
 
 ### 2.1 CommonMark 规范合规（652 cases）
-- [ ] 下载 CommonMark spec 0.31.2 测试数据集
-- [ ] 搭建 spec 测试运行器（spec JSON → parse → renderToHtml → 比对 expected HTML）
-- [ ] 首轮运行，统计基线通过率
+- [x] 下载 CommonMark spec 0.31.2 测试数据集（652 examples, 26 sections）
+- [x] 搭建 spec 测试运行器（commonmark-spec.test.ts + commonmark-analysis.test.ts）
+- [x] 首轮运行，基线通过率 **242/652 (37.1%)**
 - [ ] 修复 ATX 标题边界（尾部空格、空标题、标题中断）
 - [ ] 修复段落续行规则（Lazy continuation）
 - [ ] 修复列表松散/紧凑判定
@@ -292,7 +292,8 @@
 
 | 日期 | 变更内容 |
 |------|---------|
-| 2026-04-02 | 项目目标调整：从 Markdown 编辑器转为全行业性能最佳 Markdown 引擎，重写 TASKS/README |
+| 2026-04-02 | CommonMark spec 测试框架 + 渲染器尾部 \\n 修复 → 基线 242/652 (37.1%) |
+| 2026-04-02 | 项目目标调整为全行业性能最佳 Markdown 引擎，重写 TASKS/README |
 | 2026-04-02 | 7 引擎性能压测 + 语法兼容性测试（benchmark/ 独立模块） |
 | 2026-04-02 | Phase 2 Pretext 集成：LayoutEngine 真正调用 pretext API + LRU 缓存 + 虚拟化 |
 | 2026-04-02 | Cherry 语法兼容：!!color!! / !size! / !!!bg!!! / ^^sub^^ / {text\|ann} / /underline/ / +++ detail / --- frontmatter / [toc] 扩展 / 面板缩写 |
