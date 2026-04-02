@@ -1,6 +1,6 @@
-# PreMarkdown — Harness Engineering 任务拆解
+# PreMarkdown — 任务拆解
 
-> 本文档按 **Harness Engineering** 模式组织全部开发任务。  
+> **目标**：基于 pretext 构建全行业性能最佳、语法兼容性最强的 Markdown 引擎  
 > 每个任务完成后标记 `[x]`，进行中标记 `[-]`，未开始标记 `[ ]`。  
 > 最后更新：2026-04-02
 
@@ -10,376 +10,281 @@
 
 | 阶段 | 状态 | 进度 |
 |------|------|------|
-| Phase 0：基础设施 | ✅ 已完成 | 100% |
-| Phase 1：核心解析引擎 | ✅ 已完成 | 100% |
-| Phase 2：Pretext 布局集成 | 🔨 进行中 | 70% |
-| Phase 3：编辑器 UI | ⏳ 待开始 | 20% |
-| Phase 4：扩展语法插件 | ⏳ 待开始 | 0% |
-| Phase 5：高级功能 | ⏳ 待开始 | 0% |
-| Phase 6：性能调优与文档 | ⏳ 待开始 | 0% |
+| Phase 1：核心引擎 | ✅ 已完成 | 100% |
+| Phase 2：语法兼容性 | 🔨 进行中 | 30% |
+| Phase 3：性能优化 | 🔨 进行中 | 40% |
+| Phase 4：规范合规 | ⏳ 待开始 | 0% |
+| Phase 5：生态与文档 | ⏳ 待开始 | 0% |
 
 ---
 
-## Phase 0：基础设施 ✅
+## Phase 1：核心引擎 ✅
 
-> **里程碑**：项目脚手架 + Harness 框架搭建  
-> **验证标准**：Monorepo 可构建、测试 Harness 可运行、Benchmark 模板可执行
-
-### 0.1 Monorepo 搭建
-- [x] 初始化 pnpm workspace（`pnpm-workspace.yaml`）
-- [x] 创建根 `package.json`（含 build/dev/test/bench/lint 脚本）
-- [x] 配置 TypeScript 严格模式（`tsconfig.json`，ES2022 目标，path alias）
-- [x] 配置 Vitest（`vitest.config.ts`，覆盖率阈值 90/90/85/90）
-- [x] 配置 ESLint + Prettier（`.eslintrc.json`，`.prettierrc`）
-- [x] 配置 `.gitignore`
-
-### 0.2 包结构初始化
-- [x] `@pre-markdown/core` — 包骨架 + package.json + tsconfig.json
-- [x] `@pre-markdown/parser` — 包骨架 + 依赖 core
-- [x] `@pre-markdown/layout` — 包骨架 + 依赖 core + pretext
-- [x] `@pre-markdown/renderer` — 包骨架 + 依赖 core
-- [x] `@pre-markdown/editor` — 包骨架 + 依赖全部子包
-- [x] `@pre-markdown/harness` — 测试 Harness 包
-
-### 0.3 Harness 框架
-- [x] 创建 `harness/benchmarks/parse.bench.ts` — 性能基准测试模板
-- [x] 创建 `harness/specs/parser.spec.md` — 解析器规格说明
-- [x] 创建 `harness/specs/layout.spec.md` — 布局引擎规格说明
-- [x] 创建 `harness/fixtures/` — 测试夹具文件（basic.md / complex.md / stress-10k.md）
-- [x] 创建 `harness/benchmarks/layout.bench.ts` — 布局性能基准模板
-- [x] 创建 `harness/benchmarks/render.bench.ts` — 渲染性能基准模板
-- [ ] 创建 Cherry Markdown 性能基线采集脚本
-
-### 0.4 文档骨架
-- [x] README.md — 项目说明
-- [ ] `docs/architecture.md` — 架构设计文档
-- [ ] `docs/api.md` — API 文档
-
----
-
-## Phase 1：核心解析引擎 🔨
-
-> **里程碑**：完整 Markdown AST 解析  
-> **验证标准**：所有语法单测通过，语法兼容性矩阵覆盖 CommonMark + GFM + Cherry 扩展
+> **里程碑**：完整的 Parse → AST → Render 流水线  
+> **验证标准**：376 测试通过，所有已实现语法 Demo 可渲染
 
 ### 1.1 AST 类型系统（@pre-markdown/core）
 - [x] `Position` / `SourceLocation` / `BaseNode` 基础类型
-- [x] 16 种块级节点类型定义（Document → TOC）
-- [x] 22 种内联节点类型定义（Text → Autolink）
+- [x] 16 种块级节点类型（Document, Heading, Paragraph, Blockquote, List, ListItem, CodeBlock, ThematicBreak, HtmlBlock, Table, TableRow, TableCell, FootnoteDefinition, MathBlock, Container, Details, TOC）
+- [x] 22+ 种内联节点类型（Text, Emphasis, Strong, Strikethrough, InlineCode, Link, Image, HtmlInline, Break, SoftBreak, FootnoteReference, MathInline, Highlight, Superscript, Subscript, FontColor, FontSize, FontBgColor, Ruby, Emoji, Audio, Video, Autolink, Underline）
 - [x] `BlockNode` / `InlineNode` / `ASTNode` / `NodeType` 联合类型
-- [x] 38 个 AST Builder 工厂函数（自增 ID）
-- [x] AST Visitor：`walk` / `findAll` / `findFirst` / `isBlockNode` / `isInlineNode` / `getTextContent`
-- [x] EventBus 类型安全事件系统（8 种预定义事件）
+- [x] 38+ 个 AST Builder 工厂函数（自增 ID）
+- [x] AST Visitor: `walk` / `findAll` / `findFirst` / `isBlockNode` / `isInlineNode` / `getTextContent`
+- [x] EventBus 类型安全事件系统
 
-### 1.2 AST 类型测试
-- [x] AST Builder 测试（ast-builder.test.ts，245 行）
-- [x] AST Visitor 测试（ast-visitor.test.ts，178 行）
-- [x] EventBus 测试（event-bus.test.ts，98 行）
-
-### 1.3 块级解析器（@pre-markdown/parser）
-- [x] ATX 标题解析（H1-H6，含关闭 # 号）
-- [x] Setext 标题解析（=== 和 --- 下划线）
-- [x] 段落解析（空行分隔、连续行合并）
+### 1.2 块级解析器（@pre-markdown/parser）
+- [x] ATX 标题（H1-H6，含关闭 # 号）
+- [x] Setext 标题（=== / ---）
+- [x] 段落（空行分隔、连续行合并）
 - [x] 围栏代码块（反引号/波浪线，带语言标识）
 - [x] 缩进代码块（4 空格/Tab）
-- [x] 引用块（嵌套支持、延迟续行）
-- [x] 无序列表（- / * / +）
-- [x] 有序列表（数字.）
-- [x] 任务列表（`[x]` / `[ ]`）
+- [x] 引用块（嵌套、延迟续行）
+- [x] 无序列表（- / * / +）、有序列表（数字.）、任务列表（[x]/[ ]）
 - [x] 主题分隔线（--- / *** / ___）
 - [x] GFM 表格（含对齐）
 - [x] 数学块（$$...$$）
-- [x] 自定义容器（::: type title）
-- [x] TOC 占位符（[[toc]]）
+- [x] 自定义容器（::: type title + Cherry 面板缩写）
+- [x] 折叠块 Detail（+++ title / +++）
+- [x] TOC 占位符（[toc] / [[toc]] / 【【toc】】）
 - [x] HTML 块（Type 1 + Type 6）
-- [x] 脚注定义解析（`[^id]: content`）
-- [x] 增量解析协议（检测变更行范围、局部重解析、合并 AST、发射变更事件）
+- [x] 脚注定义（[^id]: content）
+- [x] FrontMatter（---yaml---）
 
-### 1.4 内联解析器（@pre-markdown/parser）
-- [x] 纯文本
-- [x] 强调 / 加粗（* / _ 单/双/三重）
+### 1.3 内联解析器（@pre-markdown/parser）
+- [x] 强调/加粗（* / _ 单/双/三重）
 - [x] 行内代码（反引号，含双反引号嵌套）
-- [x] 链接（`[text](url "title")`）
-- [x] 图片（`![alt](url "title")`）
+- [x] 链接 `[text](url "title")` + 图片 `![alt](url)`
 - [x] 自动链接（`<url>` / `<email>`）
-- [x] HTML 内联标签
-- [x] 硬换行 / 软换行
-- [x] 转义字符
-- [x] 删除线（~~text~~）
-- [x] 高亮（==text==）
-- [x] 上标（^text^）
-- [x] 下标（~text~）
-- [x] 行内数学（$formula$）
-- [x] 脚注引用（[^id]）
-- [x] 字体颜色解析（`{color:red}text{/color}` + Cherry `!!red text!!`）
-- [x] 字体大小解析（`{size:20px}text{/size}` + Cherry `!24 text!`）
-- [x] 字体背景色解析（`{bgcolor:yellow}text{/bgcolor}` + Cherry `!!!yellow text!!!`）
-- [x] Ruby 注音解析（`{漢字}(かんじ)` + Cherry `{漢字|かんじ}`）
-- [x] Emoji 短码解析（`:smile:` → 😄）
-- [x] 音频语法解析（`!audio[title](url)`）
-- [x] 视频语法解析（`!video[title](url)`）
-- [x] 下划线解析（Cherry `/text/`）
-- [x] Cherry 下标兼容（`^^text^^`）
-- [x] 面板类型缩写（p/i/w/d/s/l/c/r/j → primary/info/warning/...）
-- [x] 折叠块 Detail（Cherry `+++title / +++`）
-- [x] FrontMatter（`---yaml---`）
-- [x] TOC 扩展格式（`[toc]` / `[[toc]]` / `【【toc】】`）
+- [x] HTML 内联标签、硬换行/软换行、转义字符
+- [x] 删除线 ~~text~~、高亮 ==text==、上标 ^text^、下标 ~text~ / ^^text^^
+- [x] 行内数学 $formula$、脚注引用 [^id]
+- [x] 字体颜色 `!!color text!!` + `{color:red}text{/color}`
+- [x] 字体大小 `!size text!` + `{size:20px}text{/size}`
+- [x] 背景色 `!!!color text!!!` + `{bgcolor:yellow}text{/bgcolor}`
+- [x] Ruby 注音 `{text|ann}` + `{text}(ann)`
+- [x] Emoji 短码 `:smile:` → 😄（60+ 常用 emoji）
+- [x] 音频 `!audio[title](url)` / 视频 `!video[title](url)`
+- [x] 下划线 `/text/`
 
-### 1.5 解析器测试
-- [x] 块级解析器测试（block-parser.test.ts，280 行）
-- [x] 内联解析器测试（inline-parser.test.ts，249 行）
-- [x] 脚注定义解析测试（block-parser.test.ts，6 用例）
-- [x] 扩展内联语法测试（inline-extended.test.ts，35 用例）
-- [x] 边界用例测试（edge-cases.test.ts，53 用例：深层嵌套、畸形输入、Unicode）
-- [ ] CommonMark 规格测试套件集成（652 cases）
-- [ ] GFM 规格测试套件集成（~200 cases）
-
-### 1.6 渲染器（@pre-markdown/renderer）
-- [x] Document → HTML 字符串渲染
-- [x] 全部 38 种节点类型 HTML 渲染
+### 1.4 渲染器（@pre-markdown/renderer）
+- [x] Document → HTML 字符串渲染（全部 38+ 节点类型）
 - [x] HTML 实体转义（escapeHtml / escapeAttr）
 - [x] 标题锚点 ID 生成
 - [x] 代码高亮 Hook
-- [x] 安全模式（sanitize）
-- [x] URL 安全过滤（sanitizeUrl — 阻止 javascript:/vbscript:/data: 协议）
-- [x] CSS 值安全过滤（sanitizeCssValue — 防止样式注入）
-- [ ] DOM 节点渲染（renderToDOM，非字符串）
+- [x] 安全模式（sanitize: URL 过滤 + CSS 值过滤 + 实体转义）
+
+### 1.5 增量解析器
+- [x] `IncrementalParser` — 检测变更行范围、局部重解析、合并 AST、发射 EventBus 事件
+
+### 1.6 Pretext 布局引擎（@pre-markdown/layout）
+- [x] 集成 @chenglou/pretext `prepare()` + `layout()` + `layoutWithLines()`
+- [x] LRU 缓存（512 PreparedText + 256 WithSegments）
+- [x] 可插拔 MeasurementBackend（浏览器=pretext / Node.js=fallback）
+- [x] 视口虚拟化布局（computeViewportLayout，2x 缓冲区）
+- [x] 多段落文档布局（computeDocumentLayout）/ hitTest
+
+### 1.7 测试（376 用例全部通过）
+- [x] AST Builder 测试（30）+ Visitor 测试（12）+ EventBus 测试（7）
+- [x] 块级解析器测试（39）+ 内联解析器测试（28）+ 扩展内联测试（35）
+- [x] 脚注测试（6）+ Cherry 兼容测试（41）+ 边界用例测试（53）
+- [x] 增量解析器测试（17）
+- [x] 渲染器测试（23）+ 渲染快照测试（57）+ XSS 安全测试（17）
+- [x] Layout 引擎测试（34）
+
+---
+
+## Phase 2：语法兼容性 🔨
+
+> **里程碑**：全行业最强语法兼容性  
+> **验证标准**：CommonMark 652 cases 通过率 ≥ 98%，GFM 200 cases 通过率 ≥ 95%
+
+### 2.1 CommonMark 规范合规（652 cases）
+- [ ] 下载 CommonMark spec 0.31.2 测试数据集
+- [ ] 搭建 spec 测试运行器（spec JSON → parse → renderToHtml → 比对 expected HTML）
+- [ ] 首轮运行，统计基线通过率
+- [ ] 修复 ATX 标题边界（尾部空格、空标题、标题中断）
+- [ ] 修复段落续行规则（Lazy continuation）
+- [ ] 修复列表松散/紧凑判定
+- [ ] 修复列表项缩进规则（4 空格 vs marker+1）
+- [ ] 修复链接引用定义 `[ref]: url "title"`
+- [ ] 修复链接引用使用 `[text][ref]` / `[ref][]` / `[ref]`
+- [ ] 修复嵌套强调/加粗的分隔符优先级（"左侧限定"/"右侧限定"规则）
+- [ ] 修复块引用延迟续行（lazy continuation lines）
+- [ ] 修复 HTML 块 Type 1-7 完整规则
+- [ ] 修复缩进代码块与列表的交互
+- [ ] 修复围栏代码块关闭条件
+- [ ] 修复 Setext 标题与段落的优先级
+- [ ] 修复实体引用 `&amp;` / `&#123;` / `&#x7B;`
+- [ ] 二轮修复，目标 ≥ 98% 通过率
+- [ ] 三轮修复，目标 100% 通过率
+
+### 2.2 GFM 规范合规（~200 cases）
+- [ ] 下载 GFM spec 0.29 测试数据集
+- [ ] 首轮运行，统计基线通过率
+- [ ] 修复表格解析边界（管道符转义、空单元格、表头对齐）
+- [ ] 修复删除线边界（空格规则、嵌套）
+- [ ] 修复任务列表格式
+- [ ] 修复 URL 自动链接（裸 URL 识别、域名规则、路径截断）
+- [ ] 修复 HTML 标签过滤（GFM 安全规则）
+- [ ] 二轮修复，目标 ≥ 95% 通过率
+
+### 2.3 扩展语法完善
+- [ ] 图片扩展属性 `![alt #300px #center #shadow](url)`（Cherry 兼容）
+- [ ] 链接引用定义 + 使用 `[text][ref]`（CommonMark 标准）
+- [ ] 链接 target 属性 `[text](url){target=_blank}`（Cherry 兼容）
+- [ ] 列表扩展：`a.` 希腊字母 / `I.` 罗马数字 / `一.` 中文数字（Cherry 兼容）
+- [ ] 代码块缩写：` ```flow ` → mermaid / ` ```seq ` → sequenceDiagram（Cherry 兼容）
+- [ ] 表格图表语法：表头 `:chartType:{options}` 触发图表（Cherry 兼容）
+- [ ] Emoji 扩展：覆盖完整 GitHub Emoji 列表（1800+）
+- [ ] FrontMatter 增强：解析为结构化 metadata 对象（非 HTML 注释）
+
+### 2.4 语法兼容性测试
+- [x] 7 引擎对比兼容性测试页面（benchmark/compat.html）
+- [ ] CommonMark spec 自动化测试套件
+- [ ] GFM spec 自动化测试套件
+- [ ] Cherry 语法兼容矩阵（对照 cherry-markdown 源码逐项验证）
+- [ ] 语法兼容性报告生成
+
+---
+
+## Phase 3：性能优化 🔨
+
+> **里程碑**：全行业主流引擎中性能最佳  
+> **验证标准**：在 benchmark 7 引擎对比中，PreMarkdown 在所有文件规模下排名前 2
+
+### 3.1 解析器性能优化
+- [ ] 热路径 Profiling（Chrome DevTools / Node --prof）
+- [ ] 正则预编译 + 常量提取
+- [ ] 减少字符串拷贝（slice 替代 substring，避免 concat）
+- [ ] 内联解析器：减少 input.slice() 调用，改用索引偏移
+- [ ] 块级解析器：减少 RE.exec 重复编译
+- [ ] AST 节点对象池（复用节点减少 GC 压力）
+- [ ] 懒解析内联（仅在渲染时才解析段落内联内容）
+
+### 3.2 渲染器性能优化
+- [ ] 字符串拼接优化（数组 push + join 替代 += ）
+- [ ] 模板预编译（静态 HTML 片段缓存）
+- [ ] escapeHtml 快速路径（无特殊字符时直接返回）
+- [ ] DOM 渲染模式（renderToDOM — 直接创建 DOM 节点，跳过 innerHTML 解析）
 - [ ] 增量渲染（Diff AST → 局部 DOM 更新）
 
-### 1.7 渲染器测试
-- [x] 基础渲染测试（renderer.test.ts，232 行）
-- [x] 全量语法渲染快照测试（renderer-snapshot.test.ts，40 用例）
-- [x] HTML 安全性测试（XSS 向量，17 用例）
+### 3.3 增量解析优化
+- [ ] 行级 hash 指纹（快速定位变更范围）
+- [ ] AST 节点复用（未变更块直接复用引用）
+- [ ] 编辑感知缓存（LRU 按段落粒度缓存 AST 子树）
+
+### 3.4 Pretext 布局优化
+- [ ] 动态高度虚拟列表（基于 Pretext 精确高度）
+- [ ] 滚动防抖与 requestAnimationFrame 调度
+- [ ] Web Worker 离线 prepare()（大文档 prepare 不阻塞主线程）
+- [ ] prepare() 500 段文本 ≤ 19ms
+- [ ] layout() 500 段文本 ≤ 0.09ms
+
+### 3.5 性能压测
+- [x] 7 引擎性能压测页面（benchmark/index.html）
+- [x] 13 个测试文件覆盖 1KB ~ 50MB
+- [ ] 自动化 CI 性能回归测试（每次 PR 跑 benchmark，对比基线）
+- [ ] 性能报告生成（P50/P95/P99 延迟、吞吐量、内存峰值）
+
+### 3.6 性能目标
+
+| 指标 | 目标 | 对比 marked | 对比 markdown-it | 对比 Cherry |
+|------|------|-----------|-----------------|------------|
+| Parse+Render 1KB | < 0.5ms | ≤ 1x | ≤ 1x | < 0.5x |
+| Parse+Render 100KB | < 15ms | ≤ 1.2x | ≤ 1x | < 0.3x |
+| Parse+Render 1MB | < 150ms | ≤ 1.5x | ≤ 1.2x | < 0.2x |
+| 增量更新（单行） | < 1ms | - | - | - |
+| pretext layout() | < 0.1ms | - | - | - |
+| 核心体积 | < 30KB gzip | ~2.5x marked | ~1x md-it | < 0.05x Cherry |
+| 内存占用 10K 行 | < 20MB | - | - | < 0.7x Cherry |
 
 ---
 
-## Phase 2：Pretext 布局集成 ⏳
+## Phase 4：规范合规与安全 ⏳
 
-> **里程碑**：零 DOM 重排的文本布局  
-> **验证标准**：layout 基准测试通过性能目标，虚拟化滚动流畅
+> **里程碑**：生产级安全性与规范合规  
+> **验证标准**：XSS 零漏洞，规范测试 100% 通过
 
-### 2.1 Pretext 集成（@pre-markdown/layout）
-- [x] 安装并引入 `@chenglou/pretext`
-- [x] 实现 `prepare()` 集成 — 文本规范化 + 片段测量（替换当前桩实现）
-- [x] 实现 `layout()` 集成 — 纯算术行断开（替换当前简单行计数）
-- [x] 实现 `layoutWithLines()` — 获取每行文本、宽度、光标位置
-- [x] 实现 PreparedText 缓存（LRU 512 条，按 `(text, font, whiteSpace)` 键值缓存）
-- [x] 实现缓存失效策略（文本变更、字体变更、locale 变更时失效）
-- [x] 实现 `setLocale()` 处理区域设置
-- [x] 支持多字体（CSS font 简写格式）
-- [x] 可插拔 MeasurementBackend（浏览器用真正 pretext，Node.js 测试用 fallback）
-- [x] 多段落文档布局（`computeDocumentLayout`）
-- [x] 滚动位置命中测试（`hitTest`）
-
-### 2.2 虚拟化滚动
-- [x] 实现视口布局计算（`computeViewportLayout`，含可配置缓冲区，默认 2x）
-- [x] 实现滚动位置映射（scrollTop ↔ 文档行号，via hitTest）
-- [ ] 实现动态高度虚拟列表（基于 Pretext 精确高度）
-- [ ] 实现滚动防抖与 requestAnimationFrame 调度
-
-### 2.3 Layout 测试与基准
-- [x] Layout 单元测试（layout-engine.test.ts，34 用例：配置/布局/视口/缓存/后端/边界）
-- [x] `harness/benchmarks/layout.bench.ts` — 实际 Pretext 基准测试
-  - [ ] `prepare()` 500 段文本 ≤ 19ms（需浏览器环境验证）
-  - [ ] `layout()` 500 段文本 ≤ 0.09ms（需浏览器环境验证）
-  - [ ] 视口布局 < 1ms
-  - [ ] 窗口 Resize < 5ms
-
-### 2.4 Layout Spec 验证
-- [x] 更新 `harness/specs/layout.spec.md` 与实际实现对齐
-- [ ] 生成 Layout 性能报告
-
----
-
-## Phase 3：编辑器 UI ⏳
-
-> **里程碑**：可用的编辑器界面  
-> **验证标准**：三种编辑模式可切换，工具栏/快捷键/主题均可用
-
-### 3.1 编辑器核心（@pre-markdown/editor）
-- [ ] 重构 `PreMarkdownEditor` — 移除简单 textarea，实现 ContentEditable 或自定义输入层
-- [ ] 实现输入监听（keydown / input / compositionstart/end）
-- [ ] 实现光标管理（Selection API 集成）
-- [ ] 实现多光标编辑
-- [ ] 实现撤销/重做栈（Undo/Redo History）
-
-### 3.2 编辑模式
-- [ ] 分栏预览模式（Split）— 左编辑右预览，同步滚动
-- [ ] 纯编辑模式（Edit）— 仅编辑区
-- [ ] 纯预览模式（Preview）— 仅渲染区
-- [ ] 模式切换 API 与 UI
-
-### 3.3 工具栏与菜单
-- [ ] 浮动工具栏（新行开头自动出现，含常用格式操作）
-- [ ] 气泡菜单（选中文本时出现，含加粗/斜体/链接等）
-- [ ] 固定工具栏组件（可选）
-- [ ] 输入建议 / 自动补全（`/` 命令面板）
-
-### 3.4 主题系统
-- [ ] 亮色主题（Light）
-- [ ] 暗色主题（Dark）
-- [ ] CSS 变量化主题系统
-- [ ] 主题切换 API
-
-### 3.5 快捷键系统
-- [ ] 默认快捷键映射（Ctrl+B 加粗、Ctrl+I 斜体 等）
-- [ ] 可自定义快捷键 API
-- [ ] 快捷键冲突检测
-
-### 3.6 编辑器测试
-- [ ] 输入处理单元测试
-- [ ] 选区管理单元测试
-- [ ] 快捷键系统单元测试
-- [ ] 模式切换测试
-
----
-
-## Phase 4：扩展语法插件 ⏳
-
-> **里程碑**：全量扩展语法支持  
-> **验证标准**：所有扩展插件测试通过，插件系统 Hook 链路完整
-
-### 4.1 插件系统
-- [ ] 定义插件接口（`PreMarkdownPlugin`）
-- [ ] 实现插件注册机制（`editor.use(plugin)`）
-- [ ] 实现插件生命周期（`install` / `activate` / `deactivate` / `destroy`）
-- [ ] 实现语法扩展 Hook（解析阶段插入自定义规则）
-- [ ] 实现渲染扩展 Hook（渲染阶段插入自定义渲染器）
-
-### 4.2 数学公式插件（@pre-markdown/plugin-math）
-- [ ] 集成 KaTeX 库
-- [ ] 行内公式渲染（`$...$` → KaTeX HTML）
-- [ ] 块级公式渲染（`$$...$$` → KaTeX HTML）
-- [ ] 公式编辑交互（点击编辑、实时预览）
-- [ ] 数学公式测试
-
-### 4.3 Mermaid 图表插件（@pre-markdown/plugin-mermaid）
-- [ ] 集成 Mermaid 库
-- [ ] 流程图 / 时序图 / 甘特图渲染
-- [ ] 图表尺寸编辑（拖拽调整大小）
-- [ ] 图表对齐（居中/左/右/浮动）
-- [ ] Mermaid 测试
-
-### 4.4 媒体插件（@pre-markdown/plugin-media）
-- [ ] 音频嵌入与播放器 UI
-- [ ] 视频嵌入与播放器 UI
-- [ ] 媒体尺寸控制
-- [ ] 媒体测试
-
-### 4.5 表格增强插件（@pre-markdown/plugin-table）
-- [ ] 表格可视化编辑（增删行列、拖拽调整）
-- [ ] 表格转图表（集成 ECharts 或类似库）
-- [ ] 表格增强测试
-
-### 4.6 插件系统测试
-- [ ] 插件注册/注销测试
-- [ ] 插件生命周期测试
-- [ ] Hook 链路测试
-- [ ] 插件冲突处理测试
-
----
-
-## Phase 5：高级功能 ⏳
-
-> **里程碑**：生产就绪  
-> **验证标准**：流式渲染可用、导出功能正常、安全测试通过
-
-### 5.1 增量/流式渲染
-- [ ] 实现增量解析（文本变更 → 局部 AST 更新）
-- [ ] 实现增量渲染（AST Diff → 局部 DOM 更新）
-- [ ] 实现流式渲染（逐 token 输入 → 实时渲染，自动补全语法元素）
-- [ ] 流式渲染性能测试（< 2ms/token）
-
-### 5.2 富文本粘贴
-- [ ] 实现 HTML → Markdown 转换器
-- [ ] 支持从 Word / Google Docs / Notion 粘贴
-- [ ] 保留表格、列表、格式等结构
-- [ ] 粘贴转换测试
-
-### 5.3 导出功能
-- [ ] 导出为图片（HTML → Canvas → PNG/JPEG）
-- [ ] 导出为 PDF（HTML → Print/PDF 库）
-- [ ] 导出配置（分辨率、样式、页边距）
-
-### 5.4 悬浮目录导航
-- [ ] 从 AST 提取标题树（H1-H6 层级）
-- [ ] 渲染悬浮 TOC 面板
-- [ ] 点击跳转 + 滚动高亮当前节
-- [ ] TOC 自动更新
-
-### 5.5 安全性
-- [ ] 集成 DOMPurify
-- [ ] 实现白名单过滤机制
+### 4.1 安全性
+- [x] HTML 实体转义（escapeHtml / escapeAttr）
+- [x] URL 协议过滤（javascript: / vbscript: / data:text）
+- [x] CSS 值过滤（expression() / url() 注入）
+- [ ] 集成 DOMPurify（可选，作为额外安全层）
+- [ ] 白名单 HTML 标签过滤（配置允许的标签和属性）
 - [ ] 自定义安全 Hook API
-- [ ] XSS 测试向量覆盖
+- [ ] XSS 测试向量完整覆盖（OWASP XSS 清单）
 
-### 5.6 高级功能测试
+### 4.2 规范测试自动化
+- [ ] CommonMark spec runner（JSON 数据集 → 自动化 vitest）
+- [ ] GFM spec runner
+- [ ] 规范通过率 Badge 生成
+- [ ] CI 集成（每次提交自动跑规范测试）
+
+### 4.3 流式渲染（AI 场景）
+- [ ] 流式解析（逐 token 输入 → 增量 AST 更新 → 实时渲染）
+- [ ] 自动补全未闭合语法（代码块、表格、列表等）
+- [ ] 流式渲染性能 < 2ms/token
 - [ ] 流式渲染测试
-- [ ] 粘贴转换测试
-- [ ] 导出功能测试
-- [ ] 安全性测试
 
 ---
 
-## Phase 6：性能调优与文档 ⏳
+## Phase 5：生态与文档 ⏳
 
-> **里程碑**：性能目标达成，文档完整  
-> **验证标准**：所有性能指标达标，完整文档交付
+> **里程碑**：npm 可发布，社区可贡献  
+> **验证标准**：文档完整，npm 发布，benchmark 页面公开
 
-### 6.1 Cherry Markdown 基线采集
-- [ ] 部署 Cherry Markdown 测试环境
-- [ ] 采集首次渲染基线（100/1K/10K 行）
-- [ ] 采集增量更新基线
-- [ ] 采集窗口 Resize 基线
-- [ ] 采集大文档滚动基线（帧率）
-- [ ] 采集内存占用基线
+### 5.1 插件系统
+- [ ] 插件接口定义（`PreMarkdownPlugin`）
+- [ ] 语法扩展 Hook（解析阶段插入自定义规则）
+- [ ] 渲染扩展 Hook（自定义节点渲染器）
+- [ ] 内置插件：KaTeX 数学公式
+- [ ] 内置插件：Mermaid 图表
+- [ ] 内置插件：代码高亮（Prism / Shiki）
+- [ ] 插件系统测试
 
-### 6.2 性能优化
-- [ ] 解析器优化（热路径 profiling、正则预编译、对象池）
-- [ ] 渲染器优化（DOM 复用、批量更新、虚拟 DOM Diff）
-- [ ] 布局引擎优化（缓存命中率、预计算、Worker 线程）
-- [ ] 内存优化（AST 节点池、WeakRef、按需加载）
+### 5.2 npm 发布
+- [ ] 包构建配置（ESM + CJS + .d.ts）
+- [ ] 包体积审计（< 30KB gzip 核心）
+- [ ] package.json exports / main / types 配置
+- [ ] npm publish 流程（changeset）
+- [ ] 版本管理（semver）
 
-### 6.3 性能验证（目标对比）
+### 5.3 文档
+- [ ] `docs/architecture.md` — 架构设计（两阶段流水线、AST 设计、pretext 集成）
+- [ ] `docs/syntax-spec.md` — 语法规格（兼容性矩阵、Cherry 扩展语法对照表）
+- [ ] `docs/performance.md` — 性能报告（7 引擎对比数据、优化历程）
+- [ ] `docs/api.md` — API 文档（parse / renderToHtml / IncrementalParser / LayoutEngine）
+- [ ] `docs/plugins.md` — 插件开发指南
+- [ ] README 完善（安装、使用、配置、示例）
 
-| 指标 | 目标 | 状态 |
-|------|------|------|
-| 首次渲染 1000 行 | < Cherry 基线 50% | [ ] |
-| 增量更新（单行编辑） | < 5ms | [ ] |
-| 窗口 Resize 重排 | < 1ms | [ ] |
-| 大文档滚动 10000 行 | 60fps | [ ] |
-| 内存占用 10000 行 | < Cherry 基线 70% | [ ] |
-| 流式渲染 | < 2ms/token | [ ] |
+### 5.4 CI/CD
+- [ ] GitHub Actions: test + lint + typecheck
+- [ ] GitHub Actions: benchmark 性能回归
+- [ ] GitHub Actions: npm 自动发布
+- [ ] 覆盖率报告上传（Codecov）
+- [ ] 覆盖率目标：行 90% / 函数 90% / 分支 85%
 
-### 6.4 文档编写
-- [ ] `docs/architecture.md` — 架构设计文档（技术选型、模块划分、数据流、扩展机制）
-- [ ] `docs/performance.md` — 性能测试报告（含 P50/P95/P99 延迟、内存峰值、帧率、对比分析）
-- [ ] `docs/syntax-spec.md` — 语法规格文档（语法兼容性矩阵、测试用例清单、覆盖率）
-- [ ] `docs/api.md` — API 文档（编辑器 API、插件 API、配置项）
-- [ ] 更新 `README.md` — 安装指南、使用示例、开发指南
-
-### 6.5 测试覆盖率达标
-- [ ] 行覆盖率 > 90%
-- [ ] 函数覆盖率 > 90%
-- [ ] 分支覆盖率 > 85%
-- [ ] 语句覆盖率 > 90%
+### 5.5 Demo 与 Playground
+- [x] 分栏编辑器 Demo（index.html + demo/main.ts）
+- [x] 7 引擎性能压测（benchmark/index.html）
+- [x] 7 引擎语法兼容性测试（benchmark/compat.html）
+- [ ] 在线 Playground（GitHub Pages 部署）
+- [ ] Benchmark 数据可视化（图表对比）
 
 ---
 
 ## 任务统计
 
-| 类别 | 总计 | 已完成 | 进行中 | 未开始 |
-|------|------|--------|--------|--------|
-| Phase 0 | 23 | 22 | 0 | 1 |
-| Phase 1 | 51 | 49 | 0 | 2 |
-| Phase 2 | 22 | 16 | 0 | 6 |
-| Phase 3 | 22 | 0 | 0 | 22 |
-| Phase 4 | 21 | 0 | 0 | 21 |
-| Phase 5 | 19 | 0 | 0 | 19 |
-| Phase 6 | 20 | 0 | 0 | 20 |
-| **合计** | **178** | **87** | **0** | **91** |
+| 类别 | 总计 | 已完成 | 未开始 |
+|------|------|--------|--------|
+| Phase 1：核心引擎 | 50 | 50 | 0 |
+| Phase 2：语法兼容性 | 27 | 1 | 26 |
+| Phase 3：性能优化 | 25 | 2 | 23 |
+| Phase 4：规范与安全 | 12 | 3 | 9 |
+| Phase 5：生态与文档 | 22 | 3 | 19 |
+| **合计** | **136** | **59** | **77** |
 
-> 当前总体完成度：**≈ 49%**
+> 当前总体完成度：**≈ 43%**
 
 ---
 
@@ -387,8 +292,10 @@
 
 | 日期 | 变更内容 |
 |------|---------|
-| 2026-04-02 | Phase 2 Pretext 集成：重写 LayoutEngine 真正调用 @chenglou/pretext API、LRU 缓存、可插拔 Backend、视口虚拟化、多段落布局、hitTest + 34 测试 + benchmark 更新 |
-| 2026-04-02 | Cherry 语法兼容：!!color!! / !size! / !!!bg!!! / ^^sub^^ / {text\|ann} / /underline/ / +++ detail / --- frontmatter / [toc] 扩展 / 面板缩写 + 41 兼容测试 |
-| 2026-04-02 | 增量解析协议 + 边界测试(53) + 渲染快照测试(40) + XSS安全测试(17) + URL/CSS安全过滤 + fixture文件 + benchmark模板 |
-| 2026-04-02 | 实现脚注定义解析 + 7 种扩展内联语法（字体颜色/大小/背景色/Ruby/Emoji/音频/视频）+ 41 个新测试用例 |
-| 2026-04-02 | 初始化任务拆解文档，评估现有代码进度 |
+| 2026-04-02 | 项目目标调整：从 Markdown 编辑器转为全行业性能最佳 Markdown 引擎，重写 TASKS/README |
+| 2026-04-02 | 7 引擎性能压测 + 语法兼容性测试（benchmark/ 独立模块） |
+| 2026-04-02 | Phase 2 Pretext 集成：LayoutEngine 真正调用 pretext API + LRU 缓存 + 虚拟化 |
+| 2026-04-02 | Cherry 语法兼容：!!color!! / !size! / !!!bg!!! / ^^sub^^ / {text\|ann} / /underline/ / +++ detail / --- frontmatter / [toc] 扩展 / 面板缩写 |
+| 2026-04-02 | 增量解析 + 边界测试(53) + 渲染快照(40) + XSS安全(17) + URL/CSS过滤 |
+| 2026-04-02 | 脚注解析 + 7 种扩展内联语法 + 41 测试 |
+| 2026-04-02 | 项目初始化，任务拆解 |
