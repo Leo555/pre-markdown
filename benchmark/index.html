@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PreMarkdown vs Cherry — 性能压测</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+
+<h1><span>Pre</span>Markdown vs Cherry — 性能压测</h1>
+<p class="subtitle">对比两款 Markdown 引擎在不同文档规模下的解析和渲染性能</p>
+
+<div class="controls">
+  <label>测试文件：</label>
+  <select id="file-select">
+    <option value="ALL">全部运行</option>
+    <optgroup label="语法类型">
+      <option value="test_basic.md">basic (1KB, 114行)</option>
+      <option value="test_code.md">code (5KB, 231行)</option>
+      <option value="test_table.md">table (4KB, 114行)</option>
+      <option value="test_special.md">special (4KB, 169行)</option>
+      <option value="test_complex.md">complex (6KB, 203行)</option>
+    </optgroup>
+    <optgroup label="规模压测">
+      <option value="test_50KB.md">50KB (1,774行)</option>
+      <option value="test_100KB.md">100KB (3,537行)</option>
+      <option value="test_200KB.md">200KB (7,063行)</option>
+      <option value="test_300KB.md">300KB (10,548行)</option>
+      <option value="test_500KB.md">500KB (17,559行)</option>
+      <option value="test_long_1MB.md">1MB (35,927行)</option>
+      <option value="test_long_10MB.md">10MB (356,588行)</option>
+      <option value="test_long_50MB.md">50MB (1,772,523行)</option>
+    </optgroup>
+  </select>
+  <label>重复次数：</label>
+  <input type="number" id="iterations" value="3" min="1" max="20" style="width:60px" />
+  <button id="btn-run">开始压测</button>
+  <button id="btn-clear" class="danger">清空结果</button>
+  <span class="status" id="status"></span>
+  <span class="cherry-status" id="cherry-status"></span>
+</div>
+
+<div class="section">
+  <h2>测试结果</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>文件</th>
+        <th>大小</th>
+        <th>行数</th>
+        <th>PreMarkdown Parse</th>
+        <th>PreMarkdown Render</th>
+        <th>PreMarkdown Total</th>
+        <th>Cherry Total</th>
+        <th>比率 (Cherry/Pre)</th>
+        <th>胜出</th>
+      </tr>
+    </thead>
+    <tbody id="results"></tbody>
+  </table>
+</div>
+
+<div class="section">
+  <h2>运行日志</h2>
+  <div id="log"></div>
+</div>
+
+<!-- Cherry Engine Core UMD (760KB, 纯引擎无 UI) -->
+<script src="./vendor/cherry-engine.js"></script>
+
+<!-- 压测主逻辑 -->
+<script type="module" src="./main.ts"></script>
+
+</body>
+</html>

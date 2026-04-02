@@ -15,13 +15,11 @@ export default defineConfig({
     port: 3000,
     open: true,
     fs: {
-      // Only allow serving files from root (excludes cherry-markdown implicitly)
       allow: ['.'],
     },
   },
   optimizeDeps: {
-    // Don't scan cherry-markdown directory
     exclude: ['@chenglou/pretext'],
-    entries: ['index.html', 'demo/main.ts'],
+    entries: ['index.html', 'demo/main.ts', 'benchmark/index.html', 'benchmark/main.ts'],
   },
 })
