@@ -27,7 +27,7 @@ export interface EditorEvents {
   'editor:blur': void
 }
 
-export class EventBus<Events extends Record<string, unknown> = EditorEvents> {
+export class EventBus<Events extends object = EditorEvents> {
   private handlers = new Map<keyof Events, Set<Handler>>()
 
   /** Subscribe to an event */

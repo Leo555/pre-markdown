@@ -132,8 +132,8 @@ const viewport = engine.computeViewportLayout(text, scrollTop, viewportHeight)
 
 ```bash
 pnpm dev
-# 打开 http://localhost:3000/benchmark/         — 7 引擎性能压测
-# 打开 http://localhost:3000/benchmark/compat.html — 7 引擎语法兼容性测试
+# 打开 http://localhost:9527/benchmark/         — 7 引擎性能压测
+# 打开 http://localhost:9527/benchmark/compat.html — 7 引擎语法兼容性测试
 ```
 
 ## 开发
