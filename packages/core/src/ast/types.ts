@@ -296,6 +296,11 @@ export interface Autolink extends BaseNode {
   isEmail: boolean
 }
 
+export interface Underline extends BaseNode {
+  readonly type: 'underline'
+  children: InlineNode[]
+}
+
 // ============================================================
 // Union Types
 // ============================================================
@@ -344,6 +349,7 @@ export type InlineNode =
   | Audio
   | Video
   | Autolink
+  | Underline
 
 /** Any AST node */
 export type ASTNode = Document | BlockNode | InlineNode

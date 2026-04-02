@@ -53,6 +53,7 @@ export type {
   Audio,
   Video,
   Autolink,
+  Underline,
   // Union types
   BlockNode,
   InlineNode,
@@ -103,6 +104,7 @@ export {
   createAudio,
   createVideo,
   createAutolink,
+  createUnderline,
 } from './ast/builder.js'
 
 // AST Visitor

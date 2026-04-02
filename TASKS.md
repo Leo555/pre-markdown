@@ -11,8 +11,8 @@
 | 阶段 | 状态 | 进度 |
 |------|------|------|
 | Phase 0：基础设施 | ✅ 已完成 | 100% |
-| Phase 1：核心解析引擎 | 🔨 进行中 | 80% |
-| Phase 2：Pretext 布局集成 | ⏳ 待开始 | 15% |
+| Phase 1：核心解析引擎 | ✅ 已完成 | 100% |
+| Phase 2：Pretext 布局集成 | 🔨 进行中 | 70% |
 | Phase 3：编辑器 UI | ⏳ 待开始 | 20% |
 | Phase 4：扩展语法插件 | ⏳ 待开始 | 0% |
 | Phase 5：高级功能 | ⏳ 待开始 | 0% |
@@ -45,9 +45,9 @@
 - [x] 创建 `harness/benchmarks/parse.bench.ts` — 性能基准测试模板
 - [x] 创建 `harness/specs/parser.spec.md` — 解析器规格说明
 - [x] 创建 `harness/specs/layout.spec.md` — 布局引擎规格说明
-- [ ] 创建 `harness/fixtures/` — 测试夹具文件（basic.md / complex.md / stress-10k.md）
-- [ ] 创建 `harness/benchmarks/layout.bench.ts` — 布局性能基准模板
-- [ ] 创建 `harness/benchmarks/render.bench.ts` — 渲染性能基准模板
+- [x] 创建 `harness/fixtures/` — 测试夹具文件（basic.md / complex.md / stress-10k.md）
+- [x] 创建 `harness/benchmarks/layout.bench.ts` — 布局性能基准模板
+- [x] 创建 `harness/benchmarks/render.bench.ts` — 渲染性能基准模板
 - [ ] 创建 Cherry Markdown 性能基线采集脚本
 
 ### 0.4 文档骨架
@@ -92,8 +92,8 @@
 - [x] 自定义容器（::: type title）
 - [x] TOC 占位符（[[toc]]）
 - [x] HTML 块（Type 1 + Type 6）
-- [ ] 脚注定义解析（`[^id]: content`）
-- [ ] 增量解析协议（检测变更行范围、局部重解析、合并 AST、发射变更事件）
+- [x] 脚注定义解析（`[^id]: content`）
+- [x] 增量解析协议（检测变更行范围、局部重解析、合并 AST、发射变更事件）
 
 ### 1.4 内联解析器（@pre-markdown/parser）
 - [x] 纯文本
@@ -111,20 +111,26 @@
 - [x] 下标（~text~）
 - [x] 行内数学（$formula$）
 - [x] 脚注引用（[^id]）
-- [ ] 字体颜色解析（`{color}text{/color}` 或其他语法）
-- [ ] 字体大小解析
-- [ ] 字体背景色解析
-- [ ] Ruby 注音解析
-- [ ] Emoji 短码解析（`:smile:` → 😄）
-- [ ] 音频语法解析（`!audio[title](url)`）
-- [ ] 视频语法解析（`!video[title](url)`）
+- [x] 字体颜色解析（`{color:red}text{/color}` + Cherry `!!red text!!`）
+- [x] 字体大小解析（`{size:20px}text{/size}` + Cherry `!24 text!`）
+- [x] 字体背景色解析（`{bgcolor:yellow}text{/bgcolor}` + Cherry `!!!yellow text!!!`）
+- [x] Ruby 注音解析（`{漢字}(かんじ)` + Cherry `{漢字|かんじ}`）
+- [x] Emoji 短码解析（`:smile:` → 😄）
+- [x] 音频语法解析（`!audio[title](url)`）
+- [x] 视频语法解析（`!video[title](url)`）
+- [x] 下划线解析（Cherry `/text/`）
+- [x] Cherry 下标兼容（`^^text^^`）
+- [x] 面板类型缩写（p/i/w/d/s/l/c/r/j → primary/info/warning/...）
+- [x] 折叠块 Detail（Cherry `+++title / +++`）
+- [x] FrontMatter（`---yaml---`）
+- [x] TOC 扩展格式（`[toc]` / `[[toc]]` / `【【toc】】`）
 
 ### 1.5 解析器测试
 - [x] 块级解析器测试（block-parser.test.ts，280 行）
 - [x] 内联解析器测试（inline-parser.test.ts，249 行）
-- [ ] 脚注定义解析测试
-- [ ] 扩展内联语法测试（字体颜色/大小/背景色/Ruby/Emoji/音频/视频）
-- [ ] 边界用例测试（深层嵌套、畸形输入、Unicode）
+- [x] 脚注定义解析测试（block-parser.test.ts，6 用例）
+- [x] 扩展内联语法测试（inline-extended.test.ts，35 用例）
+- [x] 边界用例测试（edge-cases.test.ts，53 用例：深层嵌套、畸形输入、Unicode）
 - [ ] CommonMark 规格测试套件集成（652 cases）
 - [ ] GFM 规格测试套件集成（~200 cases）
 
@@ -135,13 +141,15 @@
 - [x] 标题锚点 ID 生成
 - [x] 代码高亮 Hook
 - [x] 安全模式（sanitize）
+- [x] URL 安全过滤（sanitizeUrl — 阻止 javascript:/vbscript:/data: 协议）
+- [x] CSS 值安全过滤（sanitizeCssValue — 防止样式注入）
 - [ ] DOM 节点渲染（renderToDOM，非字符串）
 - [ ] 增量渲染（Diff AST → 局部 DOM 更新）
 
 ### 1.7 渲染器测试
 - [x] 基础渲染测试（renderer.test.ts，232 行）
-- [ ] 全量语法渲染快照测试
-- [ ] HTML 安全性测试（XSS 向量）
+- [x] 全量语法渲染快照测试（renderer-snapshot.test.ts，40 用例）
+- [x] HTML 安全性测试（XSS 向量，17 用例）
 
 ---
 
@@ -151,31 +159,34 @@
 > **验证标准**：layout 基准测试通过性能目标，虚拟化滚动流畅
 
 ### 2.1 Pretext 集成（@pre-markdown/layout）
-- [ ] 安装并引入 `@chenglou/pretext`
-- [ ] 实现 `prepare()` 集成 — 文本规范化 + 片段测量（替换当前桩实现）
-- [ ] 实现 `layout()` 集成 — 纯算术行断开（替换当前简单行计数）
-- [ ] 实现 `layoutWithLines()` — 获取每行文本、宽度、光标位置
-- [ ] 实现 PreparedText 缓存（LRU，按 `(text, font)` 键值缓存）
-- [ ] 实现缓存失效策略（文本变更、字体变更时失效）
-- [ ] 实现 `setLocale()` 处理区域设置
-- [ ] 支持多字体（CSS font 简写格式）
+- [x] 安装并引入 `@chenglou/pretext`
+- [x] 实现 `prepare()` 集成 — 文本规范化 + 片段测量（替换当前桩实现）
+- [x] 实现 `layout()` 集成 — 纯算术行断开（替换当前简单行计数）
+- [x] 实现 `layoutWithLines()` — 获取每行文本、宽度、光标位置
+- [x] 实现 PreparedText 缓存（LRU 512 条，按 `(text, font, whiteSpace)` 键值缓存）
+- [x] 实现缓存失效策略（文本变更、字体变更、locale 变更时失效）
+- [x] 实现 `setLocale()` 处理区域设置
+- [x] 支持多字体（CSS font 简写格式）
+- [x] 可插拔 MeasurementBackend（浏览器用真正 pretext，Node.js 测试用 fallback）
+- [x] 多段落文档布局（`computeDocumentLayout`）
+- [x] 滚动位置命中测试（`hitTest`）
 
 ### 2.2 虚拟化滚动
-- [ ] 实现视口布局计算（`computeViewportLayout`，含 2x 缓冲区）
-- [ ] 实现滚动位置映射（scrollTop ↔ 文档行号）
+- [x] 实现视口布局计算（`computeViewportLayout`，含可配置缓冲区，默认 2x）
+- [x] 实现滚动位置映射（scrollTop ↔ 文档行号，via hitTest）
 - [ ] 实现动态高度虚拟列表（基于 Pretext 精确高度）
 - [ ] 实现滚动防抖与 requestAnimationFrame 调度
 
 ### 2.3 Layout 测试与基准
-- [ ] Layout 单元测试（prepare/layout 正确性、缓存行为）
-- [ ] `harness/benchmarks/layout.bench.ts` — 实际 Pretext 基准测试
-  - [ ] `prepare()` 500 段文本 ≤ 19ms
-  - [ ] `layout()` 500 段文本 ≤ 0.09ms
+- [x] Layout 单元测试（layout-engine.test.ts，34 用例：配置/布局/视口/缓存/后端/边界）
+- [x] `harness/benchmarks/layout.bench.ts` — 实际 Pretext 基准测试
+  - [ ] `prepare()` 500 段文本 ≤ 19ms（需浏览器环境验证）
+  - [ ] `layout()` 500 段文本 ≤ 0.09ms（需浏览器环境验证）
   - [ ] 视口布局 < 1ms
   - [ ] 窗口 Resize < 5ms
 
 ### 2.4 Layout Spec 验证
-- [ ] 更新 `harness/specs/layout.spec.md` 与实际实现对齐
+- [x] 更新 `harness/specs/layout.spec.md` 与实际实现对齐
 - [ ] 生成 Layout 性能报告
 
 ---
@@ -359,16 +370,16 @@
 
 | 类别 | 总计 | 已完成 | 进行中 | 未开始 |
 |------|------|--------|--------|--------|
-| Phase 0 | 23 | 19 | 0 | 4 |
-| Phase 1 | 49 | 37 | 0 | 12 |
-| Phase 2 | 18 | 0 | 0 | 18 |
+| Phase 0 | 23 | 22 | 0 | 1 |
+| Phase 1 | 51 | 49 | 0 | 2 |
+| Phase 2 | 22 | 16 | 0 | 6 |
 | Phase 3 | 22 | 0 | 0 | 22 |
 | Phase 4 | 21 | 0 | 0 | 21 |
 | Phase 5 | 19 | 0 | 0 | 19 |
 | Phase 6 | 20 | 0 | 0 | 20 |
-| **合计** | **172** | **56** | **0** | **116** |
+| **合计** | **178** | **87** | **0** | **91** |
 
-> 当前总体完成度：**≈ 33%**
+> 当前总体完成度：**≈ 49%**
 
 ---
 
@@ -376,4 +387,8 @@
 
 | 日期 | 变更内容 |
 |------|---------|
+| 2026-04-02 | Phase 2 Pretext 集成：重写 LayoutEngine 真正调用 @chenglou/pretext API、LRU 缓存、可插拔 Backend、视口虚拟化、多段落布局、hitTest + 34 测试 + benchmark 更新 |
+| 2026-04-02 | Cherry 语法兼容：!!color!! / !size! / !!!bg!!! / ^^sub^^ / {text\|ann} / /underline/ / +++ detail / --- frontmatter / [toc] 扩展 / 面板缩写 + 41 兼容测试 |
+| 2026-04-02 | 增量解析协议 + 边界测试(53) + 渲染快照测试(40) + XSS安全测试(17) + URL/CSS安全过滤 + fixture文件 + benchmark模板 |
+| 2026-04-02 | 实现脚注定义解析 + 7 种扩展内联语法（字体颜色/大小/背景色/Ruby/Emoji/音频/视频）+ 41 个新测试用例 |
 | 2026-04-02 | 初始化任务拆解文档，评估现有代码进度 |

@@ -3,18 +3,53 @@
  *
  * Pretext-based text layout engine.
  * Handles text measurement, line breaking, and virtual viewport layout.
+ *
+ * Uses @chenglou/pretext for zero-DOM-reflow text measurement:
+ *   prepare()  → one-time text analysis (cached)
+ *   layout()   → pure-arithmetic line breaking (hot path)
  */
 
+import {
+  prepare,
+  prepareWithSegments,
+  layout,
+  layoutWithLines,
+  clearCache as pretextClearCache,
+  setLocale as pretextSetLocale,
+} from '@chenglou/pretext'
+
+import type {
+  PreparedText,
+  PreparedTextWithSegments,
+  LayoutResult as PretextLayoutResult,
+  LayoutLinesResult as PretextLinesResult,
+  LayoutLine as PretextLine,
+  PrepareOptions,
+} from '@chenglou/pretext'
+
+// Re-export pretext types for consumers
+export type { PreparedText, PreparedTextWithSegments, PretextLine }
+
+// ============================================================
+// Configuration Types
+// ============================================================
+
 export interface LayoutConfig {
-  /** Default font string (CSS format, e.g., '16px Inter') */
+  /** CSS font string (e.g., '16px Inter'). Must be loaded before use. */
   font: string
-  /** Line height in pixels */
+  /** Line height in pixels (must match CSS line-height) */
   lineHeight: number
-  /** Maximum width for text wrapping */
+  /** Maximum width for text wrapping (pixels) */
   maxWidth: number
-  /** Whether to preserve whitespace (pre-wrap mode) */
-  preserveWhitespace?: boolean
+  /** White-space mode: 'normal' (default) or 'pre-wrap' */
+  whiteSpace?: 'normal' | 'pre-wrap'
+  /** Viewport buffer multiplier (default 2 = 2x viewport above & below) */
+  viewportBuffer?: number
 }
+
+// ============================================================
+// Result Types
+// ============================================================
 
 export interface LayoutLine {
   /** Line text content */
@@ -23,8 +58,8 @@ export interface LayoutLine {
   width: number
   /** Y position from top */
   y: number
-  /** Source line index (in document lines) */
-  sourceLineIndex: number
+  /** Source line index (in document paragraphs) */
+  sourceIndex: number
 }
 
 export interface LayoutResult {
@@ -43,80 +78,277 @@ export interface ViewportLayoutResult {
   totalHeight: number
   /** Y offset of the first visible line */
   startY: number
+  /** Index of first visible line */
+  startIndex: number
+  /** Index of last visible line (exclusive) */
+  endIndex: number
+}
+
+// ============================================================
+// LRU Cache
+// ============================================================
+
+interface CacheEntry<T> {
+  value: T
+  lastAccess: number
+}
+
+class LRUCache<T> {
+  private map = new Map<string, CacheEntry<T>>()
+  private maxSize: number
+
+  constructor(maxSize = 512) {
+    this.maxSize = maxSize
+  }
+
+  get(key: string): T | undefined {
+    const entry = this.map.get(key)
+    if (!entry) return undefined
+    entry.lastAccess = Date.now()
+    return entry.value
+  }
+
+  set(key: string, value: T): void {
+    if (this.map.size >= this.maxSize) {
+      this.evict()
+    }
+    this.map.set(key, { value, lastAccess: Date.now() })
+  }
+
+  has(key: string): boolean {
+    return this.map.has(key)
+  }
+
+  delete(key: string): boolean {
+    return this.map.delete(key)
+  }
+
+  clear(): void {
+    this.map.clear()
+  }
+
+  get size(): number {
+    return this.map.size
+  }
+
+  private evict(): void {
+    let oldest = Infinity
+    let oldestKey: string | undefined
+    for (const [key, entry] of this.map) {
+      if (entry.lastAccess < oldest) {
+        oldest = entry.lastAccess
+        oldestKey = key
+      }
+    }
+    if (oldestKey) {
+      this.map.delete(oldestKey)
+    }
+  }
+}
+
+// ============================================================
+// Measurement Backend (pluggable for Node.js testing)
+// ============================================================
+
+export interface MeasurementBackend {
+  /** One-time text analysis (expensive, cache result) */
+  prepare(text: string, font: string, options?: PrepareOptions): PreparedText
+  /** One-time text analysis with segment info */
+  prepareWithSegments(text: string, font: string, options?: PrepareOptions): PreparedTextWithSegments
+  /** Pure-arithmetic layout (cheap, can call per frame) */
+  layout(prepared: PreparedText, maxWidth: number, lineHeight: number): PretextLayoutResult
+  /** Layout with per-line info */
+  layoutWithLines(prepared: PreparedTextWithSegments, maxWidth: number, lineHeight: number): PretextLinesResult
+  /** Clear internal caches */
+  clearCache(): void
+  /** Set locale for text segmentation */
+  setLocale(locale?: string): void
+}
+
+/** Default backend: real @chenglou/pretext (requires Canvas) */
+const pretextBackend: MeasurementBackend = {
+  prepare,
+  prepareWithSegments,
+  layout,
+  layoutWithLines,
+  clearCache: pretextClearCache,
+  setLocale: pretextSetLocale,
 }
 
 /**
- * Layout engine that wraps @chenglou/pretext for text measurement.
+ * Fallback backend for environments without Canvas (e.g. Node.js tests).
+ * Uses character-count heuristic for approximate measurement.
+ */
+export function createFallbackBackend(avgCharWidth = 8): MeasurementBackend {
+  return {
+    prepare(text: string, _font: string, _options?: PrepareOptions): PreparedText {
+      // Return a fake PreparedText that stores the text
+      return { __fallback: true, text } as unknown as PreparedText
+    },
+    prepareWithSegments(text: string, _font: string, _options?: PrepareOptions): PreparedTextWithSegments {
+      return { __fallback: true, text, segments: text.split(/(\s+)/).filter(Boolean) } as unknown as PreparedTextWithSegments
+    },
+    layout(prepared: PreparedText, maxWidth: number, lineHeight: number): PretextLayoutResult {
+      const text = (prepared as unknown as { text: string }).text ?? ''
+      const lines = estimateLines(text, maxWidth, avgCharWidth)
+      return { height: lines * lineHeight, lineCount: lines }
+    },
+    layoutWithLines(prepared: PreparedTextWithSegments, maxWidth: number, lineHeight: number): PretextLinesResult {
+      const text = (prepared as unknown as { text: string }).text ?? ''
+      const wrappedLines = wrapText(text, maxWidth, avgCharWidth)
+      const lines = wrappedLines.map((line, i) => ({
+        text: line,
+        width: line.length * avgCharWidth,
+        start: { segmentIndex: 0, graphemeIndex: 0 },
+        end: { segmentIndex: 0, graphemeIndex: 0 },
+      }))
+      return {
+        height: lines.length * lineHeight,
+        lineCount: lines.length,
+        lines,
+      }
+    },
+    clearCache() { /* no-op */ },
+    setLocale() { /* no-op */ },
+  }
+}
+
+function estimateLines(text: string, maxWidth: number, avgCharWidth: number): number {
+  if (text.length === 0) return 1
+  const hardLines = text.split('\n')
+  let total = 0
+  const charsPerLine = Math.max(1, Math.floor(maxWidth / avgCharWidth))
+  for (const line of hardLines) {
+    total += Math.max(1, Math.ceil(line.length / charsPerLine))
+  }
+  return total
+}
+
+function wrapText(text: string, maxWidth: number, avgCharWidth: number): string[] {
+  const charsPerLine = Math.max(1, Math.floor(maxWidth / avgCharWidth))
+  const result: string[] = []
+  const hardLines = text.split('\n')
+  for (const line of hardLines) {
+    if (line.length <= charsPerLine) {
+      result.push(line)
+    } else {
+      for (let i = 0; i < line.length; i += charsPerLine) {
+        result.push(line.slice(i, i + charsPerLine))
+      }
+    }
+  }
+  return result.length > 0 ? result : ['']
+}
+
+// ============================================================
+// Layout Engine
+// ============================================================
+
+/**
+ * High-performance text layout engine powered by @chenglou/pretext.
  *
- * This is the integration layer that bridges pretext's raw text
- * measurement capabilities with our document layout needs.
+ * Two-phase pipeline:
+ *   1. prepare() — one-time text analysis (~1-5ms per paragraph, cached via LRU)
+ *   2. layout()  — pure arithmetic (~0.0002ms, safe for animation frames)
  *
- * Architecture:
- * 1. prepare() - one-time text analysis (cached)
- * 2. layout() - pure arithmetic line breaking (fast path)
- * 3. viewport layout - only compute visible lines
+ * In environments without Canvas (Node.js), set a fallback backend
+ * via the constructor or `setBackend()`.
  */
 export class LayoutEngine {
   private config: LayoutConfig
-  private cache = new Map<string, unknown>() // PreparedText cache
+  private backend: MeasurementBackend
+  private preparedCache: LRUCache<PreparedText>
+  private preparedSegCache: LRUCache<PreparedTextWithSegments>
 
-  constructor(config: LayoutConfig) {
-    this.config = config
+  constructor(config: LayoutConfig, backend?: MeasurementBackend) {
+    this.config = {
+      viewportBuffer: 2,
+      whiteSpace: 'normal',
+      ...config,
+    }
+    this.backend = backend ?? pretextBackend
+    this.preparedCache = new LRUCache(512)
+    this.preparedSegCache = new LRUCache(256)
   }
 
-  /**
-   * Update layout configuration.
-   */
+  // --------------------------------------------------------
+  // Configuration
+  // --------------------------------------------------------
+
+  /** Update layout configuration. Invalidates cache if font changes. */
   updateConfig(config: Partial<LayoutConfig>): void {
+    const fontChanged = config.font && config.font !== this.config.font
     this.config = { ...this.config, ...config }
-    // Invalidate cache if font changed
-    if (config.font) {
-      this.cache.clear()
+    if (fontChanged) {
+      this.clearAllCaches()
     }
   }
 
+  /** Get current configuration (readonly). */
+  getConfig(): Readonly<LayoutConfig> {
+    return this.config
+  }
+
+  /** Replace the measurement backend (e.g. for testing). */
+  setBackend(backend: MeasurementBackend): void {
+    this.backend = backend
+    this.clearAllCaches()
+  }
+
+  /** Set locale for text segmentation. */
+  setLocale(locale?: string): void {
+    this.backend.setLocale(locale)
+    this.clearAllCaches()
+  }
+
+  // --------------------------------------------------------
+  // Core Layout API
+  // --------------------------------------------------------
+
   /**
-   * Compute layout for a block of text.
-   * Uses pretext's prepare() + layout() pipeline.
+   * Compute height and line count for a text block.
+   * Uses pretext prepare() + layout() pipeline.
+   * The PreparedText is cached by (text, font) key.
    */
   computeLayout(text: string): LayoutResult {
-    // TODO: integrate with @chenglou/pretext
-    // For now, provide a simple line-counting fallback
-    const lines = text.split('\n')
-    const lineCount = lines.length
-    const height = lineCount * this.config.lineHeight
-
+    const prepared = this.getPrepared(text)
+    const result = this.backend.layout(prepared, this.config.maxWidth, this.config.lineHeight)
     return {
-      height,
-      lineCount,
+      height: result.height,
+      lineCount: result.lineCount,
     }
   }
 
   /**
    * Compute layout with individual line information.
-   * Uses pretext's prepareWithSegments() + layoutWithLines().
+   * Uses prepareWithSegments() + layoutWithLines().
    */
   computeLayoutWithLines(text: string): LayoutResult {
-    // TODO: integrate with @chenglou/pretext layoutWithLines
-    const textLines = text.split('\n')
-    const lines: LayoutLine[] = textLines.map((line, i) => ({
-      text: line,
-      width: 0, // TODO: actual measurement
+    const prepared = this.getPreparedWithSegments(text)
+    const result = this.backend.layoutWithLines(
+      prepared,
+      this.config.maxWidth,
+      this.config.lineHeight,
+    )
+
+    const lines: LayoutLine[] = result.lines.map((line, i) => ({
+      text: line.text,
+      width: line.width,
       y: i * this.config.lineHeight,
-      sourceLineIndex: i,
+      sourceIndex: i,
     }))
 
     return {
-      height: lines.length * this.config.lineHeight,
-      lineCount: lines.length,
+      height: result.height,
+      lineCount: result.lineCount,
       lines,
     }
   }
 
   /**
    * Compute layout for only the visible viewport.
-   * This is the key performance optimization: we only measure
-   * and position lines that are actually visible.
+   * Key performance optimization: only measure and position visible lines.
+   * Includes configurable buffer (default 2x viewport) for smooth scrolling.
    */
   computeViewportLayout(
     text: string,
@@ -125,37 +357,136 @@ export class LayoutEngine {
   ): ViewportLayoutResult {
     const allLayout = this.computeLayoutWithLines(text)
     const allLines = allLayout.lines ?? []
+    const { lineHeight } = this.config
+    const buffer = (this.config.viewportBuffer ?? 2) * viewportHeight
 
-    const startIndex = Math.max(0, Math.floor(scrollTop / this.config.lineHeight))
-    const endIndex = Math.min(
-      allLines.length,
-      Math.ceil((scrollTop + viewportHeight) / this.config.lineHeight),
-    )
+    const bufferedTop = Math.max(0, scrollTop - buffer)
+    const bufferedBottom = scrollTop + viewportHeight + buffer
+
+    const startIndex = Math.max(0, Math.floor(bufferedTop / lineHeight))
+    const endIndex = Math.min(allLines.length, Math.ceil(bufferedBottom / lineHeight))
 
     const visibleLines = allLines.slice(startIndex, endIndex)
 
     return {
       visibleLines,
       totalHeight: allLayout.height,
-      startY: startIndex * this.config.lineHeight,
+      startY: startIndex * lineHeight,
+      startIndex,
+      endIndex,
+    }
+  }
+
+  // --------------------------------------------------------
+  // Multi-paragraph Layout
+  // --------------------------------------------------------
+
+  /**
+   * Compute layout for an array of text blocks (paragraphs).
+   * Returns cumulative heights for virtual scrolling.
+   */
+  computeDocumentLayout(paragraphs: string[]): {
+    totalHeight: number
+    paragraphOffsets: number[]
+    paragraphHeights: number[]
+  } {
+    const offsets: number[] = []
+    const heights: number[] = []
+    let cumHeight = 0
+
+    for (const text of paragraphs) {
+      offsets.push(cumHeight)
+      const result = this.computeLayout(text)
+      heights.push(result.height)
+      cumHeight += result.height
+    }
+
+    return {
+      totalHeight: cumHeight,
+      paragraphOffsets: offsets,
+      paragraphHeights: heights,
     }
   }
 
   /**
-   * Invalidate cache for a specific text block.
+   * Find which paragraph and line is at a given scrollTop position.
    */
-  invalidateCache(key?: string): void {
-    if (key) {
-      this.cache.delete(key)
+  hitTest(
+    paragraphs: string[],
+    scrollTop: number,
+  ): { paragraphIndex: number; lineIndex: number } | null {
+    let cumHeight = 0
+    for (let i = 0; i < paragraphs.length; i++) {
+      const result = this.computeLayout(paragraphs[i]!)
+      if (cumHeight + result.height > scrollTop) {
+        const localY = scrollTop - cumHeight
+        const lineIndex = Math.floor(localY / this.config.lineHeight)
+        return { paragraphIndex: i, lineIndex }
+      }
+      cumHeight += result.height
+    }
+    return null
+  }
+
+  // --------------------------------------------------------
+  // Cache Management
+  // --------------------------------------------------------
+
+  /** Invalidate cache for a specific text block. */
+  invalidateCache(text?: string): void {
+    if (text) {
+      const key = this.cacheKey(text)
+      this.preparedCache.delete(key)
+      this.preparedSegCache.delete(key)
     } else {
-      this.cache.clear()
+      this.clearAllCaches()
     }
   }
 
-  /**
-   * Get current configuration.
-   */
-  getConfig(): Readonly<LayoutConfig> {
-    return this.config
+  /** Clear all caches including pretext internal cache. */
+  clearAllCaches(): void {
+    this.preparedCache.clear()
+    this.preparedSegCache.clear()
+    this.backend.clearCache()
+  }
+
+  /** Get current cache statistics. */
+  getCacheStats(): { preparedSize: number; segmentSize: number } {
+    return {
+      preparedSize: this.preparedCache.size,
+      segmentSize: this.preparedSegCache.size,
+    }
+  }
+
+  // --------------------------------------------------------
+  // Internal Helpers
+  // --------------------------------------------------------
+
+  private cacheKey(text: string): string {
+    return `${this.config.font}|${this.config.whiteSpace ?? 'normal'}|${text}`
+  }
+
+  private getPrepared(text: string): PreparedText {
+    const key = this.cacheKey(text)
+    let prepared = this.preparedCache.get(key)
+    if (!prepared) {
+      const opts: PrepareOptions | undefined =
+        this.config.whiteSpace === 'pre-wrap' ? { whiteSpace: 'pre-wrap' } : undefined
+      prepared = this.backend.prepare(text, this.config.font, opts)
+      this.preparedCache.set(key, prepared)
+    }
+    return prepared
+  }
+
+  private getPreparedWithSegments(text: string): PreparedTextWithSegments {
+    const key = this.cacheKey(text)
+    let prepared = this.preparedSegCache.get(key)
+    if (!prepared) {
+      const opts: PrepareOptions | undefined =
+        this.config.whiteSpace === 'pre-wrap' ? { whiteSpace: 'pre-wrap' } : undefined
+      prepared = this.backend.prepareWithSegments(text, this.config.font, opts)
+      this.preparedSegCache.set(key, prepared)
+    }
+    return prepared
   }
 }

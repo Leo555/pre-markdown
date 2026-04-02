@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PreMarkdown — Demo</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --bg-card: #1a1d27;
+      --bg-input: #13151d;
+      --border: #2a2d3a;
+      --text: #e4e5e9;
+      --text-dim: #8b8d97;
+      --accent: #6c5ce7;
+      --accent-soft: rgba(108, 92, 231, 0.15);
+      --green: #00cec9;
+      --radius: 10px;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'SF Mono', monospace;
+      --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ===== Header ===== */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 24px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-card);
+      flex-shrink: 0;
+    }
+    header .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      font-size: 18px;
+      letter-spacing: -0.5px;
+    }
+    header .logo span { color: var(--accent); }
+    header .badge {
+      font-size: 11px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      padding: 3px 8px;
+      border-radius: 20px;
+      font-weight: 600;
+    }
+    header .stats {
+      display: flex;
+      gap: 16px;
+      font-size: 12px;
+      color: var(--text-dim);
+    }
+    header .stats b { color: var(--green); font-weight: 600; }
+
+    /* ===== Main ===== */
+    main {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+    }
+
+    /* ===== Editor Pane ===== */
+    .pane {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .pane-header {
+      padding: 8px 16px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-dim);
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-card);
+      flex-shrink: 0;
+    }
+    .divider {
+      width: 1px;
+      background: var(--border);
+      flex-shrink: 0;
+    }
+
+    textarea#editor {
+      flex: 1;
+      resize: none;
+      border: none;
+      outline: none;
+      padding: 20px;
+      font-family: var(--font-mono);
+      font-size: 14px;
+      line-height: 1.7;
+      background: var(--bg-input);
+      color: var(--text);
+      tab-size: 2;
+    }
+    textarea#editor::placeholder { color: var(--text-dim); }
+
+    /* ===== Preview Pane ===== */
+    #preview {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px 32px;
+      background: var(--bg);
+      font-size: 15px;
+      line-height: 1.75;
+    }
+
+    /* ===== Markdown Rendered Styles ===== */
+    #preview h1 { font-size: 2em; margin: 0.8em 0 0.4em; font-weight: 800; letter-spacing: -0.5px; border-bottom: 2px solid var(--border); padding-bottom: 0.3em; }
+    #preview h2 { font-size: 1.5em; margin: 0.7em 0 0.35em; font-weight: 700; color: var(--accent); }
+    #preview h3 { font-size: 1.25em; margin: 0.6em 0 0.3em; font-weight: 600; }
+    #preview h4, #preview h5, #preview h6 { margin: 0.5em 0 0.25em; font-weight: 600; }
+    #preview p { margin: 0.6em 0; }
+    #preview a { color: var(--accent); text-decoration: none; }
+    #preview a:hover { text-decoration: underline; }
+
+    #preview strong { font-weight: 700; color: #fff; }
+    #preview em { font-style: italic; color: #c8c9ce; }
+    #preview del { color: var(--text-dim); }
+    #preview mark, #preview .highlight { background: rgba(255, 220, 50, 0.2); color: #ffe066; padding: 1px 4px; border-radius: 3px; }
+
+    #preview code {
+      font-family: var(--font-mono);
+      font-size: 0.88em;
+      background: rgba(108, 92, 231, 0.12);
+      color: #a29bfe;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    #preview pre {
+      background: #13151d;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 20px;
+      overflow-x: auto;
+      margin: 0.8em 0;
+    }
+    #preview pre code {
+      background: none;
+      padding: 0;
+      color: var(--text);
+      font-size: 13px;
+    }
+
+    #preview blockquote {
+      border-left: 4px solid var(--accent);
+      margin: 0.8em 0;
+      padding: 8px 16px;
+      background: var(--accent-soft);
+      border-radius: 0 var(--radius) var(--radius) 0;
+      color: #c8c9ce;
+    }
+
+    #preview ul, #preview ol { padding-left: 1.8em; margin: 0.5em 0; }
+    #preview li { margin: 0.25em 0; }
+    #preview li input[type="checkbox"] { margin-right: 6px; }
+
+    #preview table { border-collapse: collapse; width: 100%; margin: 0.8em 0; }
+    #preview th, #preview td { border: 1px solid var(--border); padding: 8px 12px; text-align: left; }
+    #preview th { background: var(--bg-card); font-weight: 600; }
+    #preview tr:nth-child(even) { background: rgba(255,255,255,0.02); }
+
+    #preview hr { border: none; border-top: 1px solid var(--border); margin: 1.5em 0; }
+
+    #preview img { max-width: 100%; border-radius: var(--radius); }
+
+    #preview sup { font-size: 0.75em; vertical-align: super; }
+    #preview sub { font-size: 0.75em; vertical-align: sub; }
+
+    #preview .container { border-radius: var(--radius); padding: 12px 16px; margin: 0.8em 0; border-left: 4px solid; }
+    #preview .container-info { border-color: #0984e3; background: rgba(9,132,227,0.1); }
+    #preview .container-warning { border-color: #fdcb6e; background: rgba(253,203,110,0.1); }
+    #preview .container-danger { border-color: #d63031; background: rgba(214,48,49,0.1); }
+    #preview .container-success { border-color: #00b894; background: rgba(0,184,148,0.1); }
+    #preview .container-primary { border-color: var(--accent); background: var(--accent-soft); }
+
+    #preview details { margin: 0.8em 0; border: 1px solid var(--border); border-radius: var(--radius); }
+    #preview details summary { padding: 10px 14px; cursor: pointer; font-weight: 600; background: var(--bg-card); border-radius: var(--radius); }
+    #preview details[open] summary { border-radius: var(--radius) var(--radius) 0 0; border-bottom: 1px solid var(--border); }
+    #preview details > :not(summary) { padding: 0 14px; }
+
+    #preview .math-block { text-align: center; padding: 12px; font-family: var(--font-mono); color: var(--accent); }
+
+    /* ===== Footer ===== */
+    footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 24px;
+      font-size: 11px;
+      color: var(--text-dim);
+      border-top: 1px solid var(--border);
+      background: var(--bg-card);
+      flex-shrink: 0;
+    }
+    footer .perf { color: var(--green); font-weight: 600; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <span>Pre</span>Markdown
+    <div class="badge">Demo v0.1</div>
+  </div>
+  <div class="stats">
+    <span>Parse: <b id="stat-parse">--</b></span>
+    <span>Render: <b id="stat-render">--</b></span>
+    <span>AST Nodes: <b id="stat-nodes">--</b></span>
+    <span>Lines: <b id="stat-lines">--</b></span>
+  </div>
+</header>
+
+<main>
+  <div class="pane">
+    <div class="pane-header">Markdown 编辑器</div>
+    <textarea id="editor" spellcheck="false" placeholder="输入 Markdown 内容..."></textarea>
+  </div>
+  <div class="divider"></div>
+  <div class="pane">
+    <div class="pane-header">实时预览</div>
+    <div id="preview"></div>
+  </div>
+</main>
+
+<footer>
+  <span>Powered by <b>@chenglou/pretext</b> layout engine &amp; custom incremental parser</span>
+  <span class="perf" id="stat-total">Ready</span>
+</footer>
+
+<script type="module" src="/demo/main.ts"></script>
+</body>
+</html>

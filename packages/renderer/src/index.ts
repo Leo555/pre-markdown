@@ -221,10 +221,14 @@ function renderInlineNode(node: InlineNode, opts: Required<RendererOptions>): st
       return `<del>${renderInlineNodes(node.children, opts)}</del>`
     case 'inlineCode':
       return `<code>${escapeHtml(node.value)}</code>`
-    case 'link':
-      return `<a href="${escapeAttr(node.url)}"${node.title ? ` title="${escapeAttr(node.title)}"` : ''}>${renderInlineNodes(node.children, opts)}</a>`
-    case 'image':
-      return `<img src="${escapeAttr(node.url)}" alt="${escapeAttr(node.alt)}"${node.title ? ` title="${escapeAttr(node.title)}"` : ''}${node.width ? ` width="${node.width}"` : ''}${node.height ? ` height="${node.height}"` : ''} />`
+    case 'link': {
+      const safeUrl = opts.sanitize ? sanitizeUrl(node.url) : node.url
+      return `<a href="${escapeAttr(safeUrl)}"${node.title ? ` title="${escapeAttr(node.title)}"` : ''}>${renderInlineNodes(node.children, opts)}</a>`
+    }
+    case 'image': {
+      const safeSrc = opts.sanitize ? sanitizeUrl(node.url) : node.url
+      return `<img src="${escapeAttr(safeSrc)}" alt="${escapeAttr(node.alt)}"${node.title ? ` title="${escapeAttr(node.title)}"` : ''}${node.width ? ` width="${node.width}"` : ''}${node.height ? ` height="${node.height}"` : ''} />`
+    }
     case 'htmlInline':
       return opts.sanitize ? escapeHtml(node.value) : node.value
     case 'break':
@@ -241,22 +245,34 @@ function renderInlineNode(node: InlineNode, opts: Required<RendererOptions>): st
       return `<sup>${renderInlineNodes(node.children, opts)}</sup>`
     case 'subscript':
       return `<sub>${renderInlineNodes(node.children, opts)}</sub>`
-    case 'fontColor':
-      return `<span style="color:${escapeAttr(node.color)}">${renderInlineNodes(node.children, opts)}</span>`
-    case 'fontSize':
-      return `<span style="font-size:${escapeAttr(node.size)}">${renderInlineNodes(node.children, opts)}</span>`
-    case 'fontBgColor':
-      return `<span style="background-color:${escapeAttr(node.color)}">${renderInlineNodes(node.children, opts)}</span>`
+    case 'fontColor': {
+      const safeColor = opts.sanitize ? sanitizeCssValue(node.color) : node.color
+      return `<span style="color:${escapeAttr(safeColor)}">${renderInlineNodes(node.children, opts)}</span>`
+    }
+    case 'fontSize': {
+      const safeSize = opts.sanitize ? sanitizeCssValue(node.size) : node.size
+      return `<span style="font-size:${escapeAttr(safeSize)}">${renderInlineNodes(node.children, opts)}</span>`
+    }
+    case 'fontBgColor': {
+      const safeBgColor = opts.sanitize ? sanitizeCssValue(node.color) : node.color
+      return `<span style="background-color:${escapeAttr(safeBgColor)}">${renderInlineNodes(node.children, opts)}</span>`
+    }
     case 'ruby':
       return `<ruby>${escapeHtml(node.base)}<rp>(</rp><rt>${escapeHtml(node.annotation)}</rt><rp>)</rp></ruby>`
     case 'emoji':
       return node.value
-    case 'audio':
-      return `<audio controls src="${escapeAttr(node.url)}"${node.title ? ` title="${escapeAttr(node.title)}"` : ''}></audio>`
-    case 'video':
-      return `<video controls src="${escapeAttr(node.url)}"${node.title ? ` title="${escapeAttr(node.title)}"` : ''}></video>`
+    case 'audio': {
+      const safeAudioUrl = opts.sanitize ? sanitizeUrl(node.url) : node.url
+      return `<audio controls src="${escapeAttr(safeAudioUrl)}"${node.title ? ` title="${escapeAttr(node.title)}"` : ''}></audio>`
+    }
+    case 'video': {
+      const safeVideoUrl = opts.sanitize ? sanitizeUrl(node.url) : node.url
+      return `<video controls src="${escapeAttr(safeVideoUrl)}"${node.title ? ` title="${escapeAttr(node.title)}"` : ''}></video>`
+    }
     case 'autolink':
       return `<a href="${escapeAttr(node.url)}">${escapeHtml(node.url.replace(/^mailto:/, ''))}</a>`
+    case 'underline':
+      return `<span style="text-decoration:underline">${renderInlineNodes(node.children, opts)}</span>`
     default:
       return ''
   }
@@ -281,6 +297,30 @@ function escapeAttr(str: string): string {
     .replace(/'/g, '&#39;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
+}
+
+/** Sanitize a URL — block dangerous protocols */
+function sanitizeUrl(url: string): string {
+  const trimmed = url.trim().toLowerCase()
+  // Block javascript:, vbscript:, data: (except safe data: images)
+  if (
+    trimmed.startsWith('javascript:') ||
+    trimmed.startsWith('vbscript:') ||
+    (trimmed.startsWith('data:') && !trimmed.startsWith('data:image/'))
+  ) {
+    return ''
+  }
+  return url
+}
+
+/** Sanitize a CSS value — strip anything that looks like script injection */
+function sanitizeCssValue(value: string): string {
+  // Remove anything that contains expression(), url(), javascript:, or event-handler-like patterns
+  return value
+    .replace(/expression\s*\(/gi, '')
+    .replace(/url\s*\(/gi, '')
+    .replace(/javascript\s*:/gi, '')
+    .replace(/;[^}]*$/g, '') // strip anything after semicolon (prevent style injection)
 }
 
 function getPlainText(nodes: InlineNode[]): string {

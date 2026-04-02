@@ -82,7 +82,7 @@ export function isInlineNode(node: ASTNode): node is InlineNode {
     'link', 'image', 'htmlInline', 'break', 'softBreak',
     'footnoteReference', 'mathInline', 'highlight', 'superscript',
     'subscript', 'fontColor', 'fontSize', 'fontBgColor', 'ruby',
-    'emoji', 'audio', 'video', 'autolink',
+    'emoji', 'audio', 'video', 'autolink', 'underline',
   ])
   return inlineTypes.has(node.type)
 }

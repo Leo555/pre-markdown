@@ -24,6 +24,14 @@ import {
   createSubscript,
   createAutolink,
   createFootnoteReference,
+  createFontColor,
+  createFontSize,
+  createFontBgColor,
+  createRuby,
+  createEmoji,
+  createAudio,
+  createVideo,
+  createUnderline,
 } from '@pre-markdown/core'
 
 /**
@@ -89,6 +97,66 @@ export function parseInline(input: string): InlineNode[] {
     // Math inline: $...$
     if (ch === '$' && input[pos + 1] !== '$') {
       const result = tryMathInline(input, pos)
+      if (result) {
+        flushText()
+        nodes.push(result.node)
+        pos = result.end
+        textStart = pos
+        continue
+      }
+    }
+
+    // Cherry-style background color: !!!color text!!!
+    if (ch === '!' && input[pos + 1] === '!' && input[pos + 2] === '!') {
+      const result = tryCherryBgColor(input, pos)
+      if (result) {
+        flushText()
+        nodes.push(result.node)
+        pos = result.end
+        textStart = pos
+        continue
+      }
+    }
+
+    // Cherry-style font color: !!color text!!
+    if (ch === '!' && input[pos + 1] === '!' && input[pos + 2] !== '!') {
+      const result = tryCherryFontColor(input, pos)
+      if (result) {
+        flushText()
+        nodes.push(result.node)
+        pos = result.end
+        textStart = pos
+        continue
+      }
+    }
+
+    // Cherry-style font size: !size text!
+    if (ch === '!' && input[pos + 1] !== '!' && input[pos + 1] !== '[' && input[pos + 1] !== 'a' && input[pos + 1] !== 'v') {
+      const result = tryCherryFontSize(input, pos)
+      if (result) {
+        flushText()
+        nodes.push(result.node)
+        pos = result.end
+        textStart = pos
+        continue
+      }
+    }
+
+    // Audio: !audio[title](url)
+    if (ch === '!' && input.slice(pos, pos + 7) === '!audio[') {
+      const result = tryAudio(input, pos)
+      if (result) {
+        flushText()
+        nodes.push(result.node)
+        pos = result.end
+        textStart = pos
+        continue
+      }
+    }
+
+    // Video: !video[title](url)
+    if (ch === '!' && input.slice(pos, pos + 7) === '!video[') {
+      const result = tryVideo(input, pos)
       if (result) {
         flushText()
         nodes.push(result.node)
@@ -193,8 +261,20 @@ export function parseInline(input: string): InlineNode[] {
     }
 
     // Superscript: ^text^
-    if (ch === '^') {
+    if (ch === '^' && input[pos + 1] !== '^') {
       const result = trySuperscript(input, pos)
+      if (result) {
+        flushText()
+        nodes.push(result.node)
+        pos = result.end
+        textStart = pos
+        continue
+      }
+    }
+
+    // Cherry-style subscript: ^^text^^ (must check before single ^)
+    if (ch === '^' && input[pos + 1] === '^') {
+      const result = tryCherrySubscript(input, pos)
       if (result) {
         flushText()
         nodes.push(result.node)
@@ -207,6 +287,54 @@ export function parseInline(input: string): InlineNode[] {
     // Subscript: ~text~  (single tilde, not double)
     if (ch === '~' && input[pos + 1] !== '~') {
       const result = trySubscript(input, pos)
+      if (result) {
+        flushText()
+        nodes.push(result.node)
+        pos = result.end
+        textStart = pos
+        continue
+      }
+    }
+
+    // Font color/size/bgcolor: {color:red}text{/color} style
+    if (ch === '{') {
+      const result = tryFontColor(input, pos) || tryFontSize(input, pos) || tryFontBgColor(input, pos)
+      if (result) {
+        flushText()
+        nodes.push(result.node)
+        pos = result.end
+        textStart = pos
+        continue
+      }
+    }
+
+    // Ruby: {text}(annotation) or Cherry-style {text|annotation}
+    if (ch === '{') {
+      const result = tryRuby(input, pos)
+      if (result) {
+        flushText()
+        nodes.push(result.node)
+        pos = result.end
+        textStart = pos
+        continue
+      }
+    }
+
+    // Underline (Cherry-style): /text/ (requires space or line boundary)
+    if (ch === '/') {
+      const result = tryUnderline(input, pos)
+      if (result) {
+        flushText()
+        nodes.push(result.node)
+        pos = result.end
+        textStart = pos
+        continue
+      }
+    }
+
+    // Emoji shortcode: :smile:
+    if (ch === ':') {
+      const result = tryEmoji(input, pos)
       if (result) {
         flushText()
         nodes.push(result.node)
@@ -563,4 +691,262 @@ function parseUrlAndTitle(
   if (pos >= input.length || input[pos] !== ')') return null
 
   return { url, title, end: pos + 1 }
+}
+
+// ============================================================
+// Extended Inline Parsers
+// ============================================================
+
+/** Emoji shortcode mapping (common subset) */
+const EMOJI_MAP: Record<string, string> = {
+  smile: '😄', laughing: '😆', blush: '😊', smiley: '😃', relaxed: '☺️',
+  heart: '❤️', 'thumbsup': '👍', 'thumbsdown': '👎', ok_hand: '👌',
+  wave: '👋', clap: '👏', raised_hands: '🙌', pray: '🙏',
+  fire: '🔥', star: '⭐', sparkles: '✨', zap: '⚡',
+  warning: '⚠️', x: '❌', white_check_mark: '✅', question: '❓',
+  exclamation: '❗', bulb: '💡', memo: '📝', book: '📖',
+  rocket: '🚀', tada: '🎉', eyes: '👀', thinking: '🤔',
+  sob: '😭', joy: '😂', wink: '😉', grin: '😁',
+  sweat_smile: '😅', sunglasses: '😎', heart_eyes: '😍',
+  100: '💯', boom: '💥', muscle: '💪', point_up: '☝️',
+  point_down: '👇', point_left: '👈', point_right: '👉',
+  see_no_evil: '🙈', hear_no_evil: '🙉', speak_no_evil: '🙊',
+  coffee: '☕', beer: '🍺', pizza: '🍕', hamburger: '🍔',
+  dog: '🐶', cat: '🐱', bug: '🐛', penguin: '🐧',
+  checkered_flag: '🏁', trophy: '🏆', gem: '💎', wrench: '🔧',
+  hammer: '🔨', gear: '⚙️', link: '🔗', lock: '🔒',
+  key: '🔑', bell: '🔔', calendar: '📅', clock: '🕐',
+  earth_americas: '🌎', sunny: '☀️', cloud: '☁️', umbrella: '☂️',
+  snowflake: '❄️', rainbow: '🌈', ocean: '🌊',
+  '+1': '👍', '-1': '👎',
+}
+
+function tryFontColor(input: string, start: number): InlineResult | null {
+  // {color:red}text{/color} or {color:#ff0000}text{/color}
+  const match = /^\{color:([^}]+)\}/.exec(input.slice(start))
+  if (!match) return null
+
+  const color = match[1]!
+  const afterOpen = start + match[0].length
+
+  const closeTag = '{/color}'
+  const closeIdx = input.indexOf(closeTag, afterOpen)
+  if (closeIdx === -1) return null
+
+  const content = input.slice(afterOpen, closeIdx)
+  if (content.length === 0) return null
+
+  return {
+    node: createFontColor(color, parseInline(content)),
+    end: closeIdx + closeTag.length,
+  }
+}
+
+function tryFontSize(input: string, start: number): InlineResult | null {
+  // {size:20px}text{/size} or {size:1.5em}text{/size}
+  const match = /^\{size:([^}]+)\}/.exec(input.slice(start))
+  if (!match) return null
+
+  const size = match[1]!
+  const afterOpen = start + match[0].length
+
+  const closeTag = '{/size}'
+  const closeIdx = input.indexOf(closeTag, afterOpen)
+  if (closeIdx === -1) return null
+
+  const content = input.slice(afterOpen, closeIdx)
+  if (content.length === 0) return null
+
+  return {
+    node: createFontSize(size, parseInline(content)),
+    end: closeIdx + closeTag.length,
+  }
+}
+
+function tryFontBgColor(input: string, start: number): InlineResult | null {
+  // {bgcolor:yellow}text{/bgcolor} or {bgcolor:#ffff00}text{/bgcolor}
+  const match = /^\{bgcolor:([^}]+)\}/.exec(input.slice(start))
+  if (!match) return null
+
+  const color = match[1]!
+  const afterOpen = start + match[0].length
+
+  const closeTag = '{/bgcolor}'
+  const closeIdx = input.indexOf(closeTag, afterOpen)
+  if (closeIdx === -1) return null
+
+  const content = input.slice(afterOpen, closeIdx)
+  if (content.length === 0) return null
+
+  return {
+    node: createFontBgColor(color, parseInline(content)),
+    end: closeIdx + closeTag.length,
+  }
+}
+
+function tryRuby(input: string, start: number): InlineResult | null {
+  // Format 1 (our style): {base text}(annotation)
+  // Format 2 (Cherry style): {base text|annotation}
+  if (input[start] !== '{') return null
+
+  // Find closing brace
+  const braceClose = input.indexOf('}', start + 1)
+  if (braceClose === -1) return null
+
+  const innerContent = input.slice(start + 1, braceClose)
+  if (innerContent.length === 0) return null
+
+  // Avoid matching font color/size/bgcolor patterns
+  if (/^(?:color:|size:|bgcolor:)/.test(innerContent)) return null
+  // Avoid matching {/color} etc close tags
+  if (/^\//.test(innerContent)) return null
+
+  // Cherry format: {text|annotation}
+  if (innerContent.includes('|')) {
+    const pipeIdx = innerContent.indexOf('|')
+    const base = innerContent.slice(0, pipeIdx)
+    const annotation = innerContent.slice(pipeIdx + 1)
+    if (base.length > 0 && annotation.length > 0) {
+      return {
+        node: createRuby(base, annotation),
+        end: braceClose + 1,
+      }
+    }
+  }
+
+  // Our format: {base text}(annotation)
+  if (input[braceClose + 1] !== '(') return null
+
+  const parenClose = input.indexOf(')', braceClose + 2)
+  if (parenClose === -1) return null
+
+  const annotation = input.slice(braceClose + 2, parenClose)
+  if (annotation.length === 0) return null
+
+  return {
+    node: createRuby(innerContent, annotation),
+    end: parenClose + 1,
+  }
+}
+
+function tryEmoji(input: string, start: number): InlineResult | null {
+  // :shortcode:
+  const match = /^:([a-zA-Z0-9_+-]+):/.exec(input.slice(start))
+  if (!match) return null
+
+  const shortcode = match[1]!
+  const value = EMOJI_MAP[shortcode]
+  if (!value) return null
+
+  return {
+    node: createEmoji(shortcode, value),
+    end: start + match[0].length,
+  }
+}
+
+function tryAudio(input: string, start: number): InlineResult | null {
+  // !audio[title](url)
+  const match = /^!audio\[([^\]]*)\]\(([^)]+)\)/.exec(input.slice(start))
+  if (!match) return null
+
+  const title = match[1] || undefined
+  const url = match[2]!
+
+  return {
+    node: createAudio(url, title),
+    end: start + match[0].length,
+  }
+}
+
+function tryVideo(input: string, start: number): InlineResult | null {
+  // !video[title](url)
+  const match = /^!video\[([^\]]*)\]\(([^)]+)\)/.exec(input.slice(start))
+  if (!match) return null
+
+  const title = match[1] || undefined
+  const url = match[2]!
+
+  return {
+    node: createVideo(url, title),
+    end: start + match[0].length,
+  }
+}
+
+// ============================================================
+// Cherry-Compatible Inline Parsers
+// ============================================================
+
+/** Cherry-style font color: !!color text!! (ref: Cherry Color.js) */
+function tryCherryFontColor(input: string, start: number): InlineResult | null {
+  // !!#hex text!! or !!colorname text!!
+  const match = /^!!(#[0-9a-zA-Z]{3,6}|[a-z]{3,20})\s([\w\W]+?)!!/.exec(input.slice(start))
+  if (!match) return null
+
+  return {
+    node: createFontColor(match[1]!, parseInline(match[2]!)),
+    end: start + match[0].length,
+  }
+}
+
+/** Cherry-style font size: !size text! (ref: Cherry Size.js) */
+function tryCherryFontSize(input: string, start: number): InlineResult | null {
+  // !24 text! — size is 1-2 digit number (px)
+  const match = /^!([0-9]{1,2})\s([\w\W]*?)!/.exec(input.slice(start))
+  if (!match) return null
+
+  return {
+    node: createFontSize(`${match[1]!}px`, parseInline(match[2]!)),
+    end: start + match[0].length,
+  }
+}
+
+/** Cherry-style background color: !!!color text!!! (ref: Cherry BackgroundColor.js) */
+function tryCherryBgColor(input: string, start: number): InlineResult | null {
+  // !!!#hex text!!! or !!!colorname text!!!
+  const match = /^!!!(#[0-9a-zA-Z]{3,6}|[a-z]{3,10})\s([\w\W]+?)!!!/.exec(input.slice(start))
+  if (!match) return null
+
+  return {
+    node: createFontBgColor(match[1]!, parseInline(match[2]!)),
+    end: start + match[0].length,
+  }
+}
+
+/** Cherry-style subscript: ^^text^^ (ref: Cherry Sub.js) */
+function tryCherrySubscript(input: string, start: number): InlineResult | null {
+  if (input[start] !== '^' || input[start + 1] !== '^') return null
+
+  const closeIdx = input.indexOf('^^', start + 2)
+  if (closeIdx === -1) return null
+
+  const content = input.slice(start + 2, closeIdx)
+  if (content.length === 0) return null
+
+  return {
+    node: createSubscript(parseInline(content)),
+    end: closeIdx + 2,
+  }
+}
+
+/** Cherry-style underline: /text/ (ref: Cherry Underline.js) — requires space/boundary */
+function tryUnderline(input: string, start: number): InlineResult | null {
+  if (input[start] !== '/') return null
+
+  // Must be preceded by space or start of string
+  if (start > 0 && input[start - 1] !== ' ' && input[start - 1] !== '\n') return null
+
+  const closeIdx = input.indexOf('/', start + 1)
+  if (closeIdx === -1 || closeIdx === start + 1) return null
+
+  // Must not contain newlines
+  const content = input.slice(start + 1, closeIdx)
+  if (content.includes('\n')) return null
+
+  // Must be followed by space or end of string
+  if (closeIdx + 1 < input.length && input[closeIdx + 1] !== ' ' && input[closeIdx + 1] !== '\n') return null
+
+  return {
+    node: createUnderline(parseInline(content)),
+    end: closeIdx + 1,
+  }
 }

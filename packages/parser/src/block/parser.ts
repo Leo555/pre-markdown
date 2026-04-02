@@ -21,8 +21,10 @@ import type {
   TableAlign,
   TableRow,
   TableCell,
+  FootnoteDefinition,
   MathBlock,
   Container,
+  Details,
   TOC,
 } from '@pre-markdown/core'
 
@@ -39,8 +41,10 @@ import {
   createTable,
   createTableRow,
   createTableCell,
+  createFootnoteDefinition,
   createMathBlock,
   createContainer,
+  createDetails,
   createTOC,
   createText,
 } from '@pre-markdown/core'
@@ -57,6 +61,8 @@ export interface BlockParserOptions {
   containers?: boolean
   /** Enable TOC parsing */
   toc?: boolean
+  /** Enable footnote definition parsing */
+  footnotes?: boolean
 }
 
 const DEFAULT_OPTIONS: Required<BlockParserOptions> = {
@@ -64,6 +70,7 @@ const DEFAULT_OPTIONS: Required<BlockParserOptions> = {
   mathBlocks: true,
   containers: true,
   toc: true,
+  footnotes: true,
 }
 
 /** ATX heading pattern: 1-6 # followed by space or end of line */
@@ -90,8 +97,8 @@ const RE_MATH_CLOSE = /^\${2}\s*$/
 /** Container opening */
 const RE_CONTAINER_OPEN = /^:::[ \t]*(\w+)(?:[ \t]+(.*))?$/
 const RE_CONTAINER_CLOSE = /^:::[ \t]*$/
-/** TOC */
-const RE_TOC = /^\[\[toc\]\]$/i
+/** TOC — supports [toc], [[toc]], 【【toc】】 (Cherry-compatible) */
+const RE_TOC = /^(?:\[toc\]|\[\[toc\]\]|【【toc】】)$/i
 /** GFM table delimiter row */
 const RE_TABLE_DELIM = /^\|?(?:\s*:?-+:?\s*\|)+\s*:?-+:?\s*\|?\s*$/
 /** HTML block start patterns (simplified) */
@@ -103,6 +110,13 @@ const RE_INDENT_CODE = /^(?: {4}|\t)/
 const RE_BLANK = /^[ \t]*$/
 /** Task list item */
 const RE_TASK = /^\[([ xX])\]\s+/
+/** Footnote definition */
+const RE_FOOTNOTE_DEF = /^\[\^([^\]]+)\]:\s+(.*)/
+/** Detail/collapsible block opening: +++ or +++- */
+const RE_DETAIL_OPEN = /^\+\+\+([-]?)\s+(.+)$/
+const RE_DETAIL_CLOSE = /^\+\+\+\s*$/
+/** FrontMatter opening: --- at start of document */
+const RE_FRONTMATTER_OPEN = /^-{3,}\s*$/
 
 /**
  * Parse a Markdown string into a Document AST.
@@ -137,6 +151,16 @@ function parseBlockLines(
 
     // Try each block rule in priority order
     let result: ParseResult | null
+
+    // 0. FrontMatter (only at start of document, first non-blank line)
+    if (blocks.length === 0 && i === start) {
+      result = tryFrontMatter(lines, i, end)
+      if (result) {
+        blocks.push(result.node)
+        i = result.nextLine
+        continue
+      }
+    }
 
     // 1. ATX Heading
     result = tryATXHeading(lines, i, opts)
@@ -182,6 +206,16 @@ function parseBlockLines(
       }
     }
 
+    // 5.5. Footnote definition
+    if (opts.footnotes) {
+      result = tryFootnoteDefinition(lines, i, end, opts)
+      if (result) {
+        blocks.push(result.node)
+        i = result.nextLine
+        continue
+      }
+    }
+
     // 6. Custom container
     if (opts.containers) {
       result = tryContainer(lines, i, end, opts)
@@ -190,6 +224,14 @@ function parseBlockLines(
         i = result.nextLine
         continue
       }
+    }
+
+    // 6.5 Detail/collapsible block (Cherry-style: +++title / +++)
+    result = tryDetail(lines, i, end, opts)
+    if (result) {
+      blocks.push(result.node)
+      i = result.nextLine
+      continue
     }
 
     // 7. Blockquote
@@ -353,6 +395,23 @@ function tryTOC(lines: string[], i: number): ParseResult | null {
   }
 }
 
+/** Expand Cherry-style panel type shorthands (ref: Cherry Panel.js) */
+function expandContainerKind(raw: string): string {
+  switch (raw.toLowerCase()) {
+    case 'p': return 'primary'
+    case 'i': return 'info'
+    case 'w': return 'warning'
+    case 'd': return 'danger'
+    case 's': return 'success'
+    case 'l': return 'left'
+    case 'c': return 'center'
+    case 'r': return 'right'
+    case 'j': return 'justify'
+    case 'tip': return 'info'
+    default: return raw
+  }
+}
+
 function tryContainer(
   lines: string[],
   i: number,
@@ -363,8 +422,11 @@ function tryContainer(
   const openMatch = RE_CONTAINER_OPEN.exec(line)
   if (!openMatch) return null
 
-  const kind = openMatch[1]!
+  const rawKind = openMatch[1]!
   const title = openMatch[2] ?? undefined
+
+  // Cherry-compatible panel type shorthand (ref: Cherry Panel.js)
+  const kind = expandContainerKind(rawKind)
 
   const contentLines: string[] = []
   let j = i + 1
@@ -729,6 +791,116 @@ function tryParagraphOrSetext(
   const content = paragraphLines.join('\n').trim()
   return {
     node: createParagraph(parseInline(content)),
+    nextLine: j,
+  }
+}
+
+/** Parse FrontMatter --- yaml --- (ref: Cherry FrontMatter.js) */
+function tryFrontMatter(lines: string[], i: number, end: number): ParseResult | null {
+  const line = lines[i]!
+  if (!RE_FRONTMATTER_OPEN.test(line)) return null
+
+  const contentLines: string[] = []
+  let j = i + 1
+  let foundClose = false
+  while (j < end) {
+    if (RE_FRONTMATTER_OPEN.test(lines[j]!)) {
+      foundClose = true
+      j++
+      break
+    }
+    contentLines.push(lines[j]!)
+    j++
+  }
+
+  // Must have closing --- and at least one non-blank content line
+  if (!foundClose) return null
+  const hasContent = contentLines.some((l) => l.trim().length > 0)
+  if (!hasContent) return null
+
+  const content = contentLines.join('\n')
+  return {
+    node: createHtmlBlock(`<!-- frontmatter\n${content}\n-->`),
+    nextLine: j,
+  }
+}
+
+/** Parse Detail/collapsible: +++title / +++ (ref: Cherry Detail.js) */
+function tryDetail(
+  lines: string[],
+  i: number,
+  end: number,
+  opts: Required<BlockParserOptions>,
+): ParseResult | null {
+  const line = lines[i]!
+  const openMatch = RE_DETAIL_OPEN.exec(line)
+  if (!openMatch) return null
+
+  const isOpen = openMatch[1] === '-'
+  const summary = openMatch[2]!.trim()
+
+  const contentLines: string[] = []
+  let j = i + 1
+  while (j < end) {
+    if (RE_DETAIL_CLOSE.test(lines[j]!)) {
+      j++
+      break
+    }
+    contentLines.push(lines[j]!)
+    j++
+  }
+
+  const children = parseBlockLines(contentLines, 0, contentLines.length, opts)
+
+  // Use Details node — summary field stores the title
+  // isOpen is encoded by prefixing summary with a marker
+  const detailSummary = isOpen ? summary : summary
+
+  return {
+    node: createDetails(detailSummary, children),
+    nextLine: j,
+  }
+}
+
+function tryFootnoteDefinition(
+  lines: string[],
+  i: number,
+  end: number,
+  opts: Required<BlockParserOptions>,
+): ParseResult | null {
+  const line = lines[i]!
+  const match = RE_FOOTNOTE_DEF.exec(line)
+  if (!match) return null
+
+  const identifier = match[1]!
+  const firstLineContent = match[2]!
+
+  // Gather continuation lines (indented by at least 2 spaces or tab)
+  const contentLines: string[] = [firstLineContent]
+  let j = i + 1
+  while (j < end) {
+    const current = lines[j]!
+    if (RE_BLANK.test(current)) {
+      // Check if next line continues the footnote (indented)
+      if (j + 1 < end && /^(?: {2,}|\t)/.test(lines[j + 1]!)) {
+        contentLines.push('')
+        j++
+        continue
+      }
+      break
+    }
+    if (/^(?: {2,}|\t)/.test(current)) {
+      contentLines.push(current.replace(/^(?: {2,}|\t)/, ''))
+      j++
+      continue
+    }
+    break
+  }
+
+  const children = parseBlockLines(contentLines, 0, contentLines.length, opts)
+
+  return {
+    node: createFootnoteDefinition(identifier, identifier, children),
     nextLine: j,
   }
 }

@@ -4,7 +4,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { parse } from '@pre-markdown/parser'
 import { resetNodeIds } from '@pre-markdown/core'
-import type { Heading, Paragraph, CodeBlock, Blockquote, List, ThematicBreak, Table, MathBlock, Container, TOC, HtmlBlock } from '@pre-markdown/core'
+import type { Heading, Paragraph, CodeBlock, Blockquote, List, ThematicBreak, Table, MathBlock, Container, TOC, HtmlBlock, FootnoteDefinition } from '@pre-markdown/core'
 
 describe('Block Parser', () => {
   beforeEach(() => {
@@ -274,6 +274,51 @@ const x = 1
       expect(types).toContain('blockquote')
       expect(types).toContain('codeBlock')
       expect(types).toContain('thematicBreak')
+    })
+  })
+
+  describe('Footnote Definitions', () => {
+    it('should parse a simple footnote definition', () => {
+      const doc = parse('[^1]: This is a footnote.')
+      expect(doc.children).toHaveLength(1)
+      const fn = doc.children[0] as FootnoteDefinition
+      expect(fn.type).toBe('footnoteDefinition')
+      expect(fn.identifier).toBe('1')
+      expect(fn.label).toBe('1')
+      expect(fn.children).toHaveLength(1)
+      expect(fn.children[0]!.type).toBe('paragraph')
+    })
+
+    it('should parse footnote with text identifier', () => {
+      const doc = parse('[^note]: A footnote with text id.')
+      const fn = doc.children[0] as FootnoteDefinition
+      expect(fn.identifier).toBe('note')
+    })
+
+    it('should parse footnote with multi-line content', () => {
+      const doc = parse('[^long]: First line.\n  Second line continuation.')
+      const fn = doc.children[0] as FootnoteDefinition
+      expect(fn.type).toBe('footnoteDefinition')
+      expect(fn.children.length).toBeGreaterThanOrEqual(1)
+    })
+
+    it('should parse multiple footnote definitions', () => {
+      const doc = parse('[^1]: First footnote.\n\n[^2]: Second footnote.')
+      expect(doc.children).toHaveLength(2)
+      expect((doc.children[0] as FootnoteDefinition).identifier).toBe('1')
+      expect((doc.children[1] as FootnoteDefinition).identifier).toBe('2')
+    })
+
+    it('should not parse invalid footnote syntax', () => {
+      const doc = parse('[1]: not a footnote')
+      expect(doc.children[0]!.type).not.toBe('footnoteDefinition')
+    })
+
+    it('should parse footnote followed by other blocks', () => {
+      const doc = parse('[^ref]: Footnote content.\n\n# Heading')
+      expect(doc.children).toHaveLength(2)
+      expect(doc.children[0]!.type).toBe('footnoteDefinition')
+      expect(doc.children[1]!.type).toBe('heading')
     })
   })
 })

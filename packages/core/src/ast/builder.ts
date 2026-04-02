@@ -46,6 +46,7 @@ import type {
   Audio,
   Video,
   Autolink,
+  Underline,
   BlockNode,
   InlineNode,
   SourceLocation,
@@ -304,4 +305,8 @@ export function createAutolink(
   loc?: SourceLocation,
 ): Autolink {
   return { type: 'autolink', url, isEmail, loc, id: nextId() }
+}
+
+export function createUnderline(children: InlineNode[] = [], loc?: SourceLocation): Underline {
+  return { type: 'underline', children, loc, id: nextId() }
 }

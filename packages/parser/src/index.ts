@@ -4,9 +4,11 @@
  * High-performance incremental Markdown parser.
  */
 
-export { parseBlocks } from './block/parser.js'
+export { parseBlocks, parseBlockLines } from './block/parser.js'
 export type { BlockParserOptions } from './block/parser.js'
 export { parseInline } from './inline/index.js'
+export { IncrementalParser } from './incremental.js'
+export type { EditOperation, IncrementalParseResult } from './incremental.js'
 
 import { parseBlocks } from './block/parser.js'
 import type { BlockParserOptions } from './block/parser.js'
