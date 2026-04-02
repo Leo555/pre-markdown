@@ -149,11 +149,15 @@ function parseBlockLines(
       continue
     }
 
-    // Try each block rule in priority order
     let result: ParseResult | null
 
+    // Fast path: use first non-space character to skip impossible rules
+    const firstChar = line.charCodeAt(0)
+    const trimStart = line.search(/\S/)
+    const fc = trimStart >= 0 ? line.charCodeAt(trimStart) : firstChar
+
     // 0. FrontMatter (only at start of document, first non-blank line)
-    if (blocks.length === 0 && i === start) {
+    if (blocks.length === 0 && i === start && fc === 45) { // -
       result = tryFrontMatter(lines, i, end)
       if (result) {
         blocks.push(result.node)
@@ -162,32 +166,38 @@ function parseBlockLines(
       }
     }
 
-    // 1. ATX Heading
-    result = tryATXHeading(lines, i, opts)
-    if (result) {
-      blocks.push(result.node)
-      i = result.nextLine
-      continue
+    // 1. ATX Heading — starts with #
+    if (fc === 35) { // #
+      result = tryATXHeading(lines, i, opts)
+      if (result) {
+        blocks.push(result.node)
+        i = result.nextLine
+        continue
+      }
     }
 
-    // 2. Thematic break
-    result = tryThematicBreak(lines, i)
-    if (result) {
-      blocks.push(result.node)
-      i = result.nextLine
-      continue
+    // 2. Thematic break — starts with *, -, _
+    if (fc === 42 || fc === 45 || fc === 95) { // * - _
+      result = tryThematicBreak(lines, i)
+      if (result) {
+        blocks.push(result.node)
+        i = result.nextLine
+        continue
+      }
     }
 
-    // 3. Fenced code block
-    result = tryFencedCode(lines, i, end)
-    if (result) {
-      blocks.push(result.node)
-      i = result.nextLine
-      continue
+    // 3. Fenced code block — starts with ` or ~
+    if (fc === 96 || fc === 126) { // ` ~
+      result = tryFencedCode(lines, i, end)
+      if (result) {
+        blocks.push(result.node)
+        i = result.nextLine
+        continue
+      }
     }
 
-    // 4. Math block
-    if (opts.mathBlocks) {
+    // 4. Math block — starts with $
+    if (opts.mathBlocks && fc === 36) { // $
       result = tryMathBlock(lines, i, end)
       if (result) {
         blocks.push(result.node)
@@ -196,8 +206,8 @@ function parseBlockLines(
       }
     }
 
-    // 5. TOC
-    if (opts.toc) {
+    // 5. TOC — starts with [ or 【
+    if (opts.toc && (fc === 91 || fc === 12304)) { // [ 【
       result = tryTOC(lines, i)
       if (result) {
         blocks.push(result.node)
@@ -206,8 +216,8 @@ function parseBlockLines(
       }
     }
 
-    // 5.5. Footnote definition
-    if (opts.footnotes) {
+    // 5.5. Footnote definition — starts with [
+    if (opts.footnotes && fc === 91) { // [
       result = tryFootnoteDefinition(lines, i, end, opts)
       if (result) {
         blocks.push(result.node)
@@ -216,8 +226,8 @@ function parseBlockLines(
       }
     }
 
-    // 6. Custom container
-    if (opts.containers) {
+    // 6. Custom container — starts with :
+    if (opts.containers && fc === 58) { // :
       result = tryContainer(lines, i, end, opts)
       if (result) {
         blocks.push(result.node)
@@ -226,40 +236,48 @@ function parseBlockLines(
       }
     }
 
-    // 6.5 Detail/collapsible block (Cherry-style: +++title / +++)
-    result = tryDetail(lines, i, end, opts)
-    if (result) {
-      blocks.push(result.node)
-      i = result.nextLine
-      continue
+    // 6.5 Detail/collapsible block — starts with +
+    if (fc === 43) { // +
+      result = tryDetail(lines, i, end, opts)
+      if (result) {
+        blocks.push(result.node)
+        i = result.nextLine
+        continue
+      }
     }
 
-    // 7. Blockquote
-    result = tryBlockquote(lines, i, end, opts)
-    if (result) {
-      blocks.push(result.node)
-      i = result.nextLine
-      continue
+    // 7. Blockquote — starts with >
+    if (fc === 62) { // >
+      result = tryBlockquote(lines, i, end, opts)
+      if (result) {
+        blocks.push(result.node)
+        i = result.nextLine
+        continue
+      }
     }
 
-    // 8. List
-    result = tryList(lines, i, end, opts)
-    if (result) {
-      blocks.push(result.node)
-      i = result.nextLine
-      continue
+    // 8. List — starts with -, *, +, or digit
+    if (fc === 45 || fc === 42 || fc === 43 || (fc >= 48 && fc <= 57)) { // - * + 0-9
+      result = tryList(lines, i, end, opts)
+      if (result) {
+        blocks.push(result.node)
+        i = result.nextLine
+        continue
+      }
     }
 
-    // 9. HTML block
-    result = tryHtmlBlock(lines, i, end)
-    if (result) {
-      blocks.push(result.node)
-      i = result.nextLine
-      continue
+    // 9. HTML block — starts with <
+    if (fc === 60) { // <
+      result = tryHtmlBlock(lines, i, end)
+      if (result) {
+        blocks.push(result.node)
+        i = result.nextLine
+        continue
+      }
     }
 
-    // 10. GFM Table
-    if (opts.gfmTables) {
+    // 10. GFM Table — line contains |
+    if (opts.gfmTables && line.includes('|')) {
       result = tryTable(lines, i, end, opts)
       if (result) {
         blocks.push(result.node)
@@ -268,16 +286,17 @@ function parseBlockLines(
       }
     }
 
-    // 11. Indented code block
-    result = tryIndentedCode(lines, i, end)
-    if (result) {
-      blocks.push(result.node)
-      i = result.nextLine
-      continue
+    // 11. Indented code block — starts with 4+ spaces or tab
+    if (firstChar === 32 || firstChar === 9) { // space or tab
+      result = tryIndentedCode(lines, i, end)
+      if (result) {
+        blocks.push(result.node)
+        i = result.nextLine
+        continue
+      }
     }
 
-    // 12. Setext heading (must check after gathering paragraph lines)
-    // 13. Default: paragraph (with setext heading detection)
+    // 12. Default: paragraph (with setext heading detection)
     result = tryParagraphOrSetext(lines, i, end, opts)
     if (result) {
       blocks.push(result.node)
