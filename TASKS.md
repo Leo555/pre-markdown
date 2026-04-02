@@ -272,7 +272,8 @@
 
 | 日期 | 变更内容 |
 |------|---------|
-| 2026-04-02 | 性能优化：sticky regex + charCodeAt + 单遍 escapeHtml → Render 2x, Pipeline 23% 提升 |
+| 2026-04-03 | Entity 解码 + HTML block Type 2-7 + blockquote/setext/thematic 前导空格 → 387/652 (59.4%) |
+| 2026-04-02 | 性能优化：sticky regex + charCodeAt + 单遍 escapeHtml + parseInlineFast → Pipeline 37%, Render 2x, inline 2.3x |
 | 2026-04-02 | 目标调整：性能第一 + pretext 深度利用，语法兼容性降级为次要 |
 | 2026-04-02 | CommonMark 51.1% (333/652)，7 sections 满分 |
 | 2026-04-02 | 7 引擎性能压测 + 语法兼容性测试（benchmark/） |

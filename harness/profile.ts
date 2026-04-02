@@ -120,3 +120,16 @@ const parse1K = results.find(r => r.name === 'Parse 1K lines')!.median
 const pipeline1K = results.find(r => r.name === 'Pipeline 1K lines')!.median
 const render1K = pipeline1K - parse1K
 console.log(`\nPipeline 1K: parse ${parse1K.toFixed(3)}ms (${(parse1K/pipeline1K*100).toFixed(0)}%) + render ${render1K.toFixed(3)}ms (${(render1K/pipeline1K*100).toFixed(0)}%)`)
+
+// Incremental parse benchmark
+import { IncrementalParser } from '../packages/parser/src/incremental.js'
+
+console.log('\n--- Incremental Parse ---')
+const incParser = new IncrementalParser(doc1K)
+const incResult = benchmark('Incremental single-line edit', () => {
+  incParser.applyEdit({ fromLine: 50, toLine: 51, newText: 'Modified line content here' })
+  // Restore for next iteration
+  incParser.applyEdit({ fromLine: 50, toLine: 51, newText: 'This is paragraph 52. It contains **bold text**, *italic text*, and `inline code`.' })
+}, 200)
+results.push({ name: 'Incremental edit', median: incResult.median, p95: incResult.p95 })
+console.log(`Incremental vs full parse: ${(incResult.median / parse1K * 100).toFixed(1)}% of full parse time`)
