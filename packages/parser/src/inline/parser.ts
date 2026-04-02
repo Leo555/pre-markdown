@@ -56,7 +56,7 @@ const RE_AUDIO = /!audio\[([^\]]*)\]\(([^)]+)\)/y
 const RE_VIDEO = /!video\[([^\]]*)\]\(([^)]+)\)/y
 
 /** HTML entity: &name; or &#decimal; or &#xhex; */
-const RE_ENTITY = /&(?:#x([0-9a-fA-F]{1,6})|#([0-9]{1,7})|([a-zA-Z][a-zA-Z0-9]{1,31}));/y
+const RE_ENTITY = /&(?:#[xX]([0-9a-fA-F]{1,6})|#([0-9]{1,7})|([a-zA-Z][a-zA-Z0-9]{1,31}));/y
 
 /** Common HTML5 named entities (subset covering CommonMark spec needs) */
 const HTML_ENTITIES: Record<string, string> = {
@@ -756,7 +756,7 @@ function decodeBackslashEscapes(str: string): string {
 /** Decode HTML entities in strings */
 function decodeEntities(str: string): string {
   if (!str.includes('&')) return str
-  return str.replace(/&(?:#x([0-9a-fA-F]{1,6})|#([0-9]{1,7})|([a-zA-Z][a-zA-Z0-9]{1,31}));/g, (match, hex, dec, name) => {
+  return str.replace(/&(?:#[xX]([0-9a-fA-F]{1,6})|#([0-9]{1,7})|([a-zA-Z][a-zA-Z0-9]{1,31}));/g, (match, hex, dec, name) => {
     if (hex) {
       const code = parseInt(hex, 16)
       return code === 0 ? '\uFFFD' : String.fromCodePoint(code)

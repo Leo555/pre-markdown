@@ -523,6 +523,8 @@ function tryBlockquote(
     } else if (
       !RE_BLANK.test(current) &&
       contentLines.length > 0 &&
+      // Don't lazily continue after a blank content line (empty > line)
+      contentLines[contentLines.length - 1]!.trim().length > 0 &&
       // Don't lazily continue if the line starts a new block element
       !RE_ATX_HEADING.test(current.replace(/^ {0,3}/, '')) &&
       !RE_THEMATIC_BREAK.test(current.replace(/^ {0,3}/, '')) &&
