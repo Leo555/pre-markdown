@@ -8,8 +8,8 @@
 </head>
 <body>
 
-<h1><span>Pre</span>Markdown vs Cherry — 性能压测</h1>
-<p class="subtitle">对比两款 Markdown 引擎在不同文档规模下的解析和渲染性能</p>
+<h1><span>Pre</span>Markdown — 性能压测</h1>
+<p class="subtitle">PreMarkdown vs Cherry vs marked vs markdown-it vs commonmark vs showdown vs remarkable — 7 引擎对比</p>
 
 <div class="controls">
   <label>测试文件：</label>
@@ -49,12 +49,21 @@
         <th>文件</th>
         <th>大小</th>
         <th>行数</th>
-        <th>PreMarkdown Parse</th>
-        <th>PreMarkdown Render</th>
-        <th>PreMarkdown Total</th>
-        <th>Cherry Total</th>
-        <th>比率 (Cherry/Pre)</th>
-        <th>胜出</th>
+        <th>Pre Parse</th>
+        <th>Pre Render</th>
+        <th>PreMarkdown</th>
+        <th>Cherry</th>
+        <th>marked</th>
+        <th>markdown-it</th>
+        <th>commonmark</th>
+        <th>showdown</th>
+        <th>remarkable</th>
+        <th>vs Cherry</th>
+        <th>vs marked</th>
+        <th>vs md-it</th>
+        <th>vs cm</th>
+        <th>vs sd</th>
+        <th>vs rm</th>
       </tr>
     </thead>
     <tbody id="results"></tbody>
@@ -66,10 +75,7 @@
   <div id="log"></div>
 </div>
 
-<!-- Cherry Engine Core UMD (760KB, 纯引擎无 UI) -->
-<script src="./vendor/cherry-engine.js"></script>
-
-<!-- 压测主逻辑 -->
+<!-- 压测主逻辑 (所有引擎通过 ESM import) -->
 <script type="module" src="./main.ts"></script>
 
 </body>
