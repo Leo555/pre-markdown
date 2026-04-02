@@ -103,7 +103,7 @@
       resize: none;
       border: none;
       outline: none;
-      padding: 20px;
+      padding: 20px 20px 20px 0;
       font-family: var(--font-mono);
       font-size: 14px;
       line-height: 1.7;
@@ -112,6 +112,28 @@
       tab-size: 2;
     }
     textarea#editor::placeholder { color: var(--text-dim); }
+
+    .editor-wrapper {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+      background: var(--bg-input);
+    }
+    .line-numbers {
+      padding: 20px 8px 20px 12px;
+      font-family: var(--font-mono);
+      font-size: 14px;
+      line-height: 1.7;
+      color: var(--text-dim);
+      text-align: right;
+      user-select: none;
+      overflow: hidden;
+      flex-shrink: 0;
+      min-width: 36px;
+      border-right: 1px solid var(--border);
+      background: rgba(15, 17, 23, 0.5);
+    }
+    .line-numbers .active-line { color: var(--accent); font-weight: 600; }
 
     /* ===== Preview Pane ===== */
     #preview {
@@ -232,7 +254,10 @@
 <main>
   <div class="pane">
     <div class="pane-header">Markdown 编辑器</div>
-    <textarea id="editor" spellcheck="false" placeholder="输入 Markdown 内容..."></textarea>
+    <div class="editor-wrapper">
+      <div class="line-numbers" id="line-numbers"></div>
+      <textarea id="editor" spellcheck="false" placeholder="输入 Markdown 内容..."></textarea>
+    </div>
   </div>
   <div class="divider"></div>
   <div class="pane">

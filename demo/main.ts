@@ -9,6 +9,7 @@ import type { Document } from '@pre-markdown/core'
 // Elements
 const editor = document.getElementById('editor') as HTMLTextAreaElement
 const preview = document.getElementById('preview') as HTMLDivElement
+const lineNumbers = document.getElementById('line-numbers') as HTMLDivElement
 const statParse = document.getElementById('stat-parse')!
 const statRender = document.getElementById('stat-render')!
 const statNodes = document.getElementById('stat-nodes')!
@@ -186,17 +187,59 @@ function update(value: string): void {
   statTotal.textContent = `Total: ${totalMs}ms`
 }
 
+// ============================================================
+// Line Numbers
+// ============================================================
+
+let lastLineCount = 0
+let currentLine = 0
+
+function updateLineNumbers(value: string): void {
+  const lines = value.split('\n').length
+  if (lines !== lastLineCount) {
+    const nums: string[] = []
+    for (let i = 1; i <= lines; i++) {
+      nums.push(`<div${i === currentLine ? ' class="active-line"' : ''}>${i}</div>`)
+    }
+    lineNumbers.innerHTML = nums.join('')
+    lastLineCount = lines
+  } else {
+    // Just update active line highlight
+    updateActiveLine()
+  }
+}
+
+function updateActiveLine(): void {
+  const pos = editor.selectionStart
+  const line = editor.value.slice(0, pos).split('\n').length
+  if (line !== currentLine) {
+    // Remove old highlight
+    const old = lineNumbers.children[currentLine - 1]
+    if (old) old.classList.remove('active-line')
+    // Add new highlight
+    const cur = lineNumbers.children[line - 1]
+    if (cur) cur.classList.add('active-line')
+    currentLine = line
+  }
+}
+
 // Initialize
 editor.value = DEFAULT_CONTENT
 update(DEFAULT_CONTENT)
+updateLineNumbers(DEFAULT_CONTENT)
 
 // Live update with debounce
 editor.addEventListener('input', () => {
   if (debounceTimer) clearTimeout(debounceTimer)
   debounceTimer = setTimeout(() => {
     update(editor.value)
+    updateLineNumbers(editor.value)
   }, 50)
 })
+
+// Update active line on cursor move
+editor.addEventListener('click', updateActiveLine)
+editor.addEventListener('keyup', updateActiveLine)
 
 // Tab key support in editor
 editor.addEventListener('keydown', (e) => {
@@ -207,11 +250,14 @@ editor.addEventListener('keydown', (e) => {
     editor.value = editor.value.substring(0, start) + '  ' + editor.value.substring(end)
     editor.selectionStart = editor.selectionEnd = start + 2
     update(editor.value)
+    updateLineNumbers(editor.value)
   }
 })
 
-// Sync scroll (approximate)
+// Sync scroll (editor → preview + line numbers)
 editor.addEventListener('scroll', () => {
   const ratio = editor.scrollTop / (editor.scrollHeight - editor.clientHeight || 1)
   preview.scrollTop = ratio * (preview.scrollHeight - preview.clientHeight)
+  // Sync line numbers scroll with editor
+  lineNumbers.scrollTop = editor.scrollTop
 })
