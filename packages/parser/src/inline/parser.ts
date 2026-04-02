@@ -55,6 +55,34 @@ const RE_EMOJI = /:([a-zA-Z0-9_+-]+):/y
 const RE_AUDIO = /!audio\[([^\]]*)\]\(([^)]+)\)/y
 const RE_VIDEO = /!video\[([^\]]*)\]\(([^)]+)\)/y
 
+/** HTML entity: &name; or &#decimal; or &#xhex; */
+const RE_ENTITY = /&(?:#x([0-9a-fA-F]{1,6})|#([0-9]{1,7})|([a-zA-Z][a-zA-Z0-9]{1,31}));/y
+
+/** Common HTML5 named entities (subset covering CommonMark spec needs) */
+const HTML_ENTITIES: Record<string, string> = {
+  amp: '&', lt: '<', gt: '>', quot: '"', apos: "'",
+  nbsp: '\u00A0', copy: '\u00A9', reg: '\u00AE',
+  AElig: '\u00C6', Dcaron: '\u010E', frac34: '\u00BE',
+  HilbertSpace: '\u210B', DifferentialD: '\u2146',
+  ClockwiseContourIntegral: '\u2232', ngE: '\u2267\u0338',
+  ouml: '\u00F6', uuml: '\u00FC', auml: '\u00E4',
+  szlig: '\u00DF', ntilde: '\u00F1', eacute: '\u00E9',
+  Ouml: '\u00D6', Uuml: '\u00DC', Auml: '\u00C4',
+  mdash: '\u2014', ndash: '\u2013', lsquo: '\u2018', rsquo: '\u2019',
+  ldquo: '\u201C', rdquo: '\u201D', bull: '\u2022', hellip: '\u2026',
+  trade: '\u2122', larr: '\u2190', rarr: '\u2192', uarr: '\u2191', darr: '\u2193',
+  laquo: '\u00AB', raquo: '\u00BB', euro: '\u20AC', pound: '\u00A3', yen: '\u00A5',
+  cent: '\u00A2', times: '\u00D7', divide: '\u00F7', plusmn: '\u00B1',
+  infin: '\u221E', ne: '\u2260', le: '\u2264', ge: '\u2265',
+  deg: '\u00B0', micro: '\u00B5', para: '\u00B6', sect: '\u00A7',
+  alpha: '\u03B1', beta: '\u03B2', gamma: '\u03B3', delta: '\u03B4',
+  epsilon: '\u03B5', pi: '\u03C0', sigma: '\u03C3', omega: '\u03C9',
+  hearts: '\u2665', diams: '\u2666', clubs: '\u2663', spades: '\u2660',
+  iexcl: '\u00A1', iquest: '\u00BF', acute: '\u00B4', cedil: '\u00B8',
+  ordf: '\u00AA', ordm: '\u00BA', sup1: '\u00B9', sup2: '\u00B2', sup3: '\u00B3',
+  frac12: '\u00BD', frac14: '\u00BC',
+}
+
 /** Execute a sticky regex at a given position, returns match or null */
 function execAt(re: RegExp, input: string, pos: number): RegExpExecArray | null {
   re.lastIndex = pos
@@ -427,6 +455,33 @@ export function parseInline(input: string): InlineNode[] {
       }
     }
 
+    // HTML entity: &name; &#decimal; &#xhex;
+    if (ch === 38) { // &
+      const match = execAt(RE_ENTITY, input, pos)
+      if (match) {
+        let decoded: string | undefined
+        if (match[1]) {
+          // &#xHEX;
+          const code = parseInt(match[1], 16)
+          decoded = code === 0 ? '\uFFFD' : String.fromCodePoint(code)
+        } else if (match[2]) {
+          // &#DECIMAL;
+          const code = parseInt(match[2], 10)
+          decoded = code === 0 ? '\uFFFD' : String.fromCodePoint(code)
+        } else if (match[3]) {
+          // &name;
+          decoded = HTML_ENTITIES[match[3]]
+        }
+        if (decoded !== undefined) {
+          flushText()
+          nodes.push(createText(decoded))
+          pos = pos + match[0].length
+          textStart = pos
+          continue
+        }
+      }
+    }
+
     pos++
   }
 
@@ -685,7 +740,7 @@ function parseUrlAndTitle(
   while (pos < input.length && isWhitespace(input.charCodeAt(pos))) pos++
   if (pos >= input.length || input.charCodeAt(pos) !== 41) return null // )
 
-  return { url: decodeBackslashEscapes(url), title: title ? decodeBackslashEscapes(title) : title, end: pos + 1 }
+  return { url: decodeEntities(decodeBackslashEscapes(url)), title: title ? decodeEntities(decodeBackslashEscapes(title)) : title, end: pos + 1 }
 }
 
 function isWhitespace(code: number): boolean {
@@ -696,6 +751,25 @@ function isWhitespace(code: number): boolean {
 const RE_BACKSLASH_ESCAPE = /\\([!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~])/g
 function decodeBackslashEscapes(str: string): string {
   return str.replace(RE_BACKSLASH_ESCAPE, '$1')
+}
+
+/** Decode HTML entities in strings */
+function decodeEntities(str: string): string {
+  if (!str.includes('&')) return str
+  return str.replace(/&(?:#x([0-9a-fA-F]{1,6})|#([0-9]{1,7})|([a-zA-Z][a-zA-Z0-9]{1,31}));/g, (match, hex, dec, name) => {
+    if (hex) {
+      const code = parseInt(hex, 16)
+      return code === 0 ? '\uFFFD' : String.fromCodePoint(code)
+    }
+    if (dec) {
+      const code = parseInt(dec, 10)
+      return code === 0 ? '\uFFFD' : String.fromCodePoint(code)
+    }
+    if (name && HTML_ENTITIES[name]) {
+      return HTML_ENTITIES[name]
+    }
+    return match
+  })
 }
 
 function tryRuby(input: string, start: number): InlineResult | null {

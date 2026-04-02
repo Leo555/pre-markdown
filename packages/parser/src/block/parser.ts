@@ -381,8 +381,8 @@ function tryFencedCode(lines: string[], i: number, end: number): ParseResult | n
   // Backtick fences: info string must not contain backticks (CommonMark spec)
   if (isBacktick && rawLang && rawLang.includes('`')) return null
 
-  // Decode backslash escapes in info string
-  const lang = rawLang ? rawLang.replace(/\\([!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~])/g, '$1') : undefined
+  // Decode backslash escapes and HTML entities in info string
+  const lang = rawLang ? decodeInfoString(rawLang) : undefined
 
   const contentLines: string[] = []
   let j = i + 1
@@ -1053,3 +1053,17 @@ function tryFootnoteDefinition(
 }
 
 export { parseBlockLines }
+
+/** Decode backslash escapes and common HTML entities in code block info string */
+function decodeInfoString(str: string): string {
+  let result = str.replace(/\\([!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~])/g, '$1')
+  if (result.includes('&')) {
+    result = result.replace(/&(?:#x([0-9a-fA-F]{1,6})|#([0-9]{1,7})|([a-zA-Z][a-zA-Z0-9]{1,31}));/g, (match, hex, dec, name) => {
+      if (hex) return String.fromCodePoint(parseInt(hex, 16) || 0xFFFD)
+      if (dec) return String.fromCodePoint(parseInt(dec, 10) || 0xFFFD)
+      const entities: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', ouml: '\u00F6', uuml: '\u00FC', auml: '\u00E4' }
+      return entities[name] ?? match
+    })
+  }
+  return result
+}
