@@ -148,3 +148,45 @@ chore: 工程配置
 1. `pnpm test:run` → 全部 pass
 2. `pnpm bench` → 无性能劣化（parser/renderer 变更时）
 3. TASKS.md 已更新（如完成了 TASK）
+
+---
+
+## 七、如何贡献
+
+我们欢迎所有形式的贡献！无论是 bug 报告、功能建议还是代码提交。
+
+### 报告 Bug
+
+1. 搜索已有 issue，确保未重复报告
+2. [创建新 issue](https://github.com/user/pre-markdown/issues/new)，附上：
+   - 清晰的问题描述
+   - 复现步骤（最小化代码示例）
+   - 环境信息（Node 版本、操作系统等）
+
+### 功能建议
+
+1. 在 [Discussions](https://github.com/user/pre-markdown/discussions) 中讨论你的想法
+2. 如果社区支持，创建 issue 并标记 `feature-request`
+
+### 代码贡献
+
+1. **Fork** 本仓库
+2. **创建分支** — `git checkout -b feat/amazing-feature`
+3. **编写测试** — TDD 原则，添加单元测试
+4. **提交代码** — 遵守代码风格（ESLint + Prettier）
+5. **提交 PR** — 清晰描述改动内容和改动原因
+
+### 代码风格
+
+我们使用 ESLint + Prettier 保持一致的代码风格：
+
+```bash
+pnpm lint       # 检查代码风格
+pnpm format     # 自动格式化
+```
+
+### 获取帮助
+
+- 查看 [完整文档](./docs)
+- 在 [Discussions](https://github.com/user/pre-markdown/discussions) 中提问
+- 搜索 [已有 issue](https://github.com/user/pre-markdown/issues)

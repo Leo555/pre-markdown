@@ -188,7 +188,7 @@ const viewport = engine.computeViewportLayout(
 
 ### 🌐 Online Editor (GitHub Pages)
 
-**[👉 Try PreMarkdown Online Editor Now](./standalone.html)**
+**[👉 Try PreMarkdown Online Editor Now](https://leo555.github.io/pre-markdown/)**
 
 No installation needed, edit and preview Markdown directly in your browser. Features:
 - ✅ Real-time preview

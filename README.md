@@ -186,7 +186,7 @@ const viewport = engine.computeViewportLayout(
 
 ### 🌐 在线编辑器（GitHub Pages）
 
-**[👉 立即试用 PreMarkdown 在线编辑器](./standalone.html)**
+**[👉 立即试用 PreMarkdown 在线编辑器](https://leo555.github.io/pre-markdown/)**
 
 无需安装，直接在浏览器中编辑和预览 Markdown。支持：
 - ✅ 实时预览
@@ -472,72 +472,7 @@ npm pack @pre-markdown/parser
 
 ## 🤝 贡献指南
 
-我们欢迎所有形式的贡献！无论是 bug 报告、功能建议还是代码提交。
-
-### 报告 Bug
-
-1. 搜索已有 issue，确保未重复报告
-2. [创建新 issue](https://github.com/your-org/pre-markdown/issues/new)，附上：
-   - 清晰的问题描述
-   - 复现步骤（最小化代码示例）
-   - 环境信息（Node 版本、操作系统等）
-
-### 功能建议
-
-1. 在 [Discussions](https://github.com/your-org/pre-markdown/discussions) 中讨论你的想法
-2. 如果社区支持，创建 issue 并标记 `feature-request`
-
-### 代码贡献
-
-1. **Fork** 本仓库
-2. **创建分支** — `git checkout -b feat/amazing-feature`
-3. **编写测试** — TDD 原则，添加单元测试
-4. **提交代码** — 遵守 [代码风格](#代码风格)
-5. **提交 PR** — 清晰描述改动内容和改动原因
-
-### 代码风格
-
-我们使用 ESLint + Prettier 保持一致的代码风格：
-
-```bash
-pnpm lint       # 检查代码风格
-pnpm format     # 自动格式化
-```
-
-### 提交信息规范
-
-遵循 [Conventional Commits](https://www.conventionalcommits.org)：
-
-```
-feat: add incremental parser support
-fix: correct handling of nested lists
-docs: update API documentation
-test: add test cases for edge cases
-perf: optimize AST traversal performance
-chore: update dependencies
-```
-
-### 测试要求
-
-- 新增功能必须有对应的单元测试
-- 修复 bug 必须附上复现 bug 的测试
-- 测试命令 — `pnpm test:run`
-- 覆盖率目标 — 行 ≥ 90%，分支 ≥ 85%
-
-### 性能测试
-
-对 parser 或 renderer 的改动必须运行性能测试：
-
-```bash
-pnpm bench
-# 检查是否有性能劣化（> 20% 则不允许合并）
-```
-
-### 获取帮助
-
-- 📖 查看 [完整文档](./docs)
-- 💬 在 [Discussions](https://github.com/your-org/pre-markdown/discussions) 中提问
-- 🐛 搜索 [已有 issue](https://github.com/your-org/pre-markdown/issues)
+我们欢迎所有形式的贡献！详见 [CONTRIBUTING.md](./CONTRIBUTING.md)。
 
 ---
 

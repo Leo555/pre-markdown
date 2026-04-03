@@ -188,7 +188,7 @@ const viewport = engine.computeViewportLayout(
 
 ### 🌐 在线编辑器（GitHub Pages）
 
-**[👉 立即试用 PreMarkdown 在线编辑器](./standalone.html)**
+**[👉 立即试用 PreMarkdown 在线编辑器](https://leo555.github.io/pre-markdown/)**
 
 无需安装，直接在浏览器中编辑和预览 Markdown。支持：
 - ✅ 实时预览
