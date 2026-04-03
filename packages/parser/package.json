@@ -1,23 +1,28 @@
 {
   "name": "@pre-markdown/parser",
   "version": "0.1.0",
-  "description": "High-performance incremental Markdown parser for PreMarkdown",
+  "description": "High-performance incremental Markdown parser",
   "type": "module",
-  "main": "./dist/index.js",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "require": "./dist/index.cjs"
     }
   },
+  "sideEffects": false,
+  "license": "MIT",
   "scripts": {
-    "build": "tsc -b",
-    "dev": "tsc -b --watch",
-    "clean": "rimraf dist *.tsbuildinfo"
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "clean": "rimraf dist"
   },
   "dependencies": {
     "@pre-markdown/core": "workspace:*"
   },
-  "files": ["dist"]
+  "files": ["dist"],
+  "keywords": ["markdown", "parser", "ast", "incremental", "pretext"]
 }

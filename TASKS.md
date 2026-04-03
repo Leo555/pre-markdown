@@ -15,7 +15,7 @@
 | Phase 2：性能优化（核心） | 🔨 进行中 | 55% |
 | Phase 3：Pretext 深度集成（核心） | 🔨 进行中 | 50% |
 | Phase 4：语法兼容性（次要） | 🔨 进行中 | 60% |
-| Phase 5：生态与文档 | ⏳ 待开始 | 0% |
+| Phase 5：生态与文档 | 🔨 进行中 | 30% |
 | Phase 6：编辑器输入框优化 | 🔨 进行中 | 50% |
 
 ---
@@ -200,9 +200,10 @@
 - [ ] 内置插件：KaTeX / Mermaid / 代码高亮
 
 ### 5.2 npm 发布
-- [ ] ESM + CJS + .d.ts 构建
-- [ ] 包体积审计 < 30KB gzip
-- [ ] npm publish 流程
+- [x] ESM + CJS + .d.ts 构建（tsup，4 个核心包全部通过）
+- [x] 包体积审计：core 2KB + parser 10.8KB + renderer 2.7KB + layout 3KB = **18.5KB gzip**（目标 < 30KB ✅）
+- [x] package.json exports (types + import + require) + sideEffects: false + license
+- [ ] npm publish 流程（changeset）
 
 ### 5.3 文档
 - [ ] 架构设计、API 文档、性能报告、插件指南

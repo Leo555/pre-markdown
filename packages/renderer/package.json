@@ -1,17 +1,28 @@
 {
   "name": "@pre-markdown/renderer",
   "version": "0.1.0",
-  "description": "DOM and Canvas renderers for PreMarkdown",
+  "description": "High-performance AST to HTML renderer for PreMarkdown",
   "type": "module",
-  "main": "./dist/index.js",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "sideEffects": false,
+  "license": "MIT",
   "scripts": {
-    "build": "tsc -b",
-    "dev": "tsc -b --watch",
-    "clean": "rimraf dist *.tsbuildinfo"
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "clean": "rimraf dist"
   },
   "dependencies": {
     "@pre-markdown/core": "workspace:*"
   },
-  "files": ["dist"]
+  "files": ["dist"],
+  "keywords": ["markdown", "renderer", "html", "pretext"]
 }

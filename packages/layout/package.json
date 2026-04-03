@@ -1,18 +1,29 @@
 {
   "name": "@pre-markdown/layout",
   "version": "0.1.0",
-  "description": "Pretext-based layout engine for PreMarkdown",
+  "description": "Pretext-based zero-DOM-reflow text layout engine",
   "type": "module",
-  "main": "./dist/index.js",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "sideEffects": false,
+  "license": "MIT",
   "scripts": {
-    "build": "tsc -b",
-    "dev": "tsc -b --watch",
-    "clean": "rimraf dist *.tsbuildinfo"
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "clean": "rimraf dist"
   },
   "dependencies": {
     "@pre-markdown/core": "workspace:*",
     "@chenglou/pretext": "^0.0.4"
   },
-  "files": ["dist"]
+  "files": ["dist"],
+  "keywords": ["markdown", "layout", "pretext", "virtual-scroll", "text-measurement"]
 }

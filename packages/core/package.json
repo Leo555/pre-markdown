@@ -1,20 +1,25 @@
 {
   "name": "@pre-markdown/core",
   "version": "0.1.0",
-  "description": "Core AST types, state management, and event system for PreMarkdown",
+  "description": "Core AST types, builders, visitors, and event system for PreMarkdown",
   "type": "module",
-  "main": "./dist/index.js",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "require": "./dist/index.cjs"
     }
   },
+  "sideEffects": false,
+  "license": "MIT",
   "scripts": {
-    "build": "tsc -b",
-    "dev": "tsc -b --watch",
-    "clean": "rimraf dist *.tsbuildinfo"
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "clean": "rimraf dist"
   },
-  "files": ["dist"]
+  "files": ["dist"],
+  "keywords": ["markdown", "ast", "parser", "pretext"]
 }
