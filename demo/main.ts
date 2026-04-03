@@ -172,7 +172,8 @@ function update(value: string): void {
   const html = renderToHtml(ast, { sanitize: true })
   const t2 = performance.now()
 
-  preview.innerHTML = html
+  // Incremental DOM update: only replace changed blocks
+  patchPreview(preview, html)
 
   const parseMs = (t1 - t0).toFixed(2)
   const renderMs = (t2 - t1).toFixed(2)
@@ -492,4 +493,48 @@ function insertLinePrefix(prefix: string): void {
   editor.focus()
   update(editor.value)
   updateLineNumbers(editor.value)
+}
+
+// ============================================================
+// Incremental DOM Patching (minimal morphdom)
+// ============================================================
+
+/**
+ * Patch the preview container with new HTML, only replacing changed blocks.
+ * Compares top-level children and only replaces those that differ.
+ * Falls back to full innerHTML for first render.
+ */
+function patchPreview(container: HTMLElement, html: string): void {
+  // First render or empty: full replace
+  if (container.children.length === 0) {
+    container.innerHTML = html
+    return
+  }
+
+  // Parse new HTML into a temporary container
+  const temp = document.createElement('div')
+  temp.innerHTML = html
+
+  const oldLen = container.children.length
+  const newLen = temp.children.length
+  const minLen = Math.min(oldLen, newLen)
+
+  // Compare and update existing children
+  for (let i = 0; i < minLen; i++) {
+    const oldChild = container.children[i]!
+    const newChild = temp.children[i]!
+    if (oldChild.outerHTML !== newChild.outerHTML) {
+      container.replaceChild(newChild.cloneNode(true), oldChild)
+    }
+  }
+
+  // Remove extra old children
+  while (container.children.length > newLen) {
+    container.removeChild(container.lastElementChild!)
+  }
+
+  // Append new children
+  for (let i = oldLen; i < newLen; i++) {
+    container.appendChild(temp.children[i]!.cloneNode(true))
+  }
 }

@@ -78,7 +78,7 @@
 - [x] 字符串拼接优化（+ 替代 template literal，for 循环替代 map）
 - [x] escapeAttr 同样单遍扫描优化
 - [ ] DOM 渲染模式（renderToDOM — 直接创建 DOM 节点，跳过 innerHTML）
-- [ ] 增量渲染（Diff AST → 局部 DOM 更新）
+- [x] 增量渲染（patchPreview — 逐块 outerHTML 比较，只替换变化的 DOM 子节点）
 
 ### 2.3 增量解析优化
 - [ ] 行级 hash 指纹（快速定位变更范围）
