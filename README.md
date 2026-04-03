@@ -144,8 +144,9 @@ pnpm dev
 
 ```bash
 pnpm install          # 安装依赖
-pnpm dev              # 启动开发服务器 + Demo
-pnpm test:run         # 运行测试（376 用例）
+pnpm dev              # 启动开发服务器 + Demo (port 9527)
+pnpm test:run         # 运行测试（1038 用例）
+pnpm build            # 构建所有包（ESM + CJS + .d.ts）
 pnpm bench            # 运行 Vitest 基准测试
 ```
 

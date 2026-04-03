@@ -275,7 +275,11 @@
 
 | 日期 | 变更内容 |
 |------|---------|
+| 2026-04-03 | tsup 构建 ESM+CJS+.d.ts：4 核心包合计 18.5KB gzip |
 | 2026-04-03 | Entity 解码 + HTML block Type 2-7 + blockquote/setext/thematic 前导空格 → 387/652 (59.4%) |
+| 2026-04-03 | Raw HTML 内联 + URL percent-encoding + HTML 关闭标签修复 → 395/652 (60.6%) |
+| 2026-04-03 | 架构设计文档 + API 文档 |
+| 2026-04-03 | 编辑器: 行号 + 快捷键 + 工具栏 + 拖拽面板 + Tab 缩进 + 自动续行 |
 | 2026-04-02 | 性能优化：sticky regex + charCodeAt + 单遍 escapeHtml + parseInlineFast → Pipeline 37%, Render 2x, inline 2.3x |
 | 2026-04-02 | 目标调整：性能第一 + pretext 深度利用，语法兼容性降级为次要 |
 | 2026-04-02 | CommonMark 51.1% (333/652)，7 sections 满分 |
