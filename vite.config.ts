@@ -27,6 +27,21 @@ export default defineConfig({
       allow: ['.'],
     },
   },
+  build: {
+    outDir: '_site',
+    rollupOptions: {
+      input: {
+        main: resolve(__dirname, 'index.html'),
+        standalone: resolve(__dirname, 'standalone.html'),
+        benchmark: resolve(__dirname, 'benchmark/index.html'),
+        benchmarkCompat: resolve(__dirname, 'benchmark/compat.html'),
+        exBasic: resolve(__dirname, 'examples/basic.html'),
+        exAstTransform: resolve(__dirname, 'examples/ast-transform.html'),
+        exCustomRenderer: resolve(__dirname, 'examples/custom-renderer.html'),
+        exIncremental: resolve(__dirname, 'examples/incremental-parsing.html'),
+      },
+    },
+  },
   optimizeDeps: {
     exclude: ['@chenglou/pretext'],
     entries: ['index.html', 'demo/main.ts', 'benchmark/index.html', 'benchmark/main.ts', 'benchmark/compat.html', 'benchmark/compat.ts'],

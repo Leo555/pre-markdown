@@ -4,9 +4,6 @@ on:
   push:
     branches:
       - master
-    paths:
-      - 'standalone.html'
-      - '.github/workflows/deploy-pages.yml'
   workflow_dispatch:
 
 permissions:
@@ -26,21 +23,41 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install benchmark dependencies
+        run: cd benchmark && npm install
+
+      - name: Build site (Vite MPA)
+        run: pnpm build:site
+
+      - name: Copy benchmark fixtures
+        run: |
+          cp -r benchmark/fixtures _site/benchmark/fixtures
+          cp benchmark/style.css _site/benchmark/style.css 2>/dev/null || true
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
-      - name: Prepare site directory
-        run: |
-          mkdir -p _site
-          cp standalone.html _site/index.html
-
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v4
         with:
           path: _site
 
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
