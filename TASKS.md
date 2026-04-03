@@ -206,7 +206,10 @@
 - [ ] npm publish 流程（changeset）
 
 ### 5.3 文档
-- [ ] 架构设计、API 文档、性能报告、插件指南
+- [x] `docs/architecture.md` — 架构设计（两阶段流水线、AST 设计、性能优化策略、pretext 集成）
+- [x] `docs/api.md` — API 文档（parse / renderToHtml / IncrementalParser / LayoutEngine 完整参数）
+- [ ] `docs/performance.md` — 性能报告（7 引擎对比数据）
+- [ ] `docs/plugins.md` — 插件开发指南
 
 ### 5.4 CI/CD + Demo
 - [x] 7 引擎压测 + 兼容性测试页面
