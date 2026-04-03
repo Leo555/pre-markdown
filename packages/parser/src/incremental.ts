@@ -6,6 +6,11 @@
  * 2. Partially reparse only affected blocks
  * 3. Merge changed blocks into existing AST
  * 4. Emit change events via EventBus
+ *
+ * Optimizations:
+ * - Line-level hash fingerprints for fast change detection
+ * - AST node reuse for unchanged blocks
+ * - Block fingerprint cache for structural matching
  */
 
 import type { Document, BlockNode } from '@pre-markdown/core'
@@ -13,6 +18,26 @@ import { createDocument, EventBus } from '@pre-markdown/core'
 import type { EditorEvents } from '@pre-markdown/core'
 import { parseBlocks, parseBlockLines } from './block/parser.js'
 import type { BlockParserOptions } from './block/parser.js'
+
+/** Fast FNV-1a 32-bit hash for line fingerprinting */
+function fnv1a(str: string): number {
+  let hash = 0x811c9dc5 | 0
+  for (let i = 0; i < str.length; i++) {
+    hash ^= str.charCodeAt(i)
+    hash = (hash * 0x01000193) | 0
+  }
+  return hash >>> 0
+}
+
+/** Combine multiple hashes into one (for block fingerprint from line hashes) */
+function combineHashes(hashes: number[], from: number, to: number): number {
+  let h = 0x811c9dc5 | 0
+  for (let i = from; i < to; i++) {
+    h ^= hashes[i]!
+    h = (h * 0x01000193) | 0
+  }
+  return h >>> 0
+}
 
 /** Describes an edit operation */
 export interface EditOperation {
@@ -34,8 +59,20 @@ export interface IncrementalParseResult {
   newBlockCount: number
   /** Number of old blocks replaced */
   oldBlockCount: number
+  /** Number of blocks reused from old AST */
+  reusedBlockCount: number
   /** Parse duration in ms */
   duration: number
+}
+
+/** Block metadata for incremental tracking */
+interface BlockMeta {
+  /** Start line index (0-based) in the source */
+  startLine: number
+  /** End line index (0-based, exclusive) */
+  endLine: number
+  /** Combined hash of source lines [startLine, endLine) */
+  fingerprint: number
 }
 
 /**
@@ -47,9 +84,12 @@ export interface IncrementalParseResult {
  */
 export class IncrementalParser {
   private lines: string[] = []
+  private lineHashes: number[] = []
   private document: Document
   private options: Required<BlockParserOptions>
   private eventBus: EventBus<EditorEvents> | null = null
+  /** Per-block metadata tracking source line ranges and fingerprints */
+  private blockMetas: BlockMeta[] = []
 
   constructor(
     initialText: string = '',
@@ -62,11 +102,14 @@ export class IncrementalParser {
       containers: true,
       toc: true,
       footnotes: true,
+      lazyInline: false,
       ...options,
     }
     this.eventBus = eventBus ?? null
     this.lines = initialText.split('\n')
+    this.lineHashes = this.lines.map(fnv1a)
     this.document = parseBlocks(initialText, this.options)
+    this.buildBlockMetas()
   }
 
   /** Get current document AST */
@@ -84,48 +127,86 @@ export class IncrementalParser {
     return this.lines
   }
 
+  /** Get current line hashes (FNV-1a) */
+  getLineHashes(): readonly number[] {
+    return this.lineHashes
+  }
+
+  /** Get block metadata (for testing/debugging) */
+  getBlockMetas(): readonly BlockMeta[] {
+    return this.blockMetas
+  }
+
   /**
    * Apply an edit and incrementally reparse.
    */
   applyEdit(edit: EditOperation): IncrementalParseResult {
     const startTime = performance.now()
 
-    // 1. Apply the text edit to lines array
+    // 1. Apply the text edit to lines array and maintain hashes
     const newLines = edit.newText.split('\n')
-    const oldLines = this.lines.slice(edit.fromLine, edit.toLine)
-    this.lines.splice(edit.fromLine, edit.toLine - edit.fromLine, ...newLines)
+    const newHashes = newLines.map(fnv1a)
+    const deletedLineCount = edit.toLine - edit.fromLine
+    const insertedLineCount = newLines.length
+    const lineDelta = insertedLineCount - deletedLineCount
 
-    // 2. Determine the expanded reparse range
-    // We need to reparse from the nearest block boundary before the edit
-    // to the nearest block boundary after the edit
-    const { blockStart, blockEnd } = this.findAffectedBlockRange(
+    this.lines.splice(edit.fromLine, deletedLineCount, ...newLines)
+    this.lineHashes.splice(edit.fromLine, deletedLineCount, ...newHashes)
+
+    // 2. Find affected block range using block metas
+    const { blockStart, blockEnd } = this.findAffectedBlockRangeFromMetas(
       edit.fromLine,
-      edit.fromLine + newLines.length,
+      edit.toLine,
+      lineDelta,
     )
 
     // 3. Extract the lines to reparse
-    const reparseFrom = this.lineIndexForBlock(blockStart)
-    const reparseTo = this.lineIndexForBlockEnd(blockEnd)
+    const reparseFrom = blockStart < this.blockMetas.length
+      ? this.blockMetas[blockStart]!.startLine
+      : this.lines.length
+    // Adjust blockEnd metas for line delta
+    let reparseTo: number
+    if (blockEnd < this.blockMetas.length) {
+      reparseTo = this.blockMetas[blockEnd]!.startLine + lineDelta
+    } else {
+      reparseTo = this.lines.length
+    }
+    // Clamp
+    reparseTo = Math.min(reparseTo, this.lines.length)
+    const reparseFromClamped = Math.max(0, Math.min(reparseFrom, this.lines.length))
 
-    const linesToReparse = this.lines.slice(reparseFrom, reparseTo)
+    const linesToReparse = this.lines.slice(reparseFromClamped, reparseTo)
 
     // 4. Reparse only the affected range
-    const newBlocks = parseBlockLines(linesToReparse, 0, linesToReparse.length, this.options)
+    const newBlocks = linesToReparse.length > 0
+      ? parseBlockLines(linesToReparse, 0, linesToReparse.length, this.options)
+      : []
 
-    // 5. Splice new blocks into the existing AST
+    // 5. Splice new blocks into the existing AST, reusing unchanged blocks
     const oldBlockCount = blockEnd - blockStart
     const oldChildren = this.document.children
+
+    // Blocks before the edit range are reused as-is (same object references)
+    const beforeBlocks = oldChildren.slice(0, blockStart)
+    // Blocks after the edit range are reused as-is
+    const afterBlocks = oldChildren.slice(blockEnd)
+
     const updatedChildren = [
-      ...oldChildren.slice(0, blockStart),
+      ...beforeBlocks,
       ...newBlocks,
-      ...oldChildren.slice(blockEnd),
+      ...afterBlocks,
     ]
+
+    const reusedBlockCount = beforeBlocks.length + afterBlocks.length
 
     this.document = createDocument(updatedChildren)
 
+    // 6. Rebuild block metas
+    this.buildBlockMetas()
+
     const duration = performance.now() - startTime
 
-    // 6. Emit events
+    // 7. Emit events
     if (this.eventBus) {
       this.eventBus.emit('content:change', {
         text: this.getText(),
@@ -141,9 +222,10 @@ export class IncrementalParser {
 
     return {
       document: this.document,
-      affectedRange: { from: reparseFrom, to: reparseTo },
+      affectedRange: { from: reparseFromClamped, to: reparseTo },
       newBlockCount: newBlocks.length,
       oldBlockCount,
+      reusedBlockCount,
       duration,
     }
   }
@@ -154,7 +236,9 @@ export class IncrementalParser {
   fullReparse(): Document {
     const startTime = performance.now()
     const text = this.lines.join('\n')
+    this.lineHashes = this.lines.map(fnv1a)
     this.document = parseBlocks(text, this.options)
+    this.buildBlockMetas()
     const duration = performance.now() - startTime
 
     if (this.eventBus) {
@@ -168,73 +252,78 @@ export class IncrementalParser {
   }
 
   /**
-   * Find the range of block indices affected by a line range edit.
-   * Expands outward to include any blocks that might be affected.
+   * Build block metadata array from current document + lines.
+   * Assigns each block its source line range and fingerprint.
    */
-  private findAffectedBlockRange(
+  private buildBlockMetas(): void {
+    const children = this.document.children
+    const metas: BlockMeta[] = new Array(children.length)
+    let lineAcc = 0
+
+    for (let i = 0; i < children.length; i++) {
+      const lc = this.estimateBlockLineCount(children[i]!)
+      const startLine = lineAcc
+      const endLine = Math.min(lineAcc + lc, this.lines.length)
+      metas[i] = {
+        startLine,
+        endLine,
+        fingerprint: combineHashes(this.lineHashes, startLine, endLine),
+      }
+      lineAcc = endLine
+    }
+
+    this.blockMetas = metas
+  }
+
+  /**
+   * Find affected block range using block metas for precise mapping.
+   * Returns [blockStart, blockEnd) — the half-open range of blocks to replace.
+   */
+  private findAffectedBlockRangeFromMetas(
     editFromLine: number,
     editToLine: number,
+    _lineDelta: number,
   ): { blockStart: number; blockEnd: number } {
-    const children = this.document.children
-    if (children.length === 0) {
+    const metas = this.blockMetas
+    if (metas.length === 0) {
       return { blockStart: 0, blockEnd: 0 }
     }
 
-    // Use a simple heuristic: map line numbers to block indices
-    // by accumulating line counts per block
-    let lineAcc = 0
+    // Binary search for blockStart: first block whose endLine > editFromLine
     let blockStart = 0
-    let blockEnd = children.length
-
-    // Find blockStart: first block whose line range overlaps with editFromLine
-    for (let i = 0; i < children.length; i++) {
-      const blockLineCount = this.estimateBlockLineCount(children[i]!)
-      if (lineAcc + blockLineCount > editFromLine) {
-        blockStart = Math.max(0, i - 1) // include previous block for safety
-        break
-      }
-      lineAcc += blockLineCount
-      blockStart = i
-    }
-
-    // Find blockEnd: first block after edit range
-    lineAcc = 0
-    for (let i = 0; i < children.length; i++) {
-      const blockLineCount = this.estimateBlockLineCount(children[i]!)
-      lineAcc += blockLineCount
-      if (lineAcc >= editToLine) {
-        blockEnd = Math.min(children.length, i + 2) // include next block for safety
-        break
+    {
+      let lo = 0, hi = metas.length - 1
+      while (lo <= hi) {
+        const mid = (lo + hi) >>> 1
+        if (metas[mid]!.endLine <= editFromLine) {
+          lo = mid + 1
+        } else {
+          blockStart = mid
+          hi = mid - 1
+        }
       }
     }
+    // Safety: include one block before for boundary effects
+    blockStart = Math.max(0, blockStart - 1)
+
+    // Binary search for blockEnd: first block whose startLine >= editToLine
+    let blockEnd = metas.length
+    {
+      let lo = blockStart, hi = metas.length - 1
+      while (lo <= hi) {
+        const mid = (lo + hi) >>> 1
+        if (metas[mid]!.startLine < editToLine) {
+          lo = mid + 1
+        } else {
+          blockEnd = mid
+          hi = mid - 1
+        }
+      }
+    }
+    // Safety: include one block after for boundary effects
+    blockEnd = Math.min(metas.length, blockEnd + 1)
 
     return { blockStart, blockEnd }
-  }
-
-  /**
-   * Estimate line index where a block starts in the document.
-   */
-  private lineIndexForBlock(blockIndex: number): number {
-    let lineAcc = 0
-    const children = this.document.children
-    for (let i = 0; i < blockIndex && i < children.length; i++) {
-      lineAcc += this.estimateBlockLineCount(children[i]!)
-    }
-    // Clamp to valid range
-    return Math.min(lineAcc, this.lines.length)
-  }
-
-  /**
-   * Estimate line index where a block range ends.
-   */
-  private lineIndexForBlockEnd(blockEndIndex: number): number {
-    let lineAcc = 0
-    const children = this.document.children
-    for (let i = 0; i < blockEndIndex && i < children.length; i++) {
-      lineAcc += this.estimateBlockLineCount(children[i]!)
-    }
-    // Clamp to valid range
-    return Math.min(lineAcc, this.lines.length)
   }
 
   /**
@@ -246,6 +335,11 @@ export class IncrementalParser {
       case 'heading':
         return 2 // heading + blank line
       case 'paragraph': {
+        // If lazy inline, use _raw for estimation
+        if (node._raw) {
+          const nlCount = node._raw.split('\n').length
+          return nlCount + 1
+        }
         // Count newlines in children text
         let textLen = 0
         for (const child of node.children) {
@@ -289,6 +383,13 @@ export class IncrementalParser {
         return lines + 3
       }
       case 'container': {
+        let count = 2 // open + close
+        for (const child of node.children) {
+          count += this.estimateBlockLineCount(child)
+        }
+        return count + 1
+      }
+      case 'details': {
         let count = 2 // open + close
         for (const child of node.children) {
           count += this.estimateBlockLineCount(child)

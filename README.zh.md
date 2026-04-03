@@ -10,7 +10,7 @@
 
 **高性能 Markdown 引擎** — 基于 [pretext](https://github.com/chenglou/pretext) 零 DOM 重排布局，打造 JavaScript 生态中最快的 Markdown 解析和渲染系统。
 
-[**简体中文**](./README.md) • [**English**](./README.en.md) • [**性能对标**](./benchmark) • [**完整 API**](./docs/api.md)
+**[中文](./README.zh.md) | [English](./README.en.md) | [性能对标](./benchmark) | [完整 API](./docs/api.md)**
 
 </div>
 
@@ -33,17 +33,19 @@
 
 ## 🎯 为什么选择 PreMarkdown
 
-**单行介绍：** 通过零 DOM 重排布局和增量解析，实现比 marked 快 3 倍、比 markdown-it 快 10 倍的 Markdown 引擎，同时保持 < 30KB gzip 的轻量级体积。
+**一句话：** 通过零 DOM 重排布局和增量解析，实现比 marked 快 3 倍、比 markdown-it 快 10 倍的 Markdown 引擎，同时保持 < 30KB gzip 的轻量级体积。
 
-### 性能 & 功能对标
+### 性能对标
 
-启动开发服务器后，可在浏览器中查看 **7 引擎实时对比**：
-
-```bash
-pnpm dev
-# 性能压测：http://localhost:9527/benchmark/
-# 语法兼容性：http://localhost:9527/benchmark/compat.html
-```
+| 特性 | PreMarkdown | marked | markdown-it | commonmark.js | Cherry |
+|------|:---:|:---:|:---:|:---:|:---:|
+| **定位** | **性能极致** | 速度型 | 插件丰富 | 规范参考 | 功能全面 |
+| **完整 AST** | ✅ | ❌ | ❌ Token | ✅ | ❌ |
+| **增量解析** | ✅ < 1ms | ❌ | ❌ | ❌ | ✅ |
+| **零 DOM 布局** | ✅ pretext | ❌ | ❌ | ❌ | ❌ DOM |
+| **虚拟化滚动** | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **Tree-shakeable ESM** | ✅ | ✅ | ✅ | ❌ | ❌ |
+| **核心体积** | < 30KB | ~12KB | ~30KB | ~20KB | ~700KB |
 
 ---
 
@@ -65,12 +67,12 @@ pnpm add @pre-markdown/parser @pre-markdown/renderer
 import { parse } from '@pre-markdown/parser'
 import { renderToHtml } from '@pre-markdown/renderer'
 
-const markdown = '# Hello **World**\n\nThis is a paragraph.'
+const markdown = '# 你好 **世界**\n\n这是一个段落。'
 const ast = parse(markdown)
 const html = renderToHtml(ast)
 
 console.log(html)
-// <h1>Hello <strong>World</strong></h1>\n<p>This is a paragraph.</p>
+// <h1>你好 <strong>世界</strong></h1>\n<p>这是一个段落。</p>
 ```
 
 ### CommonJS 兼容
@@ -79,25 +81,25 @@ console.log(html)
 const { parse } = require('@pre-markdown/parser')
 const { renderToHtml } = require('@pre-markdown/renderer')
 
-const html = renderToHtml(parse('# Hello'))
+const html = renderToHtml(parse('# 你好'))
 ```
 
 ### 仅获取 AST
 
-如果你只需要解析结构而不需要 HTML 渲染，可以单独安装 parser 包：
+如果你只需要解析结构而不需要 HTML 渲染：
 
 ```typescript
 import { parse } from '@pre-markdown/parser'
 
-const doc = parse('Hello **world**')
+const doc = parse('你好 **世界**')
 // {
 //   type: 'document',
 //   children: [
 //     {
 //       type: 'paragraph',
 //       children: [
-//         { type: 'text', content: 'Hello ' },
-//         { type: 'strong', children: [{ type: 'text', content: 'world' }] }
+//         { type: 'text', content: '你好 ' },
+//         { type: 'strong', children: [{ type: 'text', content: '世界' }] }
 //       ]
 //     }
 //   ]
@@ -115,7 +117,7 @@ const ast = parse(markdown)
 // 使用 Visitor 模式遍历 AST
 const visitor = new Visitor()
 visitor.on('heading', (node) => {
-  console.log(`Found heading level ${node.level}: ${node.children[0].content}`)
+  console.log(`找到标题 ${node.level} 级：${node.children[0].content}`)
 })
 visitor.visit(ast)
 
@@ -128,7 +130,7 @@ const headings = ast.find(n => n.type === 'heading')
 ```typescript
 import { renderToHtml } from '@pre-markdown/renderer'
 
-const markdown = '[link](javascript:alert("XSS"))'
+const markdown = '[链接](javascript:alert("XSS"))'
 const safeHtml = renderToHtml(ast, {
   sanitize: true,
   allowedProtocols: ['http', 'https', 'mailto', 'ftp']
@@ -151,7 +153,7 @@ doc = parser.update({
   type: 'replace',
   startLine: 5,
   deleteCount: 1,
-  insertLines: ['## New heading', 'Updated content']
+  insertLines: ['## 新标题', '更新的内容']
 })
 // 仅重新解析受影响的块级节点，复用其他 AST 部分
 ```
@@ -291,12 +293,12 @@ PreMarkdown 由 4 个独立的 npm 包组成，支持灵活组合：
 | **光标定位** | < 0.5ms | vs getBoundingClientRect ~5ms |
 | **核心体积** | < 30KB gzip | 与 markdown-it 相当 |
 
-### 运行性能对标
+### 在线性能对标
 
 ```bash
 pnpm dev
-# 打开 http://localhost:9527/benchmark/           — 7 引擎性能压测
-# 打开 http://localhost:9527/benchmark/compat.html — 7 引擎语法兼容性
+# 打开 http://localhost:9527/benchmark
+# 在浏览器中对比 7 个 Markdown 引擎的实时性能
 ```
 
 ---
@@ -309,7 +311,7 @@ pnpm dev
 
 ### ✅ GFM（GitHub Flavored Markdown）
 
-表格、删除线 (`~~text~~`)、任务列表 (`- [x] task`)、URL 自动链接
+表格、删除线 (`~~文本~~`)、任务列表 (`- [x] 任务`)、URL 自动链接
 
 ### ✅ 扩展语法（Cherry 兼容）
 
@@ -318,13 +320,13 @@ pnpm dev
 | **数学公式** | `$$E=mc^2$$` | LaTeX 数学表达式 |
 | **上标/下标** | `H~2~O` `x^2^` | 化学式、数学符号 |
 | **删除线** | `~~删除~~` | GFM 删除线 |
-| **高亮** | `==highlight==` | 背景高亮 |
-| **字体样式** | `{color: red}text{/color}` | 彩色文字 |
+| **高亮** | `==高亮==` | 背景高亮 |
+| **字体样式** | `{color: red}文字{/color}` | 彩色文字 |
 | **Ruby 注音** | `{base\|ruby}` | 中日韩文注音 |
-| **下划线** | `{u}underline{/u}` | 下划线文本 |
-| **面板块** | `::: info\nContent\n:::` | 信息/警告/错误面板 |
-| **折叠块** | `::: collapse\nContent\n:::` | 可展开/折叠内容 |
-| **FrontMatter** | `---\ntitle: doc\n---` | 文档元数据 |
+| **下划线** | `{u}下划线{/u}` | 下划线文本 |
+| **面板块** | `::: info\n内容\n:::` | 信息/警告/错误面板 |
+| **折叠块** | `::: collapse\n内容\n:::` | 可展开/折叠内容 |
+| **FrontMatter** | `---\ntitle: 文档\n---` | 文档元数据 |
 | **TOC** | `[TOC]` | 自动生成目录 |
 
 ---
@@ -411,7 +413,11 @@ pre-markdown/
 
 ### Q: PreMarkdown 和 marked、markdown-it 有什么区别？
 
-**A:** 启动 `pnpm dev` 后打开 [性能压测页面](http://localhost:9527/benchmark/) 和 [兼容性测试页面](http://localhost:9527/benchmark/compat.html)，可在浏览器中实时对比 7 个主流引擎的解析速度和语法覆盖率。
+**A:** PreMarkdown 的核心优势是**极致性能 + 零 DOM 重排**：
+
+- **marked** — 简单快速但无 AST 和增量支持
+- **markdown-it** — 插件丰富但性能较差且依赖 DOM
+- **PreMarkdown** — 完整 AST + 增量解析 + 零 DOM 布局 = 最快 + 最灵活
 
 ### Q: 我需要自定义 Markdown 语法吗？
 
@@ -509,12 +515,12 @@ pnpm format     # 自动格式化
 遵循 [Conventional Commits](https://www.conventionalcommits.org)：
 
 ```
-feat: add incremental parser support
-fix: correct handling of nested lists
-docs: update API documentation
-test: add test cases for edge cases
-perf: optimize AST traversal performance
-chore: update dependencies
+feat: 添加增量解析支持
+fix: 修复嵌套列表处理问题
+docs: 更新 API 文档
+test: 添加边界情况测试用例
+perf: 优化 AST 遍历性能
+chore: 更新依赖
 ```
 
 ### 测试要求

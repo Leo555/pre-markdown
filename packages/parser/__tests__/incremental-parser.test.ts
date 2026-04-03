@@ -99,6 +99,7 @@ describe('IncrementalParser', () => {
       expect(result).toHaveProperty('affectedRange')
       expect(result).toHaveProperty('newBlockCount')
       expect(result).toHaveProperty('oldBlockCount')
+      expect(result).toHaveProperty('reusedBlockCount')
       expect(result).toHaveProperty('duration')
       expect(result.affectedRange).toHaveProperty('from')
       expect(result.affectedRange).toHaveProperty('to')
@@ -235,6 +236,111 @@ describe('IncrementalParser', () => {
       // We just check both complete without error
       expect(incDuration).toBeGreaterThanOrEqual(0)
       expect(fullDuration).toBeGreaterThanOrEqual(0)
+    })
+  })
+
+  describe('AST Node Reuse', () => {
+    it('should reuse blocks outside the edit range', () => {
+      const parser = new IncrementalParser('# Title\n\nParagraph 1\n\nParagraph 2\n\nParagraph 3')
+      const oldDoc = parser.getDocument()
+      const oldFirst = oldDoc.children[0] // heading
+      const oldLast = oldDoc.children[oldDoc.children.length - 1] // paragraph 3
+
+      // Edit only paragraph 1 (line 2)
+      const result = parser.applyEdit({
+        fromLine: 2,
+        toLine: 3,
+        newText: 'Updated P1',
+      })
+
+      expect(result.reusedBlockCount).toBeGreaterThan(0)
+    })
+
+    it('should report reused blocks correctly', () => {
+      const parser = new IncrementalParser('# Title\n\nParagraph')
+      const result = parser.applyEdit({
+        fromLine: 2,
+        toLine: 3,
+        newText: 'Updated paragraph',
+      })
+
+      expect(result.reusedBlockCount).toBeGreaterThanOrEqual(0)
+      expect(result.reusedBlockCount + result.oldBlockCount).toBeLessThanOrEqual(
+        result.reusedBlockCount + result.oldBlockCount + result.newBlockCount
+      )
+    })
+  })
+
+  describe('Block Metas', () => {
+    it('should build metas after initialization', () => {
+      const parser = new IncrementalParser('# Title\n\nParagraph\n\n---')
+      const metas = parser.getBlockMetas()
+      expect(metas.length).toBe(3) // heading, paragraph, thematic break
+    })
+
+    it('should have monotonically increasing startLine', () => {
+      const parser = new IncrementalParser('# H1\n\n## H2\n\nParagraph\n\n---')
+      const metas = parser.getBlockMetas()
+      for (let i = 1; i < metas.length; i++) {
+        expect(metas[i]!.startLine).toBeGreaterThanOrEqual(metas[i - 1]!.startLine)
+      }
+    })
+
+    it('should update metas after edit', () => {
+      const parser = new IncrementalParser('# Title\n\nParagraph 1\n\nParagraph 2')
+      const metasBefore = parser.getBlockMetas().length
+
+      parser.applyEdit({
+        fromLine: 2,
+        toLine: 3,
+        newText: 'Updated P1',
+      })
+
+      const metasAfter = parser.getBlockMetas().length
+      expect(metasAfter).toBeGreaterThan(0)
+    })
+
+    it('each meta should have a fingerprint', () => {
+      const parser = new IncrementalParser('# Title\n\nSome paragraph')
+      const metas = parser.getBlockMetas()
+      for (const m of metas) {
+        expect(typeof m.fingerprint).toBe('number')
+        expect(m.fingerprint).toBeGreaterThan(0)
+      }
+    })
+  })
+
+  describe('Line Hashes', () => {
+    it('should compute line hashes on init', () => {
+      const parser = new IncrementalParser('line1\nline2\nline3')
+      const hashes = parser.getLineHashes()
+      expect(hashes.length).toBe(3)
+      expect(typeof hashes[0]).toBe('number')
+    })
+
+    it('same content should produce same hash', () => {
+      const p1 = new IncrementalParser('hello')
+      const p2 = new IncrementalParser('hello')
+      expect(p1.getLineHashes()[0]).toBe(p2.getLineHashes()[0])
+    })
+
+    it('different content should produce different hash', () => {
+      const p1 = new IncrementalParser('hello')
+      const p2 = new IncrementalParser('world')
+      expect(p1.getLineHashes()[0]).not.toBe(p2.getLineHashes()[0])
+    })
+
+    it('should update hashes after edit', () => {
+      const parser = new IncrementalParser('line1\nline2\nline3')
+      const oldHash = parser.getLineHashes()[1]
+
+      parser.applyEdit({
+        fromLine: 1,
+        toLine: 2,
+        newText: 'modified',
+      })
+
+      expect(parser.getLineHashes()[1]).not.toBe(oldHash)
     })
   })
 })

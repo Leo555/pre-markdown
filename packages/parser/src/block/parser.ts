@@ -63,6 +63,8 @@ export interface BlockParserOptions {
   toc?: boolean
   /** Enable footnote definition parsing */
   footnotes?: boolean
+  /** Lazy inline parsing: store raw text, defer parseInline to render time */
+  lazyInline?: boolean
 }
 
 const DEFAULT_OPTIONS: Required<BlockParserOptions> = {
@@ -71,6 +73,7 @@ const DEFAULT_OPTIONS: Required<BlockParserOptions> = {
   containers: true,
   toc: true,
   footnotes: true,
+  lazyInline: false,
 }
 
 /** ATX heading pattern: 1-6 # followed by space or end of line */
@@ -327,6 +330,12 @@ interface ParseResult {
 // Block Parsers
 // ============================================================
 
+/** Helper: parse inline immediately or store raw text for lazy parsing */
+function inlineOrLazy(content: string, opts: Required<BlockParserOptions>): InlineNode[] {
+  if (opts.lazyInline) return []
+  return parseInline(content)
+}
+
 function tryATXHeading(
   lines: string[],
   i: number,
@@ -346,10 +355,12 @@ function tryATXHeading(
   // If content is only # characters, it's a closing sequence → empty heading
   if (/^#+\s*$/.test(content)) content = ''
   content = content.trim()
-  const children = content ? parseInline(content) : []
+  const children = content ? inlineOrLazy(content, _opts) : []
+  const node = createHeading(depth, children)
+  if (_opts.lazyInline && content) node._raw = content
 
   return {
-    node: createHeading(depth, children),
+    node,
     nextLine: i + 1,
   }
 }
@@ -791,7 +802,11 @@ function tryTable(
   const headerCells = parseTableRow(headerLine)
   const headerRow = createTableRow(
     true,
-    headerCells.map((cellText) => createTableCell(parseInline(cellText))),
+    headerCells.map((cellText) => {
+      const cell = createTableCell(inlineOrLazy(cellText, _opts))
+      if (_opts.lazyInline && cellText) cell._raw = cellText
+      return cell
+    }),
   )
 
   const rows: TableRow[] = [headerRow]
@@ -807,7 +822,11 @@ function tryTable(
     rows.push(
       createTableRow(
         false,
-        cells.map((cellText) => createTableCell(parseInline(cellText))),
+        cells.map((cellText) => {
+          const cell = createTableCell(inlineOrLazy(cellText, _opts))
+          if (_opts.lazyInline && cellText) cell._raw = cellText
+          return cell
+        }),
       ),
     )
     j++
@@ -894,15 +913,19 @@ function tryParagraphOrSetext(
     if (paragraphLines.length > 0) {
       if (RE_SETEXT_H1.test(current)) {
         const content = paragraphLines.join('\n').trim()
+        const node = createHeading(1, inlineOrLazy(content, _opts))
+        if (_opts.lazyInline && content) node._raw = content
         return {
-          node: createHeading(1, parseInline(content)),
+          node,
           nextLine: j + 1,
         }
       }
       if (RE_SETEXT_H2.test(current)) {
         const content = paragraphLines.join('\n').trim()
+        const node = createHeading(2, inlineOrLazy(content, _opts))
+        if (_opts.lazyInline && content) node._raw = content
         return {
-          node: createHeading(2, parseInline(content)),
+          node,
           nextLine: j + 1,
         }
       }
@@ -935,8 +958,10 @@ function tryParagraphOrSetext(
   if (paragraphLines.length === 0) return null
 
   const content = paragraphLines.join('\n').trim()
+  const node = createParagraph(inlineOrLazy(content, _opts))
+  if (_opts.lazyInline && content) node._raw = content
   return {
-    node: createParagraph(parseInline(content)),
+    node,
     nextLine: j,
   }
 }

@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PreMarkdown - 自定义渲染器示例</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto; background: #f5f5f5; padding: 20px; }
+    .container { max-width: 1200px; margin: 0 auto; }
+    h1 { margin-bottom: 30px; color: #333; }
+    .example { background: white; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    .example h2 { font-size: 18px; margin-bottom: 15px; color: #2c3e50; border-bottom: 2px solid #6c5ce7; padding-bottom: 10px; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .code { background: #f0f0f0; border-left: 3px solid #6c5ce7; padding: 15px; border-radius: 4px; overflow-x: auto; font-family: 'Monaco', 'Courier New', monospace; font-size: 12px; }
+    .result { background: #fafafa; border: 1px solid #ddd; padding: 15px; border-radius: 4px; }
+    pre { overflow-x: auto; white-space: pre-wrap; word-wrap: break-word; font-size: 12px; }
+    .output { background: white; border: 1px solid #ddd; padding: 15px; border-radius: 4px; }
+    code { font-family: 'Monaco', 'Courier New', monospace; }
+    .note { background: #e8f4f8; padding: 10px 15px; border-left: 3px solid #0288d1; margin: 10px 0; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🎨 PreMarkdown 自定义渲染器示例</h1>
+    <p style="margin-bottom: 20px; color: #666;">展示如何通过自定义渲染 hooks 扩展 Markdown 功能。</p>
+
+    <!-- 示例 1: 代码高亮 -->
+    <div class="example">
+      <h2>1. 代码块高亮</h2>
+      <p>使用自定义 <code>highlightCode</code> hook 实现代码语法高亮。</p>
+      <div class="code"><code id="code1"></code></div>
+      <div class="result">
+        <p><strong>输入：</strong></p>
+        <pre id="input1"></pre>
+        <p><strong>输出（带高亮）：</strong></p>
+        <div id="output1" class="output"></div>
+      </div>
+    </div>
+
+    <!-- 示例 2: 自定义链接处理 -->
+    <div class="example">
+      <h2>2. 自定义链接处理</h2>
+      <p>添加 "target=_blank" 和图标到外部链接。</p>
+      <div class="code"><code id="code2"></code></div>
+      <div class="result">
+        <p><strong>输入：</strong></p>
+        <pre id="input2"></pre>
+        <p><strong>输出（自定义链接）：</strong></p>
+        <div id="output2" class="output"></div>
+      </div>
+    </div>
+
+    <!-- 示例 3: 自定义标题处理 -->
+    <div class="example">
+      <h2>3. 添加自动 ID 和锚点</h2>
+      <p>为每个标题自动生成 ID 和可复制的锚点。</p>
+      <div class="code"><code id="code3"></code></div>
+      <div class="result">
+        <p><strong>输入：</strong></p>
+        <pre id="input3"></pre>
+        <p><strong>输出（带锚点）：</strong></p>
+        <div id="output3" class="output"></div>
+      </div>
+    </div>
+
+    <!-- 示例 4: Markdown 主题切换 -->
+    <div class="example">
+      <h2>4. 主题定制：Markdown 风格变体</h2>
+      <p>同一个 Markdown 用不同 CSS 主题渲染。</p>
+      <div class="grid">
+        <div>
+          <p><strong>浅色主题：</strong></p>
+          <div id="output4a" class="output" style="background: #fff;"></div>
+        </div>
+        <div>
+          <p><strong>深色主题：</strong></p>
+          <div id="output4b" class="output" style="background: #2d2d2d; color: #f8f8f2;"></div>
+        </div>
+      </div>
+      <div class="note">💡 通过 CSS 类名实现主题切换，Markdown 内容不变。</div>
+    </div>
+
+    <!-- 示例 5: 添加统计数据 -->
+    <div class="example">
+      <h2>5. 后处理：添加阅读时间</h2>
+      <p>在渲染后添加文档元数据（如阅读时间）。</p>
+      <div class="code"><code id="code5"></code></div>
+      <div class="result">
+        <p><strong>处理后的输出：</strong></p>
+        <div id="output5" class="output"></div>
+      </div>
+    </div>
+  </div>
+
+  <style>
+    /* 示例 1: 代码高亮风格 */
+    .hljs-keyword { color: #0288d1; }
+    .hljs-string { color: #43a047; }
+    .hljs-number { color: #ff6f00; }
+    .hljs-attr { color: #d32f2f; }
+
+    /* 示例 3: 锚点样式 */
+    .heading-with-anchor { display: flex; align-items: center; gap: 10px; }
+    .heading-with-anchor a { color: #6c5ce7; text-decoration: none; opacity: 0; transition: opacity 0.2s; }
+    .heading-with-anchor:hover a { opacity: 1; }
+    .heading-with-anchor a:hover { text-decoration: underline; }
+
+    /* 示例 4: 主题样式 */
+    .light-theme h1, .light-theme h2 { color: #2c3e50; }
+    .light-theme p { color: #333; }
+    .light-theme code { background: #f0f0f0; color: #d73a49; padding: 2px 6px; border-radius: 3px; }
+    
+    .dark-theme h1, .dark-theme h2 { color: #e8f4f8; }
+    .dark-theme p { color: #ccc; }
+    .dark-theme code { background: #1e1e1e; color: #ce9178; padding: 2px 6px; border-radius: 3px; }
+  </style>
+
+  <script>
+    // 代码示例
+    document.getElementById('code1').textContent = `import { renderToHtml } from '@pre-markdown/renderer'
+
+const html = renderToHtml(ast, {
+  hooks: {
+    highlightCode: (code, language) => {
+      // 使用任意高亮库（highlight.js、Prism 等）
+      if (language === 'javascript') {
+        return highlightJS(code, 'javascript')
+      }
+      return escapeHtml(code)
+    }
+  }
+})`
+
+    document.getElementById('code2').textContent = `renderToHtml(ast, {
+  hooks: {
+    renderLink: (url, text, title) => {
+      const isExternal = url.startsWith('http')
+      const target = isExternal ? ' target="_blank" rel="noopener"' : ''
+      const icon = isExternal ? ' 🔗' : ''
+      return \`<a href="\${url}" title="\${title}"\${target}>\${text}\${icon}</a>\`
+    }
+  }
+})`
+
+    document.getElementById('code3').textContent = `function slugify(text) {
+  return text.toLowerCase()
+    .replace(/\\s+/g, '-')
+    .replace(/[^\\w-]/g, '')
+}
+
+renderToHtml(ast, {
+  hooks: {
+    renderHeading: (level, text, id) => {
+      const slug = slugify(text)
+      return \`<h\${level} id="\${slug}" class="heading-with-anchor">
+        \${text}
+        <a href="#\${slug}">🔗</a>
+      </h\${level}>\`
+    }
+  }
+})`
+
+    document.getElementById('code5').textContent = `function getReadingTime(html) {
+  const wordCount = html.replace(/<[^>]*>/g, '')
+    .split(/\\s+/).length
+  const minutes = Math.ceil(wordCount / 200)
+  return \`⏱️ 阅读时间约 \${minutes} 分钟\`
+}
+
+let html = renderToHtml(ast)
+html = \`<div class="reading-time">\${getReadingTime(html)}</div>\`
+  + html`
+
+    // 运行示例
+    try {
+      const { parse } = window.preMarkdownParser
+      const { renderToHtml } = window.preMarkdownRenderer
+
+      // 示例 1: 代码高亮（简单模拟）
+      const md1 = '```javascript\nconst x = 42\nconsole.log(x)\n```'
+      const ast1 = parse(md1)
+      const html1 = renderToHtml(ast1, {
+        hooks: {
+          highlightCode: (code, lang) => {
+            if (lang === 'javascript') {
+              return code
+                .replace(/const/g, '<span class="hljs-keyword">const</span>')
+                .replace(/console\.log/g, '<span class="hljs-attr">console.log</span>')
+                .replace(/42/g, '<span class="hljs-number">42</span>')
+            }
+            return code
+          }
+        }
+      })
+      document.getElementById('input1').textContent = md1
+      document.getElementById('output1').innerHTML = '<pre style="background: #1e1e1e; color: #d4d4d4; padding: 10px; border-radius: 4px;">' + html1.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</pre>'
+
+      // 示例 2: 自定义链接
+      const md2 = '[GitHub](https://github.com) 和 [本地链接](/docs)'
+      const ast2 = parse(md2)
+      const html2 = renderToHtml(ast2, {
+        hooks: {
+          renderLink: (url, text) => {
+            const isExternal = url.startsWith('http')
+            const target = isExternal ? ' target="_blank" rel="noopener"' : ''
+            const icon = isExternal ? ' 🔗' : ''
+            return `<a href="${url}"${target}>${text}${icon}</a>`
+          }
+        }
+      })
+      document.getElementById('input2').textContent = md2
+      document.getElementById('output2').innerHTML = html2
+
+      // 示例 3: 带锚点的标题
+      const md3 = '# 简介\n## 快速开始\n### 安装'
+      const ast3 = parse(md3)
+      function slugify(text) {
+        return text.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '')
+      }
+      const html3 = renderToHtml(ast3, {
+        hooks: {
+          renderHeading: (level, text) => {
+            const slug = slugify(text)
+            return `<h${level} id="${slug}" class="heading-with-anchor">
+              ${text}
+              <a href="#${slug}" title="复制链接">🔗</a>
+            </h${level}>`
+          }
+        }
+      })
+      document.getElementById('input3').textContent = md3
+      document.getElementById('output3').innerHTML = html3
+
+      // 示例 4: 主题切换
+      const md4 = '# 标题\n\n这是一段 **粗体** 文本，包含 `代码块`。'
+      const ast4 = parse(md4)
+      const html4 = renderToHtml(ast4)
+      document.getElementById('output4a').innerHTML = '<div class="light-theme">' + html4 + '</div>'
+      document.getElementById('output4b').innerHTML = '<div class="dark-theme">' + html4 + '</div>'
+
+      // 示例 5: 阅读时间
+      const md5 = '# 长文章\n\n' + Array(50).fill('这是一段示例文本。').join('')
+      const ast5 = parse(md5)
+      const html5 = renderToHtml(ast5)
+      const wordCount = html5.replace(/<[^>]*>/g, '').split(/\s+/).length
+      const minutes = Math.ceil(wordCount / 200)
+      document.getElementById('output5').innerHTML = `
+        <div style="background: #f0f8ff; padding: 10px; border-radius: 4px; margin-bottom: 15px;">
+          <strong>📖 阅读时间：</strong>约 ${minutes} 分钟 (${wordCount} 个词)
+        </div>
+        ${html5.substring(0, 200)}...
+      `
+
+    } catch (e) {
+      console.error('运行错误', e)
+      document.body.innerHTML = '<p style="padding: 20px; color: red;">❌ 需要在 PreMarkdown dev 服务器中运行。运行 pnpm dev 后访问此页面。</p>'
+    }
+  </script>
+</body>
+</html>

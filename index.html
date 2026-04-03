@@ -271,6 +271,56 @@
       flex-shrink: 0;
     }
     footer .perf { color: var(--green); font-weight: 600; }
+
+    /* ===== View Controls ===== */
+    .view-controls {
+      display: flex;
+      gap: 4px;
+    }
+    .view-controls button {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+      cursor: pointer;
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      transition: all 0.15s;
+    }
+    .view-controls button:hover {
+      background: var(--accent-soft);
+      color: var(--accent);
+      border-color: var(--accent);
+    }
+    .view-controls button.active {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+    }
+
+    /* ===== View Modes ===== */
+    main.view-edit #preview-pane,
+    main.view-edit #divider { display: none; }
+    main.view-edit #editor-pane { flex: 1 !important; }
+
+    main.view-preview #editor-pane,
+    main.view-preview #divider { display: none; }
+    main.view-preview #preview-pane { flex: 1 !important; }
+
+    /* ===== Responsive: mobile stacked ===== */
+    @media (max-width: 768px) {
+      main { flex-direction: column; }
+      .divider { width: auto; height: 5px; cursor: row-resize; }
+      .pane { flex: 1 !important; min-height: 0; }
+      header { flex-wrap: wrap; gap: 8px; padding: 8px 12px; }
+      header .stats { font-size: 11px; gap: 8px; }
+      .view-controls button { padding: 3px 6px; font-size: 10px; }
+      .toolbar { overflow-x: auto; flex-wrap: nowrap; }
+      .toolbar button { flex-shrink: 0; }
+    }
   </style>
 </head>
 <body>
@@ -285,6 +335,11 @@
     <span>Render: <b id="stat-render">--</b></span>
     <span>AST Nodes: <b id="stat-nodes">--</b></span>
     <span>Lines: <b id="stat-lines">--</b></span>
+  </div>
+  <div class="view-controls" id="view-controls">
+    <button data-view="split" class="active" title="分屏">Split</button>
+    <button data-view="edit" title="全屏编辑">Edit</button>
+    <button data-view="preview" title="全屏预览">Preview</button>
   </div>
 </header>
 

@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PreMarkdown - AST 转换示例</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto; background: #f5f5f5; padding: 20px; }
+    .container { max-width: 1200px; margin: 0 auto; }
+    h1 { margin-bottom: 30px; color: #333; }
+    .example { background: white; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    .example h2 { font-size: 18px; margin-bottom: 15px; color: #2c3e50; border-bottom: 2px solid #6c5ce7; padding-bottom: 10px; }
+    .code { background: #f0f0f0; border-left: 3px solid #6c5ce7; padding: 15px; margin: 15px 0; border-radius: 4px; overflow-x: auto; font-family: 'Monaco', 'Courier New', monospace; font-size: 12px; }
+    .result { background: #fafafa; border: 1px solid #ddd; padding: 15px; border-radius: 4px; margin-top: 10px; }
+    pre { overflow-x: auto; white-space: pre-wrap; word-wrap: break-word; }
+    .table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    .table th, .table td { padding: 8px; text-align: left; border: 1px solid #ddd; }
+    .table th { background: #f0f0f0; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔧 PreMarkdown AST 转换示例</h1>
+    <p style="margin-bottom: 20px; color: #666;">展示如何使用 Visitor 模式遍历和转换 AST。</p>
+
+    <!-- 示例 1: 提取所有标题 -->
+    <div class="example">
+      <h2>1. 提取所有标题</h2>
+      <p>使用 Visitor 模式遍历 AST，收集所有标题。</p>
+      <div class="code"><code id="code1"></code></div>
+      <div class="result">
+        <p><strong>输入 Markdown：</strong></p>
+        <pre id="input1"></pre>
+        <p><strong>提取的标题：</strong></p>
+        <table class="table" id="output1">
+          <thead><tr><th>级别</th><th>内容</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 示例 2: 收集所有链接 -->
+    <div class="example">
+      <h2>2. 收集所有链接和图片</h2>
+      <p>遍历 AST 找出所有的链接和图片 URL。</p>
+      <div class="code"><code id="code2"></code></div>
+      <div class="result">
+        <p><strong>找到的链接和图片：</strong></p>
+        <table class="table" id="output2">
+          <thead><tr><th>类型</th><th>文本</th><th>URL</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 示例 3: 转换 AST (替换链接) -->
+    <div class="example">
+      <h2>3. 转换 AST：替换链接协议</h2>
+      <p>遍历 AST 修改所有外部链接，改用代理 URL。</p>
+      <div class="code"><code id="code3"></code></div>
+      <div class="result">
+        <p><strong>原始链接：</strong></p>
+        <pre id="input3"></pre>
+        <p><strong>替换后的链接：</strong></p>
+        <pre id="output3"></pre>
+      </div>
+    </div>
+
+    <!-- 示例 4: 统计文档 -->
+    <div class="example">
+      <h2>4. 统计文档指标</h2>
+      <p>计算文档中的单词数、代码块数、标题数等统计数据。</p>
+      <div class="code"><code id="code4"></code></div>
+      <div class="result">
+        <p><strong>文档统计：</strong></p>
+        <table class="table">
+          <thead><tr><th>指标</th><th>数量</th></tr></thead>
+          <tbody id="output4"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 代码示例
+    document.getElementById('code1').textContent = `import { parse } from '@pre-markdown/parser'
+import { Visitor } from '@pre-markdown/core'
+
+const ast = parse(markdown)
+const headings = []
+
+const visitor = new Visitor()
+visitor.on('heading', (node) => {
+  headings.push({
+    level: node.level,
+    text: node.children[0].content
+  })
+})
+visitor.visit(ast)`
+
+    document.getElementById('code2').textContent = `const links = []
+const images = []
+
+const visitor = new Visitor()
+visitor.on('link', (node) => {
+  links.push({
+    text: node.children[0].content,
+    url: node.url
+  })
+})
+visitor.on('image', (node) => {
+  images.push({
+    alt: node.alt,
+    url: node.url
+  })
+})
+visitor.visit(ast)`
+
+    document.getElementById('code3').textContent = `// 修改 AST（转换链接）
+function transformLinks(node, baseUrl) {
+  if (node.type === 'link') {
+    node.url = baseUrl + encodeURIComponent(node.url)
+  }
+  if (node.children) {
+    node.children.forEach(child => transformLinks(child, baseUrl))
+  }
+}
+transformLinks(ast, 'https://proxy.example.com/?url=')`
+
+    document.getElementById('code4').textContent = `// 统计文档指标
+let stats = {
+  headings: 0, codeBlocks: 0, links: 0,
+  images: 0, tables: 0, words: 0
+}
+const visitor = new Visitor()
+visitor.on('heading', () => stats.headings++)
+visitor.on('code_block', () => stats.codeBlocks++)
+visitor.on('link', () => stats.links++)
+visitor.on('image', () => stats.images++)
+visitor.on('table', () => stats.tables++)
+visitor.on('text', (node) => {
+  stats.words += node.content.split(/\\s+/).length
+})
+visitor.visit(ast)`
+
+    // 运行示例
+    try {
+      const { parse } = window.preMarkdownParser
+      const { Visitor } = window.preMarkdownCore
+      
+      const markdown = `# Markdown AST 转换示例
+## 基本概念
+### Visitor 模式
+### 遍历和修改
+
+## 实际应用
+### 提取链接
+查看 [GitHub](https://github.com) 和 [官网](https://example.com)
+
+### 图片处理
+![logo](https://example.com/logo.png)
+![图标](https://example.com/icon.svg)
+
+## 高级用法
+包含代码块：
+\`\`\`javascript
+console.log('Hello')
+\`\`\``
+
+      // 示例 1: 提取标题
+      const ast = parse(markdown)
+      const headings = []
+      const visitor1 = new Visitor()
+      visitor1.on('heading', (node) => {
+        const text = node.children[0]?.content || ''
+        headings.push({ level: node.level, text })
+      })
+      visitor1.visit(ast)
+      
+      document.getElementById('input1').textContent = markdown
+      const tbody1 = document.querySelector('#output1 tbody')
+      headings.forEach(h => {
+        const tr = document.createElement('tr')
+        tr.innerHTML = `<td>H${h.level}</td><td>${h.text}</td>`
+        tbody1.appendChild(tr)
+      })
+      
+      // 示例 2: 收集链接和图片
+      const links = []
+      const images = []
+      const visitor2 = new Visitor()
+      visitor2.on('link', (node) => {
+        const text = node.children[0]?.content || ''
+        links.push({ type: '链接', text, url: node.url })
+      })
+      visitor2.on('image', (node) => {
+        images.push({ type: '图片', text: node.alt, url: node.url })
+      })
+      visitor2.visit(ast)
+      
+      const tbody2 = document.querySelector('#output2 tbody')
+      const all = [...links, ...images]
+      all.forEach(item => {
+        const tr = document.createElement('tr')
+        tr.innerHTML = `<td>${item.type}</td><td>${item.text}</td><td>${item.url}</td>`
+        tbody2.appendChild(tr)
+      })
+      
+      // 示例 3: 转换链接
+      const astCopy = JSON.parse(JSON.stringify(ast))
+      function transformLinks(node) {
+        if (node.type === 'link') {
+          node.url = 'https://proxy.example.com/?url=' + encodeURIComponent(node.url)
+        }
+        if (node.children) {
+          node.children.forEach(transformLinks)
+        }
+      }
+      transformLinks(astCopy)
+      
+      document.getElementById('input3').textContent = '[GitHub](https://github.com)\n[官网](https://example.com)'
+      const linkNodes = []
+      const visitor3 = new Visitor()
+      visitor3.on('link', (node) => {
+        linkNodes.push(`[${node.children[0]?.content}](${node.url})`)
+      })
+      visitor3.visit(astCopy)
+      document.getElementById('output3').textContent = linkNodes.join('\n')
+      
+      // 示例 4: 统计
+      let stats = {
+        标题: 0, 代码块: 0, 链接: 0,
+        图片: 0, 表格: 0, 单词数: 0
+      }
+      const visitor4 = new Visitor()
+      visitor4.on('heading', () => stats.标题++)
+      visitor4.on('code_block', () => stats.代码块++)
+      visitor4.on('link', () => stats.链接++)
+      visitor4.on('image', () => stats.图片++)
+      visitor4.on('table', () => stats.表格++)
+      visitor4.on('text', (node) => {
+        stats.单词数 += (node.content.match(/\S+/g) || []).length
+      })
+      visitor4.visit(ast)
+      
+      const tbody4 = document.querySelector('#output4 tbody')
+      Object.entries(stats).forEach(([key, val]) => {
+        const tr = document.createElement('tr')
+        tr.innerHTML = `<td>${key}</td><td>${val}</td>`
+        tbody4.appendChild(tr)
+      })
+      
+    } catch (e) {
+      console.error('运行错误', e)
+      document.body.innerHTML = '<p style="padding: 20px; color: red;">❌ 需要在 PreMarkdown dev 服务器中运行。运行 pnpm dev 后访问此页面。</p>'
+    }
+  </script>
+</body>
+</html>

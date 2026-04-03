@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PreMarkdown - 基础用法示例</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto; background: #f5f5f5; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+    h1 { margin-bottom: 30px; color: #333; }
+    .example { background: white; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    .example h2 { font-size: 18px; margin-bottom: 15px; color: #2c3e50; border-bottom: 2px solid #6c5ce7; padding-bottom: 10px; }
+    .code { background: #f0f0f0; border-left: 3px solid #6c5ce7; padding: 15px; margin: 15px 0; border-radius: 4px; overflow-x: auto; font-family: 'Monaco', 'Courier New', monospace; font-size: 13px; }
+    .code code { color: #333; }
+    .result { background: #fafafa; border: 1px solid #ddd; padding: 15px; border-radius: 4px; margin-top: 10px; }
+    .stat { display: inline-block; margin-right: 20px; padding: 8px 12px; background: #f0f0f0; border-radius: 4px; font-size: 12px; }
+    .stat strong { color: #6c5ce7; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🚀 PreMarkdown 基础用法示例</h1>
+
+    <!-- 示例 1: 解析和渲染 -->
+    <div class="example">
+      <h2>1. 解析 Markdown 并渲染为 HTML</h2>
+      <p>最简单的用法：将 Markdown 字符串转换为 HTML。</p>
+      <div class="code"><code id="code1"></code></div>
+      <div class="result">
+        <p><strong>输入：</strong></p>
+        <pre id="input1"></pre>
+        <p><strong>输出：</strong></p>
+        <div id="output1"></div>
+        <div id="stats1" class="stat"></div>
+      </div>
+    </div>
+
+    <!-- 示例 2: 仅解析获取 AST -->
+    <div class="example">
+      <h2>2. 仅解析获取 AST（不渲染）</h2>
+      <p>如果你只需要 AST 而不需要 HTML，可以单独使用 parser。</p>
+      <div class="code"><code id="code2"></code></div>
+      <div class="result">
+        <p><strong>AST 结构：</strong></p>
+        <pre id="output2"></pre>
+      </div>
+    </div>
+
+    <!-- 示例 3: 安全渲染 -->
+    <div class="example">
+      <h2>3. 安全模式（XSS 防护）</h2>
+      <p>启用 <code>sanitize: true</code> 自动防护 XSS 攻击。</p>
+      <div class="code"><code id="code3"></code></div>
+      <div class="result">
+        <p><strong>输入（含恶意链接）：</strong></p>
+        <pre id="input3"></pre>
+        <p><strong>安全输出：</strong></p>
+        <div id="output3" style="word-break: break-all; font-family: monospace; font-size: 12px;"></div>
+      </div>
+    </div>
+
+    <!-- 示例 4: 性能对比 -->
+    <div class="example">
+      <h2>4. 性能指标</h2>
+      <p>在浏览器中实时测量解析和渲染性能。</p>
+      <div class="result">
+        <p><strong>1KB 文本处理时间：</strong></p>
+        <div id="perf1kb" style="margin: 10px 0;"></div>
+        <p><strong>100KB 文本处理时间：</strong></p>
+        <div id="perf100kb" style="margin: 10px 0;"></div>
+      </div>
+    </div>
+
+    <!-- 示例 5: 支持的语法 -->
+    <div class="example">
+      <h2>5. 语法支持示例</h2>
+      <p>PreMarkdown 支持 CommonMark、GFM 和多个扩展语法。</p>
+      <div class="result" id="syntaxResult"></div>
+    </div>
+  </div>
+
+  <script>
+    // 代码展示
+    document.getElementById('code1').textContent = `import { parse } from '@pre-markdown/parser'
+import { renderToHtml } from '@pre-markdown/renderer'
+
+const markdown = '# Hello **World**'
+const ast = parse(markdown)
+const html = renderToHtml(ast)`
+
+    document.getElementById('code2').textContent = `import { parse } from '@pre-markdown/parser'
+
+const doc = parse('# Heading')
+console.log(doc)
+// { type: 'document', children: [...] }`
+
+    document.getElementById('code3').textContent = `import { renderToHtml } from '@pre-markdown/renderer'
+
+const html = renderToHtml(ast, {
+  sanitize: true,
+  allowedProtocols: ['http', 'https', 'mailto']
+})`
+
+    // 示例 1: 基础解析
+    try {
+      const { parse } = window.preMarkdownParser
+      const { renderToHtml } = window.preMarkdownRenderer
+      
+      const markdown1 = '# Hello **World**\n\n这是一个段落。'
+      const t0 = performance.now()
+      const ast1 = parse(markdown1)
+      const t1 = performance.now()
+      const html1 = renderToHtml(ast1)
+      const t2 = performance.now()
+      
+      document.getElementById('input1').textContent = markdown1
+      document.getElementById('output1').innerHTML = html1
+      document.getElementById('stats1').innerHTML = `<strong>解析:</strong> ${(t1-t0).toFixed(2)}ms | <strong>渲染:</strong> ${(t2-t1).toFixed(2)}ms`
+      
+      // 示例 2: AST 输出
+      document.getElementById('output2').textContent = JSON.stringify(ast1, null, 2)
+      
+      // 示例 3: 安全渲染
+      const xssMarkdown = '[click me](javascript:alert("XSS"))'
+      const ast3 = parse(xssMarkdown)
+      const safeHtml = renderToHtml(ast3, { sanitize: true })
+      document.getElementById('input3').textContent = xssMarkdown
+      document.getElementById('output3').textContent = safeHtml
+      
+      // 示例 4: 性能对比
+      const generateMarkdown = (lines) => Array(lines).fill('# Test\n\nThis is a paragraph with **bold** and *italic* text.\n\n- List item 1\n- List item 2\n\n').join('')
+      
+      const md1kb = generateMarkdown(10)
+      const t1kb0 = performance.now()
+      parse(md1kb)
+      renderToHtml(parse(md1kb))
+      const t1kb1 = performance.now()
+      document.getElementById('perf1kb').innerHTML = `<span class="stat"><strong>${(t1kb1-t1kb0).toFixed(2)}ms</strong></span> (Parse + Render)`
+      
+      const md100kb = generateMarkdown(500)
+      const t100kb0 = performance.now()
+      parse(md100kb)
+      renderToHtml(parse(md100kb))
+      const t100kb1 = performance.now()
+      document.getElementById('perf100kb').innerHTML = `<span class="stat"><strong>${(t100kb1-t100kb0).toFixed(2)}ms</strong></span> (Parse + Render)`
+      
+      // 示例 5: 语法支持
+      const syntaxMarkdown = `# 标题
+## 副标题
+
+这是**粗体**，这是*斜体*，这是~~删除线~~。
+
+\`\`\`javascript
+console.log('Hello World')
+\`\`\`
+
+| 功能 | 支持 |
+|------|------|
+| CommonMark | ✅ |
+| GFM | ✅ |
+
+- [ ] 任务项 1
+- [x] 任务项 2
+
+> 这是一个引用块`
+      
+      const astSyntax = parse(syntaxMarkdown)
+      const htmlSyntax = renderToHtml(astSyntax)
+      document.getElementById('syntaxResult').innerHTML = htmlSyntax
+      
+    } catch (e) {
+      console.error('需要在开发服务器中运行此页面', e)
+      document.body.innerHTML = '<p style="padding: 20px; color: red;">❌ 需要在 PreMarkdown dev 服务器中运行。运行 pnpm dev 后访问此页面。</p>'
+    }
+  </script>
+</body>
+</html>

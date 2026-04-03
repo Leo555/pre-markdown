@@ -49,11 +49,15 @@ export interface Heading extends BaseNode {
   /** Heading level 1-6 */
   depth: 1 | 2 | 3 | 4 | 5 | 6
   children: InlineNode[]
+  /** Raw inline text for lazy parsing (internal use) */
+  _raw?: string
 }
 
 export interface Paragraph extends BaseNode {
   readonly type: 'paragraph'
   children: InlineNode[]
+  /** Raw inline text for lazy parsing (internal use) */
+  _raw?: string
 }
 
 export interface Blockquote extends BaseNode {
@@ -119,6 +123,8 @@ export interface TableRow extends BaseNode {
 export interface TableCell extends BaseNode {
   readonly type: 'tableCell'
   children: InlineNode[]
+  /** Raw inline text for lazy parsing (internal use) */
+  _raw?: string
 }
 
 export interface FootnoteDefinition extends BaseNode {

@@ -175,6 +175,9 @@ function update(value: string): void {
   // Incremental DOM update: only replace changed blocks
   patchPreview(preview, html)
 
+  // Update sync scroll data
+  updateSyncData(value, ast)
+
   const parseMs = (t1 - t0).toFixed(2)
   const renderMs = (t2 - t1).toFixed(2)
   const totalMs = (t2 - t0).toFixed(2)
@@ -399,12 +402,100 @@ function insertAtCursor(text: string): void {
   updateLineNumbers(editor.value)
 }
 
-// Sync scroll (editor → preview + line numbers)
-editor.addEventListener('scroll', () => {
-  const ratio = editor.scrollTop / (editor.scrollHeight - editor.clientHeight || 1)
-  preview.scrollTop = ratio * (preview.scrollHeight - preview.clientHeight)
-  // Sync line numbers scroll with editor
+// ============================================================
+// AST-based Sync Scroll (paragraph mapping, not ratio)
+// ============================================================
+
+let lastAST: Document | null = null
+let syncScrollEnabled = true
+
+/** Build line→block index map from source text */
+function buildLineBlockMap(value: string): number[] {
+  const lines = value.split('\n')
+  const map: number[] = new Array(lines.length)
+  let blockIdx = 0
+  let inBlock = false
+
+  for (let i = 0; i < lines.length; i++) {
+    const blank = /^\s*$/.test(lines[i]!)
+    if (blank && inBlock) {
+      inBlock = false
+      blockIdx++
+    } else if (!blank) {
+      inBlock = true
+    }
+    map[i] = blockIdx
+  }
+  return map
+}
+
+let lineBlockMap: number[] = []
+
+function updateSyncData(value: string, ast: Document): void {
+  lastAST = ast
+  lineBlockMap = buildLineBlockMap(value)
+}
+
+/** Sync editor scroll → preview scroll using block mapping */
+function syncEditorToPreview(): void {
+  if (!syncScrollEnabled) return
+  // Sync line numbers
   lineNumbers.scrollTop = editor.scrollTop
+
+  // Find which line is at the top of the editor viewport
+  const lineHeight = parseFloat(getComputedStyle(editor).lineHeight) || 24
+  const topLine = Math.floor(editor.scrollTop / lineHeight)
+  const blockIndex = lineBlockMap[topLine] ?? 0
+
+  // Find the corresponding DOM element in preview
+  const previewChildren = preview.children
+  if (blockIndex < previewChildren.length) {
+    const targetEl = previewChildren[blockIndex] as HTMLElement
+    syncScrollEnabled = false
+    preview.scrollTop = targetEl.offsetTop - 20
+    requestAnimationFrame(() => { syncScrollEnabled = true })
+  }
+}
+
+/** Sync preview scroll → editor scroll using block mapping */
+function syncPreviewToEditor(): void {
+  if (!syncScrollEnabled) return
+
+  // Find which block is at the top of the preview viewport
+  const previewChildren = preview.children
+  let blockIndex = 0
+  for (let i = 0; i < previewChildren.length; i++) {
+    const el = previewChildren[i] as HTMLElement
+    if (el.offsetTop + el.offsetHeight > preview.scrollTop) {
+      blockIndex = i
+      break
+    }
+  }
+
+  // Find the first line of this block in the editor
+  for (let i = 0; i < lineBlockMap.length; i++) {
+    if (lineBlockMap[i] === blockIndex) {
+      const lineHeight = parseFloat(getComputedStyle(editor).lineHeight) || 24
+      syncScrollEnabled = false
+      editor.scrollTop = i * lineHeight
+      lineNumbers.scrollTop = editor.scrollTop
+      requestAnimationFrame(() => { syncScrollEnabled = true })
+      break
+    }
+  }
+}
+
+// Debounced scroll handlers
+let editorScrollRAF = 0
+editor.addEventListener('scroll', () => {
+  cancelAnimationFrame(editorScrollRAF)
+  editorScrollRAF = requestAnimationFrame(syncEditorToPreview)
+})
+
+let previewScrollRAF = 0
+preview.addEventListener('scroll', () => {
+  cancelAnimationFrame(previewScrollRAF)
+  previewScrollRAF = requestAnimationFrame(syncPreviewToEditor)
 })
 
 // ============================================================
@@ -538,3 +629,30 @@ function patchPreview(container: HTMLElement, html: string): void {
     container.appendChild(temp.children[i]!.cloneNode(true))
   }
 }
+
+// ============================================================
+// View Mode Toggle (split / edit-only / preview-only)
+// ============================================================
+
+const viewControls = document.getElementById('view-controls')!
+
+viewControls.addEventListener('click', (e) => {
+  const btn = (e.target as HTMLElement).closest('button')
+  if (!btn) return
+  const view = btn.dataset.view
+  if (!view) return
+
+  // Update button states
+  viewControls.querySelectorAll('button').forEach(b => b.classList.remove('active'))
+  btn.classList.add('active')
+
+  // Update main layout
+  mainEl.classList.remove('view-split', 'view-edit', 'view-preview')
+  mainEl.classList.add('view-' + view)
+
+  // Reset flex styles from draggable divider when switching modes
+  if (view === 'split') {
+    editorPane.style.flex = ''
+    previewPane.style.flex = ''
+  }
+})
