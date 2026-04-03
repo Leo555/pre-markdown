@@ -323,13 +323,13 @@ function renderInlineNode(node: InlineNode, opts: Required<RendererOptions>): st
       return '<code>' + escapeHtml(node.value) + '</code>'
     case 'link': {
       const safeUrl = opts.sanitize ? sanitizeUrl(node.url) : node.url
-      let r = '<a href="' + escapeAttr(safeUrl) + '"'
+      let r = '<a href="' + escapeAttr(encodeUrl(safeUrl)) + '"'
       if (node.title) r += ' title="' + escapeAttr(node.title) + '"'
       return r + '>' + renderInlineNodes(node.children, opts) + '</a>'
     }
     case 'image': {
       const safeSrc = opts.sanitize ? sanitizeUrl(node.url) : node.url
-      let r = '<img src="' + escapeAttr(safeSrc) + '" alt="' + escapeAttr(node.alt) + '"'
+      let r = '<img src="' + escapeAttr(encodeUrl(safeSrc)) + '" alt="' + escapeAttr(node.alt) + '"'
       if (node.title) r += ' title="' + escapeAttr(node.title) + '"'
       if (node.width) r += ' width="' + node.width + '"'
       if (node.height) r += ' height="' + node.height + '"'
@@ -403,6 +403,24 @@ function sanitizeUrl(url: string): string {
     return ''
   }
   return url
+}
+
+/** Percent-encode non-ASCII and special chars in URLs (CommonMark spec) */
+function encodeUrl(url: string): string {
+  // Encode chars that are not in the URL-safe set
+  // But preserve already-encoded %XX sequences and common URL chars
+  try {
+    // encodeURI handles most cases but doesn't encode some chars CommonMark needs
+    return url.replace(/[^\x21-\x7E]/g, (ch) => {
+      try {
+        return encodeURIComponent(ch)
+      } catch {
+        return ch
+      }
+    })
+  } catch {
+    return url
+  }
 }
 
 /** Sanitize a CSS value — strip anything that looks like script injection */
