@@ -44,7 +44,8 @@ const RE_ESCAPE = /[!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~]/
 const RE_FOOTNOTE_REF = /\[\^([^\]]+)\]/y
 const RE_AUTOLINK_URI = /<([a-zA-Z][a-zA-Z0-9+.\-]{1,31}:[^\s<>]*)>/y
 const RE_AUTOLINK_EMAIL = /<([a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*)>/y
-const RE_HTML_INLINE = /<\/?[a-zA-Z][a-zA-Z0-9-]*(?:\s+[a-zA-Z_:][a-zA-Z0-9_.:-]*(?:\s*=\s*(?:[^\s"'=<>`]+|'[^']*'|"[^"]*"))?)*\s*\/?>/y
+const RE_HTML_INLINE_OPEN = /<[a-zA-Z][a-zA-Z0-9-]*(?:\s+[a-zA-Z_:][a-zA-Z0-9_.:-]*(?:\s*=\s*(?:[^\s"'=<>`]+|'[^']*'|"[^"]*"))?)*\s*\/?>/y
+const RE_HTML_INLINE_CLOSE = /<\/[a-zA-Z][a-zA-Z0-9-]*\s*>/y
 /** Inline HTML comment: <!-- ... --> (not <!--> or <!--->)  */
 const RE_HTML_COMMENT = /<!--(?!>)(?!->)[\s\S]*?-->/y
 /** Inline processing instruction: <? ... ?> */
@@ -292,12 +293,22 @@ export function parseInline(input: string): InlineNode[] {
         continue
       }
 
-      // HTML inline tag
-      const htmlMatch = execAt(RE_HTML_INLINE, input, pos)
+      // HTML inline tag (open or self-closing)
+      const htmlMatch = execAt(RE_HTML_INLINE_OPEN, input, pos)
       if (htmlMatch) {
         flushText()
         nodes.push(createHtmlInline(htmlMatch[0]))
         pos = pos + htmlMatch[0].length
+        textStart = pos
+        continue
+      }
+
+      // HTML inline close tag (no attributes allowed)
+      const htmlCloseMatch = execAt(RE_HTML_INLINE_CLOSE, input, pos)
+      if (htmlCloseMatch) {
+        flushText()
+        nodes.push(createHtmlInline(htmlCloseMatch[0]))
+        pos = pos + htmlCloseMatch[0].length
         textStart = pos
         continue
       }

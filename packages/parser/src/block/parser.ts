@@ -108,8 +108,9 @@ const RE_HTML_BLOCK_3 = /^<\?/   // Processing instruction
 const RE_HTML_BLOCK_4 = /^<![A-Z]/  // Declaration
 const RE_HTML_BLOCK_5 = /^<!\[CDATA\[/  // CDATA
 const RE_HTML_BLOCK_6 = /^<\/?(?:address|article|aside|base|basefont|blockquote|body|caption|center|col|colgroup|dd|details|dialog|dir|div|dl|dt|fieldset|figcaption|figure|footer|form|frame|frameset|h1|h2|h3|h4|h5|h6|head|header|hr|html|iframe|legend|li|link|main|menu|menuitem|nav|noframes|ol|optgroup|option|p|param|search|section|summary|table|tbody|td|tfoot|th|thead|title|tr|track|ul)(?:\s|\/?>|$)/i
-/** HTML block Type 7: open/close tag that is not covered by Type 1-6, on a line by itself */
-const RE_HTML_BLOCK_7 = /^<\/?[a-zA-Z][a-zA-Z0-9-]*(?:\s+[a-zA-Z_:][a-zA-Z0-9_.:-]*(?:\s*=\s*(?:[^\s"'=<>`]+|'[^']*'|"[^"]*"))?)*\s*\/?>[ \t]*$/
+/** HTML block Type 7: open tag with attributes OR close tag (no attributes), on a line by itself */
+const RE_HTML_BLOCK_7_OPEN = /^<[a-zA-Z][a-zA-Z0-9-]*(?:\s+[a-zA-Z_:][a-zA-Z0-9_.:-]*(?:\s*=\s*(?:[^\s"'=<>`]+|'[^']*'|"[^"]*"))?)*\s*\/?>[ \t]*$/
+const RE_HTML_BLOCK_7_CLOSE = /^<\/[a-zA-Z][a-zA-Z0-9-]*\s*>[ \t]*$/
 /** Indented code block (4+ spaces) */
 const RE_INDENT_CODE = /^(?: {4}|\t)/
 /** Blank line */
@@ -749,8 +750,7 @@ function tryHtmlBlock(lines: string[], i: number, end: number): ParseResult | nu
   }
 
   // Type 7: any open/close tag on a line by itself — ends at blank line
-  // Must not interrupt a paragraph (only called when not in paragraph context)
-  if (RE_HTML_BLOCK_7.test(stripped)) {
+  if (RE_HTML_BLOCK_7_OPEN.test(stripped) || RE_HTML_BLOCK_7_CLOSE.test(stripped)) {
     const htmlLines: string[] = []
     let j = i
     while (j < end) {
