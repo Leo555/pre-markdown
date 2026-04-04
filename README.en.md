@@ -2,6 +2,8 @@
 
 <div align="center">
 
+<img src="./generated-images/logo.png" alt="PreMarkdown Logo" width="200" />
+
 [![npm version](https://img.shields.io/npm/v/@pre-markdown/parser)](https://www.npmjs.com/package/@pre-markdown/parser)
 [![npm downloads](https://img.shields.io/npm/dm/@pre-markdown/parser)](https://www.npmjs.com/package/@pre-markdown/parser)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.5+-blue)](https://www.typescriptlang.org)
