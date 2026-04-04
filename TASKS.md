@@ -180,7 +180,7 @@
 - [x] Thematic break 1-3 前导空格 + blockquote 前导空格/懒续行收紧 + setext 前导空格 + backslash escape 解码 → 356/652 (54.6%)
 - [x] Fenced code backtick info string 全行检查 + 关闭条件修正 → 29/29 满分
 - [x] Block quote 懒续行：禁止续行到 fenced code / indented code → 25/25 满分
-- [ ] 实体引用快速路径（&amp; &lt; &gt; &quot;）
+- [x] 实体引用快速路径（&amp; &lt; &gt; &quot;）→ 94% (16/17)，仅剩 link ref def 依赖
 
 ### 4.3 不优先修复（复杂度高、用户无感）
 - ~~Emphasis 左右限定规则完整实现~~
@@ -274,6 +274,7 @@
 
 | 日期 | 变更内容 |
 |------|---------|
+| 2026-04-04 | Entity references 确认 94% (16/17)；标记实体引用快速路径完成 |
 | 2026-04-04 | Thematic break 打断列表 + 列表项内嵌 hr 渲染修复；Thematic breaks 79%→95%, Lists 12%→27%, List items 38%→48% → 418/652 (64.1%) |
 | 2026-04-04 | 增量解析 LRU 缓存：基于 FNV-1a 指纹的段落粒度 BlockNode 缓存复用，256 容量 LRU 淘汰 |
 | 2026-04-04 | AST 节点 Flyweight：Break/SoftBreak/ThematicBreak 单例化，减少对象创建 |
