@@ -15,7 +15,7 @@
 | Phase 2：性能优化（核心） | ✅ 已完成 | 100% |
 | Phase 3：Pretext 深度集成（核心） | 🔨 进行中 | 55% |
 | Phase 4：语法兼容性（次要） | 🔨 进行中 | 70% |
-| Phase 5：生态与文档 | 🔨 进行中 | 60% |
+| Phase 5：生态与文档 | 🔨 进行中 | 70% |
 | Phase 6：编辑器输入框优化 | 🔨 进行中 | 80% |
 
 ---
@@ -208,7 +208,7 @@
 - [x] `docs/architecture.md` — 架构设计（两阶段流水线、AST 设计、性能优化策略、pretext 集成）
 - [x] `docs/api.md` — API 文档（parse / renderToHtml / IncrementalParser / LayoutEngine 完整参数）
 - [x] `docs/performance.md` — 性能报告（7 引擎对比数据）
-- [ ] `docs/plugins.md` — 插件开发指南
+- [x] `docs/plugins.md` — 插件开发指南（Plugin 接口、四种 Hook 详解、完整示例、最佳实践）
 
 ### 5.4 CI/CD + Demo
 - [x] 6 引擎压测 + 兼容性测试页面
@@ -263,10 +263,10 @@
 | Phase 2：性能优化 | 20 | 2 | 18 |
 | Phase 3：Pretext 深度集成 | 15 | 5 | 10 |
 | Phase 4：语法兼容性 | 12 | 7 | 5 |
-| Phase 5：生态与文档 | 10 | 1 | 9 |
-| **合计** | **107** | **65** | **42** |
+| Phase 5：生态与文档 | 10 | 8 | 2 |
+| **合计** | **107** | **73** | **34** |
 
-> 当前总体完成度：**≈ 61%**
+> 当前总体完成度：**≈ 68%**
 
 ---
 
@@ -274,6 +274,9 @@
 
 | 日期 | 变更内容 |
 |------|---------|
+| 2026-04-04 | docs/plugins.md 插件开发指南：Plugin 接口、四种 Hook 详解（block/inline/transform/render）、KaTeX/Mermaid/highlight/mention 示例、PluginManager API、最佳实践 |
+| 2026-04-04 | docs 交叉链接更新：所有文档页面顶部增加插件指南链接；api.md 补充插件系统 API 参考 |
+| 2026-04-04 | README 优化：默认英文版（README.md），中文版（README.zh.md），删除 README.en.md |
 | 2026-04-04 | GitHub Actions CI：test（Node 18/20/22 矩阵）+ typecheck + lint + build + 包体积检查 |
 | 2026-04-04 | 性能回归 CI：PR 自动 benchmark 对比基线，15% 阈值告警，PR 评论输出对比表 |
 | 2026-04-04 | 插件系统：Plugin 接口 + PluginManager + block/inline/transform/render 四种 Hook + 渲染器集成 + 15 测试 |

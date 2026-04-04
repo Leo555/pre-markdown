@@ -1,6 +1,6 @@
 # PreMarkdown 架构设计
 
-> 📖 相关文档：[API 文档](./api.md) · [性能报告](./performance.md) · [贡献指南](../CONTRIBUTING.md) · [← 返回 README](../README.md)
+> 📖 相关文档：[API 文档](./api.md) · [性能报告](./performance.md) · [插件指南](./plugins.md) · [贡献指南](../CONTRIBUTING.md) · [← 返回 README](../README.md)
 
 ---
 

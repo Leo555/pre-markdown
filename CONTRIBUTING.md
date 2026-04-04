@@ -1,6 +1,6 @@
 # PreMarkdown 贡献指南 & 开发准则
 
-> 📖 相关文档：[API 文档](./docs/api.md) · [架构设计](./docs/architecture.md) · [性能报告](./docs/performance.md) · [← 返回 README](./README.md)
+> 📖 相关文档：[API 文档](./docs/api.md) · [架构设计](./docs/architecture.md) · [性能报告](./docs/performance.md) · [插件指南](./docs/plugins.md) · [← 返回 README](./README.md)
 
 感谢你对 PreMarkdown 的关注！本文档定义了项目的开发流程、质量标准和工程规范。所有代码变更（无论人工还是 AI）都必须遵守这些准则。
 

@@ -1,6 +1,6 @@
 # PreMarkdown API 文档
 
-> 📖 相关文档：[架构设计](./architecture.md) · [性能报告](./performance.md) · [贡献指南](../CONTRIBUTING.md) · [← 返回 README](../README.md)
+> 📖 相关文档：[架构设计](./architecture.md) · [性能报告](./performance.md) · [插件指南](./plugins.md) · [贡献指南](../CONTRIBUTING.md) · [← 返回 README](../README.md)
 
 ---
 
@@ -192,4 +192,45 @@ const { changedIndices } = engine.updateDocumentLayout(paragraphs)
 
 // 滚动位置命中测试
 const hit = engine.hitTest(paragraphs, scrollTop)
+```
+
+---
+
+## 插件系统
+
+> 完整指南见 [插件开发指南](./plugins.md)。
+
+### `PluginManager`
+
+插件注册中心和 Hook 调度器。
+
+```typescript
+import { PluginManager } from '@pre-markdown/core'
+import type { Plugin } from '@pre-markdown/core'
+
+const pm = new PluginManager()
+pm.use(plugin1, plugin2)      // 注册（链式调用）
+pm.remove('plugin-name')      // 移除
+pm.has('plugin-name')         // 是否已注册
+pm.getPluginNames()           // 获取所有名称
+```
+
+### `Plugin` 接口
+
+```typescript
+interface Plugin {
+  name: string                                    // 唯一名称
+  blockParse?: BlockParseHook                     // 块级解析
+  inlineParse?: Record<number, InlineParseHook>   // 行内解析（charCode → hook）
+  transform?: ASTTransformHook                    // AST 转换
+  render?: Partial<Record<NodeType, RenderHook>>  // 渲染自定义
+}
+```
+
+### 在渲染器中使用
+
+```typescript
+import { renderToHtml } from '@pre-markdown/renderer'
+
+const html = renderToHtml(doc, { plugins: pm })
 ```
