@@ -19,7 +19,8 @@ function copyBenchmarkFixtures() {
   }
 }
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
+  base: command === 'build' ? '/pre-markdown/' : '/',
   plugins: [copyBenchmarkFixtures()],
   resolve: {
     alias: {
@@ -63,4 +64,4 @@ export default defineConfig({
     exclude: ['@chenglou/pretext'],
     entries: ['index.html', 'demo/main.ts', 'benchmark/index.html', 'benchmark/main.ts', 'benchmark/compat.html', 'benchmark/compat.ts', 'benchmark/compat-inline.ts'],
   },
-})
+}))
