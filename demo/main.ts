@@ -41,6 +41,12 @@ const statWords = document.getElementById('stat-words')!
 const statChars = document.getElementById('stat-chars')!
 const statReading = document.getElementById('stat-reading')!
 
+// Current line highlight
+const currentLineHl = document.getElementById('current-line-hl')!
+
+// Theme toggle
+const themeToggle = document.getElementById('theme-toggle')!
+
 // ============================================================
 // Pretext Layout Engine & Cursor Engine
 // ============================================================
@@ -746,6 +752,7 @@ function updateActiveLine(): void {
     if (cur) cur.classList.add('active-line')
     currentLine = line
   }
+  updateCurrentLineHighlight()
 }
 
 // Live update with debounce
@@ -766,6 +773,7 @@ editor.addEventListener('keyup', updateActiveLine)
 editor.addEventListener('scroll', () => {
   highlightBackdrop.scrollTop = editor.scrollTop
   highlightBackdrop.scrollLeft = editor.scrollLeft
+  updateCurrentLineHighlight()
 }, { passive: true })
 
 // Tab key support in editor
@@ -866,6 +874,10 @@ editor.addEventListener('keydown', (e) => {
     } else if (e.key === 'z') {
       e.preventDefault()
       performUndo()
+    } else if (e.key === '/' && e.shiftKey) {
+      // Ctrl+? → help
+      e.preventDefault()
+      openHelp()
     }
     return
   }
@@ -1791,15 +1803,206 @@ function performRedo(): void {
 }
 
 // ============================================================
+// Theme Toggle (Dark / Light)
+// ============================================================
+
+function getTheme(): string {
+  return localStorage.getItem('premarkdown-theme') || 'dark'
+}
+
+function setTheme(theme: string): void {
+  document.documentElement.setAttribute('data-theme', theme)
+  localStorage.setItem('premarkdown-theme', theme)
+  themeToggle.textContent = theme === 'dark' ? '🌙' : '☀️'
+  themeToggle.title = theme === 'dark' ? '切换到亮色主题' : '切换到暗色主题'
+}
+
+// Apply saved theme immediately
+setTheme(getTheme())
+
+themeToggle.addEventListener('click', () => {
+  const current = getTheme()
+  setTheme(current === 'dark' ? 'light' : 'dark')
+})
+
+// ============================================================
+// Export (HTML / Markdown)
+// ============================================================
+
+function downloadFile(content: string, filename: string, mimeType: string): void {
+  const blob = new Blob([content], { type: mimeType })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+}
+
+document.getElementById('btn-export-html')!.addEventListener('click', () => {
+  const html = preview.innerHTML
+  const theme = getTheme()
+  const bgColor = theme === 'dark' ? '#0f1117' : '#fff'
+  const textColor = theme === 'dark' ? '#e4e5e9' : '#24292e'
+  const doc = `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PreMarkdown Export</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif; max-width: 900px; margin: 0 auto; padding: 24px; line-height: 1.75; background: ${bgColor}; color: ${textColor}; }
+    h1 { font-size: 2em; margin: 0.8em 0 0.4em; border-bottom: 2px solid #e1e4e8; padding-bottom: 0.3em; }
+    h2 { font-size: 1.5em; margin: 0.7em 0 0.35em; color: #6c5ce7; }
+    h3 { font-size: 1.25em; margin: 0.6em 0 0.3em; }
+    code { font-family: 'SF Mono', monospace; font-size: 0.88em; background: rgba(108,92,231,0.1); color: #6c5ce7; padding: 2px 6px; border-radius: 4px; }
+    pre { background: #282c34; color: #abb2bf; padding: 16px 20px; border-radius: 8px; overflow-x: auto; margin: 0.8em 0; }
+    pre code { background: none; padding: 0; color: inherit; }
+    table { border-collapse: collapse; width: 100%; margin: 0.8em 0; }
+    th, td { border: 1px solid #e1e4e8; padding: 8px 12px; text-align: left; }
+    th { background: #f5f7fa; font-weight: 600; }
+    blockquote { border-left: 4px solid #6c5ce7; padding: 8px 16px; margin: 0.8em 0; background: rgba(108,92,231,0.05); }
+    hr { border: none; border-top: 1px solid #e1e4e8; margin: 1.5em 0; }
+    img { max-width: 100%; border-radius: 8px; }
+    a { color: #6c5ce7; text-decoration: none; }
+  </style>
+</head>
+<body>
+${html}
+</body>
+</html>`
+  downloadFile(doc, 'markdown-export.html', 'text/html')
+})
+
+document.getElementById('btn-export-md')!.addEventListener('click', () => {
+  downloadFile(editor.value, 'document.md', 'text/markdown')
+})
+
+// ============================================================
+// Help Modal (F1 / Ctrl+?)
+// ============================================================
+
+const helpModal = document.getElementById('help-modal')!
+
+function openHelp(): void {
+  helpModal.classList.add('visible')
+}
+
+function closeHelp(): void {
+  helpModal.classList.remove('visible')
+}
+
+document.getElementById('btn-help')!.addEventListener('click', openHelp)
+document.getElementById('help-close')!.addEventListener('click', closeHelp)
+helpModal.addEventListener('click', (e) => {
+  if (e.target === helpModal) closeHelp()
+})
+
+// ============================================================
+// Share via URL (Base64 hash)
+// ============================================================
+
+const shareModal = document.getElementById('share-modal')!
+const shareUrlField = document.getElementById('share-url') as HTMLTextAreaElement
+
+document.getElementById('btn-share')!.addEventListener('click', () => {
+  // UTF-8 safe Base64 encode
+  const bytes = new TextEncoder().encode(editor.value)
+  const binary = Array.from(bytes, b => String.fromCharCode(b)).join('')
+  const encoded = encodeURIComponent(btoa(binary))
+  const url = `${window.location.origin}${window.location.pathname}#code=${encoded}`
+  shareUrlField.value = url
+  shareModal.classList.add('visible')
+})
+
+document.getElementById('share-copy')!.addEventListener('click', () => {
+  shareUrlField.select()
+  navigator.clipboard.writeText(shareUrlField.value).then(() => {
+    const btn = document.getElementById('share-copy')!
+    btn.textContent = '✅ 已复制!'
+    setTimeout(() => { btn.textContent = '📋 复制链接' }, 1500)
+  })
+})
+
+document.getElementById('share-close')!.addEventListener('click', () => {
+  shareModal.classList.remove('visible')
+})
+
+shareModal.addEventListener('click', (e) => {
+  if (e.target === shareModal) shareModal.classList.remove('visible')
+})
+
+/** Load markdown from URL hash if present */
+function loadFromUrlHash(): boolean {
+  const hash = window.location.hash.slice(1)
+  const params = new URLSearchParams(hash)
+  const encoded = params.get('code')
+  if (encoded) {
+    try {
+      const binary = atob(decodeURIComponent(encoded))
+      const bytes = Uint8Array.from(binary, c => c.charCodeAt(0))
+      const decoded = new TextDecoder().decode(bytes)
+      return decoded.length > 0 ? (editor.value = decoded, true) : false
+    } catch {
+      // Invalid encoding — ignore
+    }
+  }
+  return false
+}
+
+// ============================================================
+// Current Line Background Highlight
+// ============================================================
+
+function updateCurrentLineHighlight(): void {
+  const pos = editor.selectionStart
+  const textBefore = editor.value.slice(0, pos)
+  const lineIdx = textBefore.split('\n').length - 1
+  const lineHeight = parseFloat(getComputedStyle(editor).lineHeight) || 24
+  const paddingTop = parseFloat(getComputedStyle(editor).paddingTop) || 20
+  const top = paddingTop + lineIdx * lineHeight - editor.scrollTop
+  currentLineHl.style.top = top + 'px'
+  currentLineHl.style.height = lineHeight + 'px'
+  // Hide if scrolled out of view
+  if (top < -lineHeight || top > editor.clientHeight) {
+    currentLineHl.style.display = 'none'
+  } else {
+    currentLineHl.style.display = ''
+  }
+}
+
+// ============================================================
+// Global keyboard shortcuts (F1, Esc)
+// ============================================================
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'F1') {
+    e.preventDefault()
+    openHelp()
+  }
+  if (e.key === 'Escape') {
+    closeHelp()
+    shareModal.classList.remove('visible')
+  }
+})
+
+// ============================================================
 // Initialize (after all event listeners are registered)
 // ============================================================
 
 try {
   initMinimap()
-  editor.value = DEFAULT_CONTENT
-  lastHistoryText = DEFAULT_CONTENT
-  update(DEFAULT_CONTENT)
-  updateLineNumbers(DEFAULT_CONTENT)
+  // Try loading from URL hash first, fallback to default content
+  const loadedFromUrl = loadFromUrlHash()
+  if (!loadedFromUrl) {
+    editor.value = DEFAULT_CONTENT
+  }
+  lastHistoryText = editor.value
+  update(editor.value)
+  updateLineNumbers(editor.value)
+  updateCurrentLineHighlight()
 } catch (err) {
   console.error('[PreMarkdown] Initialization error:', err)
   // Even if parse/render fails, the editor and buttons still work

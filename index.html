@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
   <style>
-    :root {
+    :root, [data-theme="dark"] {
       --bg: #0f1117;
       --bg-card: #1a1d27;
       --bg-input: #13151d;
@@ -21,6 +21,20 @@
       --radius: 10px;
       --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'SF Mono', monospace;
       --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif;
+      --line-hl: rgba(108, 92, 231, 0.08);
+    }
+
+    [data-theme="light"] {
+      --bg: #f5f7fa;
+      --bg-card: #ffffff;
+      --bg-input: #fafbfc;
+      --border: #e1e4e8;
+      --text: #24292e;
+      --text-dim: #6a737d;
+      --accent: #6c5ce7;
+      --accent-soft: rgba(108, 92, 231, 0.1);
+      --green: #0e8a7f;
+      --line-hl: rgba(108, 92, 231, 0.06);
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -487,6 +501,128 @@
       margin-bottom: 4px;
     }
 
+    /* ===== Light theme highlight overrides ===== */
+    [data-theme="light"] .hl-heading { color: #b58900; }
+    [data-theme="light"] .hl-heading-marker { color: #cb4b16; }
+    [data-theme="light"] .hl-bold { color: #1a1a1a; }
+    [data-theme="light"] .hl-italic { color: #444; }
+    [data-theme="light"] .hl-bold-italic { color: #1a1a1a; }
+    [data-theme="light"] .hl-strike { color: #999; }
+    [data-theme="light"] .hl-code { color: #6c5ce7; background: rgba(108, 92, 231, 0.08); }
+    [data-theme="light"] .hl-code-fence { color: #2aa198; }
+    [data-theme="light"] .hl-code-lang { color: #268bd2; }
+    [data-theme="light"] .hl-link-text { color: #268bd2; }
+    [data-theme="light"] .hl-link-url { color: #999; }
+    [data-theme="light"] .hl-link-bracket { color: #999; }
+    [data-theme="light"] .hl-image-marker { color: #d33682; }
+    [data-theme="light"] .hl-list-marker { color: #cb4b16; }
+    [data-theme="light"] .hl-blockquote-marker { color: #6c5ce7; }
+    [data-theme="light"] .hl-math { color: #6c5ce7; }
+    [data-theme="light"] .hl-highlight { color: #b58900; background: rgba(255, 220, 50, 0.15); }
+    [data-theme="light"] .hl-container { color: #2aa198; }
+    [data-theme="light"] .hl-footnote { color: #6c5ce7; }
+    [data-theme="light"] textarea#editor::selection { background: rgba(108, 92, 231, 0.25); }
+    [data-theme="light"] textarea#editor { caret-color: #24292e; }
+
+    /* Light theme preview overrides */
+    [data-theme="light"] #preview h2 { color: #6c5ce7; }
+    [data-theme="light"] #preview strong { color: #1a1a1a; }
+    [data-theme="light"] #preview em { color: #444; }
+    [data-theme="light"] #preview del { color: #999; }
+    [data-theme="light"] #preview code { background: rgba(108, 92, 231, 0.08); color: #6c5ce7; }
+    [data-theme="light"] #preview pre { background: #282c34; border-color: #e1e4e8; }
+    [data-theme="light"] #preview pre code { color: #abb2bf; }
+    [data-theme="light"] #preview blockquote { color: #555; }
+    [data-theme="light"] #preview tr:nth-child(even) { background: rgba(0,0,0,0.02); }
+    [data-theme="light"] #preview mark, [data-theme="light"] #preview .highlight { background: rgba(255, 220, 50, 0.3); color: #856404; }
+
+    /* ===== Current Line Highlight ===== */
+    .editor-current-line {
+      position: absolute;
+      left: 0;
+      right: 0;
+      background: var(--line-hl);
+      pointer-events: none;
+      z-index: 0;
+      transition: top 0.05s ease-out;
+    }
+
+    /* ===== Help Modal ===== */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(2px);
+    }
+    .modal-overlay.visible { display: flex; }
+    .modal-box {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      max-width: 560px;
+      width: 90%;
+      max-height: 80vh;
+      overflow-y: auto;
+      box-shadow: 0 16px 48px rgba(0,0,0,0.4);
+    }
+    .modal-box h3 {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 16px;
+      color: var(--accent);
+    }
+    .modal-box h4 {
+      font-size: 13px;
+      font-weight: 600;
+      margin: 14px 0 6px;
+      color: var(--text);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .modal-box table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 12px;
+      font-size: 12px;
+    }
+    .modal-box td { padding: 4px 8px; }
+    .modal-box td:first-child { font-family: var(--font-mono); color: var(--accent); white-space: nowrap; width: 40%; }
+    .modal-box td:last-child { color: var(--text-dim); }
+    .modal-box tr:nth-child(even) { background: rgba(108, 92, 231, 0.04); }
+    .modal-box .close-btn {
+      margin-top: 16px;
+      display: block;
+      width: 100%;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      padding: 8px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 13px;
+    }
+    .modal-box .close-btn:hover { opacity: 0.9; }
+
+    /* ===== Theme Toggle Button ===== */
+    .theme-toggle {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+      cursor: pointer;
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 14px;
+      transition: all 0.15s;
+      line-height: 1;
+    }
+    .theme-toggle:hover { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
+
     /* ===== Word Count Bar ===== */
     .word-count-bar {
       display: flex;
@@ -574,10 +710,17 @@
     <span>AST Nodes: <b id="stat-nodes">--</b></span>
     <span>Lines: <b id="stat-lines">--</b></span>
   </div>
-  <div class="view-controls" id="view-controls">
-    <button data-view="split" class="active" title="分屏">Split</button>
-    <button data-view="edit" title="全屏编辑">Edit</button>
-    <button data-view="preview" title="全屏预览">Preview</button>
+  <div style="display:flex;gap:8px;align-items:center">
+    <div class="view-controls" id="view-controls">
+      <button data-view="split" class="active" title="分屏">Split</button>
+      <button data-view="edit" title="全屏编辑">Edit</button>
+      <button data-view="preview" title="全屏预览">Preview</button>
+    </div>
+    <button class="theme-toggle" id="theme-toggle" title="切换主题">🌙</button>
+    <button class="theme-toggle" id="btn-export-html" title="导出 HTML">⬇ HTML</button>
+    <button class="theme-toggle" id="btn-export-md" title="导出 Markdown">⬇ MD</button>
+    <button class="theme-toggle" id="btn-share" title="分享">📤</button>
+    <button class="theme-toggle" id="btn-help" title="快捷键帮助 (F1)">❓</button>
   </div>
 </header>
 
@@ -626,6 +769,7 @@
             <button id="replace-all" title="替换全部">全部</button>
           </div>
         </div>
+        <div class="editor-current-line" id="current-line-hl"></div>
         <pre id="highlight-backdrop"><code id="highlight-code"></code></pre>
         <textarea id="editor" spellcheck="false" placeholder="输入 Markdown 内容..."></textarea>
       </div>
@@ -658,6 +802,71 @@
     <span class="perf" id="stat-total">Ready</span>
   </div>
 </footer>
+
+<!-- Help Modal -->
+<div class="modal-overlay" id="help-modal">
+  <div class="modal-box">
+    <h3>⌨️ 快捷键参考</h3>
+    <h4>文本格式化</h4>
+    <table>
+      <tr><td>Ctrl/⌘ + B</td><td>加粗</td></tr>
+      <tr><td>Ctrl/⌘ + I</td><td>斜体</td></tr>
+      <tr><td>Ctrl/⌘ + D</td><td>删除线</td></tr>
+      <tr><td>Ctrl/⌘ + `</td><td>行内代码</td></tr>
+      <tr><td>Ctrl/⌘ + K</td><td>插入链接</td></tr>
+    </table>
+    <h4>搜索与编辑</h4>
+    <table>
+      <tr><td>Ctrl/⌘ + F</td><td>搜索</td></tr>
+      <tr><td>Ctrl/⌘ + H</td><td>搜索并替换</td></tr>
+      <tr><td>Ctrl/⌘ + Z</td><td>撤销</td></tr>
+      <tr><td>Ctrl/⌘ + Shift + Z</td><td>重做</td></tr>
+    </table>
+    <h4>编辑增强</h4>
+    <table>
+      <tr><td>Tab / Shift+Tab</td><td>缩进 / 反缩进</td></tr>
+      <tr><td>Enter（在列表中）</td><td>自动续行 / 自增编号</td></tr>
+      <tr><td>Enter（在引用中）</td><td>自动续行引用</td></tr>
+      <tr><td>( [ {</td><td>自动插入闭合括号</td></tr>
+      <tr><td>Backspace（在配对中）</td><td>同时删除配对符号</td></tr>
+      <tr><td>) ] }</td><td>跳过已存在闭合符号</td></tr>
+    </table>
+    <h4>面板与视图</h4>
+    <table>
+      <tr><td>F1 / Ctrl+?</td><td>显示此帮助面板</td></tr>
+      <tr><td>Esc</td><td>关闭搜索 / 帮助面板</td></tr>
+    </table>
+    <h4>支持的 Markdown 语法</h4>
+    <table>
+      <tr><td># ~ ######</td><td>1-6 级标题</td></tr>
+      <tr><td>**text**</td><td>加粗</td></tr>
+      <tr><td>*text*</td><td>斜体</td></tr>
+      <tr><td>~~text~~</td><td>删除线</td></tr>
+      <tr><td>`code`</td><td>行内代码</td></tr>
+      <tr><td>```lang</td><td>代码块（180+ 语言高亮）</td></tr>
+      <tr><td>[text](url)</td><td>链接</td></tr>
+      <tr><td>![alt](url)</td><td>图片</td></tr>
+      <tr><td>| a | b |</td><td>表格（GFM）</td></tr>
+      <tr><td>$E=mc^2$</td><td>行内数学公式</td></tr>
+      <tr><td>:emoji:</td><td>Emoji 表情</td></tr>
+      <tr><td>:::: info</td><td>自定义面板</td></tr>
+    </table>
+    <button class="close-btn" id="help-close">关闭 (Esc)</button>
+  </div>
+</div>
+
+<!-- Share Modal -->
+<div class="modal-overlay" id="share-modal">
+  <div class="modal-box">
+    <h3>📤 分享链接</h3>
+    <p style="font-size:12px;color:var(--text-dim);margin-bottom:12px">复制下方链接即可分享当前 Markdown 内容：</p>
+    <textarea id="share-url" readonly style="width:100%;height:80px;background:var(--bg-input);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:8px;font-family:var(--font-mono);font-size:11px;resize:none"></textarea>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button class="close-btn" id="share-copy" style="flex:1;margin-top:0">📋 复制链接</button>
+      <button class="close-btn" id="share-close" style="flex:1;margin-top:0;background:var(--border);color:var(--text)">关闭</button>
+    </div>
+  </div>
+</div>
 
 <script type="module" src="/demo/main.ts"></script>
 </body>
