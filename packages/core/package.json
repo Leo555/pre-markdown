@@ -1,6 +1,6 @@
 {
   "name": "@pre-markdown/core",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Core AST types, builders, visitors, and event system for PreMarkdown",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -15,11 +15,28 @@
   },
   "sideEffects": false,
   "license": "MIT",
+  "author": "tickli",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Leo555/pre-markdown.git",
+    "directory": "packages/core"
+  },
+  "homepage": "https://github.com/Leo555/pre-markdown/tree/master/packages/core#readme",
+  "bugs": {
+    "url": "https://github.com/Leo555/pre-markdown/issues"
+  },
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
     "clean": "rimraf dist"
   },
-  "files": ["dist"],
-  "keywords": ["markdown", "ast", "parser", "pretext"]
+  "files": [
+    "dist"
+  ],
+  "keywords": [
+    "markdown",
+    "ast",
+    "parser",
+    "pretext"
+  ]
 }

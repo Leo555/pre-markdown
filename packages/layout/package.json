@@ -1,6 +1,6 @@
 {
   "name": "@pre-markdown/layout",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Pretext-based zero-DOM-reflow text layout engine",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -15,6 +15,16 @@
   },
   "sideEffects": false,
   "license": "MIT",
+  "author": "tickli",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Leo555/pre-markdown.git",
+    "directory": "packages/layout"
+  },
+  "homepage": "https://github.com/Leo555/pre-markdown/tree/master/packages/layout#readme",
+  "bugs": {
+    "url": "https://github.com/Leo555/pre-markdown/issues"
+  },
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
@@ -24,6 +34,14 @@
     "@pre-markdown/core": "workspace:*",
     "@chenglou/pretext": "^0.0.4"
   },
-  "files": ["dist"],
-  "keywords": ["markdown", "layout", "pretext", "virtual-scroll", "text-measurement"]
+  "files": [
+    "dist"
+  ],
+  "keywords": [
+    "markdown",
+    "layout",
+    "pretext",
+    "virtual-scroll",
+    "text-measurement"
+  ]
 }

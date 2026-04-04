@@ -1,6 +1,6 @@
 {
   "name": "@pre-markdown/renderer",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "High-performance AST to HTML renderer for PreMarkdown",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -15,6 +15,16 @@
   },
   "sideEffects": false,
   "license": "MIT",
+  "author": "tickli",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Leo555/pre-markdown.git",
+    "directory": "packages/renderer"
+  },
+  "homepage": "https://github.com/Leo555/pre-markdown/tree/master/packages/renderer#readme",
+  "bugs": {
+    "url": "https://github.com/Leo555/pre-markdown/issues"
+  },
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
@@ -23,6 +33,13 @@
   "dependencies": {
     "@pre-markdown/core": "workspace:*"
   },
-  "files": ["dist"],
-  "keywords": ["markdown", "renderer", "html", "pretext"]
+  "files": [
+    "dist"
+  ],
+  "keywords": [
+    "markdown",
+    "renderer",
+    "html",
+    "pretext"
+  ]
 }

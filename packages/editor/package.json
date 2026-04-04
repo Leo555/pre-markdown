@@ -1,6 +1,7 @@
 {
   "name": "@pre-markdown/editor",
   "version": "0.1.0",
+  "private": true,
   "description": "PreMarkdown editor UI layer",
   "type": "module",
   "main": "./dist/index.js",
@@ -16,5 +17,7 @@
     "@pre-markdown/layout": "workspace:*",
     "@pre-markdown/renderer": "workspace:*"
   },
-  "files": ["dist"]
+  "files": [
+    "dist"
+  ]
 }
