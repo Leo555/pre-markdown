@@ -19,6 +19,28 @@ const statNodes = document.getElementById('stat-nodes')!
 const statLines = document.getElementById('stat-lines')!
 const statTotal = document.getElementById('stat-total')!
 
+// Search & Replace elements
+const searchPanel = document.getElementById('search-panel')!
+const searchInput = document.getElementById('search-input') as HTMLInputElement
+const replaceInput = document.getElementById('replace-input') as HTMLInputElement
+const searchInfo = document.getElementById('search-info')!
+const searchRegex = document.getElementById('search-regex')!
+const searchCase = document.getElementById('search-case')!
+
+// Minimap elements
+const minimapEl = document.getElementById('minimap')!
+const minimapCanvas = document.getElementById('minimap-canvas') as HTMLCanvasElement
+const minimapViewport = document.getElementById('minimap-viewport')!
+
+// Outline panel elements
+const outlinePanel = document.getElementById('outline-panel')!
+const outlineList = document.getElementById('outline-list')!
+
+// Word count elements
+const statWords = document.getElementById('stat-words')!
+const statChars = document.getElementById('stat-chars')!
+const statReading = document.getElementById('stat-reading')!
+
 // ============================================================
 // Pretext Layout Engine & Cursor Engine
 // ============================================================
@@ -674,6 +696,11 @@ function update(value: string): void {
   statNodes.textContent = String(nodes)
   statLines.textContent = `${lines} (${visualLines} visual)`
   statTotal.textContent = `Total: ${totalMs}ms (layout: ${layoutMs}ms)`
+
+  // Update word count, outline, and minimap
+  updateWordCount(value)
+  updateOutline(ast)
+  requestAnimationFrame(() => renderMinimap(value))
 }
 
 // ============================================================
@@ -723,6 +750,7 @@ function updateActiveLine(): void {
 
 // Live update with debounce
 editor.addEventListener('input', () => {
+  scheduleHistory()
   if (debounceTimer) clearTimeout(debounceTimer)
   debounceTimer = setTimeout(() => {
     update(editor.value)
@@ -826,8 +854,70 @@ editor.addEventListener('keydown', (e) => {
     } else if (e.key === 'd') {
       e.preventDefault()
       wrapSelection('~~', '~~')
+    } else if (e.key === 'f') {
+      e.preventDefault()
+      openSearch(false)
+    } else if (e.key === 'h') {
+      e.preventDefault()
+      openSearch(true)
+    } else if (e.key === 'z' && e.shiftKey) {
+      e.preventDefault()
+      performRedo()
+    } else if (e.key === 'z') {
+      e.preventDefault()
+      performUndo()
     }
     return
+  }
+
+  // Backspace: smart delete matching pairs
+  if (e.key === 'Backspace' && editor.selectionStart === editor.selectionEnd) {
+    const pos = editor.selectionStart
+    if (pos > 0 && pos < editor.value.length) {
+      const before = editor.value[pos - 1]!
+      const after = editor.value[pos]!
+      const pairMap: Record<string, string> = {
+        '(': ')', '[': ']', '{': '}', '"': '"', "'": "'", '`': '`', '*': '*', '~': '~', '_': '_'
+      }
+      if (pairMap[before] === after) {
+        e.preventDefault()
+        editor.value = editor.value.substring(0, pos - 1) + editor.value.substring(pos + 1)
+        editor.selectionStart = editor.selectionEnd = pos - 1
+        update(editor.value)
+        updateLineNumbers(editor.value)
+        scheduleHistory()
+        return
+      }
+    }
+  }
+
+  // Closing bracket/quote: jump over if next char is the same
+  const closingChars = ')\']}">`~*_'
+  if (closingChars.includes(e.key) && editor.selectionStart === editor.selectionEnd) {
+    const pos = editor.selectionStart
+    if (pos < editor.value.length && editor.value[pos] === e.key) {
+      e.preventDefault()
+      editor.selectionStart = editor.selectionEnd = pos + 1
+      return
+    }
+  }
+
+  // Auto-pair for non-selected chars (single char pairs)
+  if (editor.selectionStart === editor.selectionEnd) {
+    const autoPairs: Record<string, string> = {
+      '(': ')', '[': ']', '{': '}'
+    }
+    const closingChar = autoPairs[e.key]
+    if (closingChar) {
+      e.preventDefault()
+      const pos = editor.selectionStart
+      editor.value = editor.value.substring(0, pos) + e.key + closingChar + editor.value.substring(pos)
+      editor.selectionStart = editor.selectionEnd = pos + 1
+      update(editor.value)
+      updateLineNumbers(editor.value)
+      scheduleHistory()
+      return
+    }
   }
 
   // Enter: auto-continue lists
@@ -1004,7 +1094,16 @@ function syncPreviewToEditor(): void {
 let editorScrollRAF = 0
 editor.addEventListener('scroll', () => {
   cancelAnimationFrame(editorScrollRAF)
-  editorScrollRAF = requestAnimationFrame(syncEditorToPreview)
+  editorScrollRAF = requestAnimationFrame(() => {
+    syncEditorToPreview()
+    // Update minimap viewport position
+    const h = minimapEl.getBoundingClientRect().height
+    const editorHeight = editor.scrollHeight || 1
+    const viewportRatio = editor.clientHeight / editorHeight
+    const scrollRatio = editor.scrollTop / editorHeight
+    minimapViewport.style.top = (scrollRatio * h) + 'px'
+    minimapViewport.style.height = Math.max(viewportRatio * h, 20) + 'px'
+  })
 })
 
 let previewScrollRAF = 0
@@ -1261,16 +1360,450 @@ editor.addEventListener('drop', (e) => {
 })
 
 // ============================================================
+// Search & Replace (Ctrl+F / Ctrl+H)
+// ============================================================
+
+let searchMatches: { start: number; end: number }[] = []
+let currentMatchIdx = -1
+let useRegex = false
+let caseSensitive = false
+
+function openSearch(withReplace = false): void {
+  searchPanel.classList.add('visible')
+  const replaceRow = document.getElementById('replace-row')!
+  replaceRow.style.display = withReplace ? 'flex' : 'none'
+  searchInput.focus()
+  // Pre-fill with selection if available
+  const sel = editor.value.substring(editor.selectionStart, editor.selectionEnd)
+  if (sel && !sel.includes('\n')) {
+    searchInput.value = sel
+  }
+  performSearch()
+}
+
+function closeSearch(): void {
+  searchPanel.classList.remove('visible')
+  searchMatches = []
+  currentMatchIdx = -1
+  searchInfo.textContent = '0/0'
+  updateHighlight(editor.value) // Clear search highlights
+  editor.focus()
+}
+
+function performSearch(): void {
+  const query = searchInput.value
+  searchMatches = []
+  currentMatchIdx = -1
+
+  if (!query) {
+    searchInfo.textContent = '0/0'
+    updateHighlight(editor.value)
+    return
+  }
+
+  const text = editor.value
+  try {
+    if (useRegex) {
+      const flags = caseSensitive ? 'g' : 'gi'
+      const re = new RegExp(query, flags)
+      let match: RegExpExecArray | null
+      while ((match = re.exec(text)) !== null) {
+        if (match[0].length === 0) { re.lastIndex++; continue }
+        searchMatches.push({ start: match.index, end: match.index + match[0].length })
+        if (searchMatches.length > 10000) break // safety limit
+      }
+    } else {
+      const searchText = caseSensitive ? text : text.toLowerCase()
+      const searchQuery = caseSensitive ? query : query.toLowerCase()
+      let idx = 0
+      while ((idx = searchText.indexOf(searchQuery, idx)) !== -1) {
+        searchMatches.push({ start: idx, end: idx + query.length })
+        idx += query.length
+        if (searchMatches.length > 10000) break
+      }
+    }
+  } catch {
+    // Invalid regex — ignore
+  }
+
+  // Find the match closest to the current cursor
+  if (searchMatches.length > 0) {
+    const cursorPos = editor.selectionStart
+    currentMatchIdx = 0
+    for (let i = 0; i < searchMatches.length; i++) {
+      if (searchMatches[i]!.start >= cursorPos) {
+        currentMatchIdx = i
+        break
+      }
+    }
+  }
+
+  updateSearchInfo()
+  updateHighlight(editor.value)
+}
+
+function updateSearchInfo(): void {
+  if (searchMatches.length === 0) {
+    searchInfo.textContent = '0/0'
+  } else {
+    searchInfo.textContent = `${currentMatchIdx + 1}/${searchMatches.length}`
+  }
+}
+
+function goToMatch(idx: number): void {
+  if (searchMatches.length === 0) return
+  currentMatchIdx = ((idx % searchMatches.length) + searchMatches.length) % searchMatches.length
+  const match = searchMatches[currentMatchIdx]!
+  editor.selectionStart = match.start
+  editor.selectionEnd = match.end
+  editor.focus()
+
+  // Scroll to match
+  const textBefore = editor.value.slice(0, match.start)
+  const lineNum = textBefore.split('\n').length
+  const lineHeight = parseFloat(getComputedStyle(editor).lineHeight) || 24
+  const targetScroll = (lineNum - 3) * lineHeight
+  editor.scrollTop = Math.max(0, targetScroll)
+
+  updateSearchInfo()
+  updateHighlight(editor.value)
+}
+
+function replaceCurrentMatch(): void {
+  if (searchMatches.length === 0 || currentMatchIdx < 0) return
+  const match = searchMatches[currentMatchIdx]!
+  const replaceText = replaceInput.value
+  editor.value = editor.value.substring(0, match.start) + replaceText + editor.value.substring(match.end)
+  editor.selectionStart = editor.selectionEnd = match.start + replaceText.length
+  update(editor.value)
+  updateLineNumbers(editor.value)
+  performSearch()
+}
+
+function replaceAllMatches(): void {
+  if (searchMatches.length === 0) return
+  const replaceText = replaceInput.value
+  // Replace from end to start to preserve indices
+  let text = editor.value
+  for (let i = searchMatches.length - 1; i >= 0; i--) {
+    const match = searchMatches[i]!
+    text = text.substring(0, match.start) + replaceText + text.substring(match.end)
+  }
+  editor.value = text
+  update(editor.value)
+  updateLineNumbers(editor.value)
+  performSearch()
+}
+
+// Search event listeners
+searchInput.addEventListener('input', performSearch)
+searchInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault()
+    if (e.shiftKey) goToMatch(currentMatchIdx - 1)
+    else goToMatch(currentMatchIdx + 1)
+  }
+  if (e.key === 'Escape') closeSearch()
+})
+replaceInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeSearch()
+})
+document.getElementById('search-next')!.addEventListener('click', () => goToMatch(currentMatchIdx + 1))
+document.getElementById('search-prev')!.addEventListener('click', () => goToMatch(currentMatchIdx - 1))
+document.getElementById('search-close')!.addEventListener('click', closeSearch)
+document.getElementById('replace-one')!.addEventListener('click', replaceCurrentMatch)
+document.getElementById('replace-all')!.addEventListener('click', replaceAllMatches)
+
+searchRegex.addEventListener('click', () => {
+  useRegex = !useRegex
+  searchRegex.classList.toggle('active', useRegex)
+  performSearch()
+})
+searchCase.addEventListener('click', () => {
+  caseSensitive = !caseSensitive
+  searchCase.classList.toggle('active', caseSensitive)
+  performSearch()
+})
+
+// ============================================================
+// Minimap (canvas-based code overview)
+// ============================================================
+
+let minimapCtx: CanvasRenderingContext2D | null = null
+
+function initMinimap(): void {
+  minimapCtx = minimapCanvas.getContext('2d')
+}
+
+function renderMinimap(value: string): void {
+  if (!minimapCtx) return
+  const canvas = minimapCanvas
+  const dpr = window.devicePixelRatio || 1
+  const rect = minimapEl.getBoundingClientRect()
+  const w = rect.width
+  const h = rect.height
+
+  canvas.width = w * dpr
+  canvas.height = h * dpr
+  canvas.style.width = w + 'px'
+  canvas.style.height = h + 'px'
+
+  const ctx = minimapCtx
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+  ctx.clearRect(0, 0, w, h)
+
+  const lines = value.split('\n')
+  const totalLines = lines.length
+  const lineH = Math.max(1, Math.min(3, h / totalLines))
+  const scale = Math.min(1, h / (totalLines * lineH))
+  const charW = 0.8
+
+  // Color scheme for minimap tokens
+  const headingColor = '#f1c40f'
+  const codeColor = '#a29bfe'
+  const quoteColor = '#6c5ce7'
+  const listColor = '#e17055'
+  const hrColor = '#636e72'
+  const defaultColor = 'rgba(228, 229, 233, 0.4)'
+
+  let inCode = false
+
+  for (let i = 0; i < totalLines; i++) {
+    const line = lines[i]!
+    const y = i * lineH * scale
+    if (y > h) break
+
+    let color = defaultColor
+    const trimmed = line.trimStart()
+
+    if (/^`{3,}|^~{3,}/.test(trimmed)) {
+      inCode = !inCode
+      color = codeColor
+    } else if (inCode) {
+      color = codeColor
+    } else if (/^#{1,6}\s/.test(trimmed)) {
+      color = headingColor
+    } else if (/^\s*>/.test(line)) {
+      color = quoteColor
+    } else if (/^\s*([-*+]|\d+[.)]) /.test(line)) {
+      color = listColor
+    } else if (/^\s*([-*_])\s*(\1\s*){2,}$/.test(line)) {
+      color = hrColor
+    }
+
+    const indent = line.length - trimmed.length
+    const lineLen = Math.min(trimmed.length, w / charW)
+    if (lineLen > 0) {
+      ctx.fillStyle = color
+      ctx.fillRect(indent * charW * 0.3 + 2, y, lineLen * charW, Math.max(lineH * scale, 1))
+    }
+  }
+
+  // Update viewport indicator
+  const editorHeight = editor.scrollHeight || 1
+  const viewportRatio = editor.clientHeight / editorHeight
+  const scrollRatio = editor.scrollTop / editorHeight
+  const vpTop = scrollRatio * h
+  const vpHeight = Math.max(viewportRatio * h, 20)
+
+  minimapViewport.style.top = vpTop + 'px'
+  minimapViewport.style.height = vpHeight + 'px'
+}
+
+// Minimap click → scroll editor
+minimapEl.addEventListener('mousedown', (e) => {
+  const rect = minimapEl.getBoundingClientRect()
+  const y = e.clientY - rect.top
+  const ratio = y / rect.height
+  editor.scrollTop = ratio * editor.scrollHeight
+})
+
+// ============================================================
+// Outline Navigation Panel
+// ============================================================
+
+function updateOutline(ast: Document): void {
+  if (!outlinePanel.classList.contains('visible')) return
+
+  const headings: { depth: number; text: string; line: number }[] = []
+  walk(ast, (node) => {
+    if (node.type === 'heading') {
+      const heading = node as any
+      let text = ''
+      // Extract text from heading
+      const children = heading.children || []
+      for (const child of children) {
+        if (child.type === 'text') text += child.value
+        else if (child.type === 'inlineCode') text += child.value
+        else if (child.type === 'emphasis' || child.type === 'strong') {
+          for (const sub of child.children || []) {
+            if (sub.type === 'text') text += sub.value
+          }
+        }
+      }
+      // If still empty try _raw
+      if (!text && heading._raw) {
+        text = heading._raw.replace(/^#{1,6}\s*/, '').trim()
+      }
+      if (!text) text = '(empty heading)'
+      headings.push({
+        depth: heading.depth,
+        text,
+        line: heading.position?.start?.line ?? 0,
+      })
+    }
+  })
+
+  if (headings.length === 0) {
+    outlineList.innerHTML = '<div style="padding:12px;color:var(--text-dim);font-size:12px">无标题</div>'
+    return
+  }
+
+  const fragment = document.createDocumentFragment()
+  for (const h of headings) {
+    const div = document.createElement('div')
+    div.className = `outline-item h${h.depth}`
+    div.textContent = h.text
+    div.dataset.line = String(h.line)
+    div.addEventListener('click', () => {
+      // Jump to heading line in editor
+      const lines = editor.value.split('\n')
+      let offset = 0
+      for (let i = 0; i < Math.min(h.line - 1, lines.length); i++) {
+        offset += lines[i]!.length + 1
+      }
+      editor.selectionStart = editor.selectionEnd = offset
+      editor.focus()
+
+      const lineHeight = parseFloat(getComputedStyle(editor).lineHeight) || 24
+      editor.scrollTop = Math.max(0, (h.line - 3) * lineHeight)
+
+      // Also scroll preview to matching heading
+      const previewHeadings = preview.querySelectorAll('h1, h2, h3, h4, h5, h6')
+      for (const ph of previewHeadings) {
+        if (ph.textContent?.trim() === h.text.trim()) {
+          preview.scrollTop = (ph as HTMLElement).offsetTop - 20
+          break
+        }
+      }
+    })
+    fragment.appendChild(div)
+  }
+  outlineList.innerHTML = ''
+  outlineList.appendChild(fragment)
+}
+
+// Toggle outline panel
+document.getElementById('toggle-outline')!.addEventListener('click', () => {
+  outlinePanel.classList.toggle('visible')
+  const btn = document.getElementById('toggle-outline')!
+  btn.style.background = outlinePanel.classList.contains('visible') ? 'var(--accent)' : 'none'
+  btn.style.color = outlinePanel.classList.contains('visible') ? '#fff' : 'var(--text-dim)'
+  if (outlinePanel.classList.contains('visible') && lastAST) {
+    updateOutline(lastAST)
+  }
+})
+
+// ============================================================
+// Word Count & Reading Time
+// ============================================================
+
+function updateWordCount(value: string): void {
+  const chars = value.length
+  // Count words: Chinese chars count as 1 word each, English words by spaces
+  const chineseChars = (value.match(/[\u4e00-\u9fa5]/g) || []).length
+  const englishText = value.replace(/[\u4e00-\u9fa5]/g, ' ')
+  const englishWords = englishText.split(/\s+/).filter(w => w.length > 0).length
+  const words = chineseChars + englishWords
+
+  // Reading time: ~275 words/min for English, ~500 chars/min for Chinese
+  const readingMinutes = Math.max(1, Math.ceil((chineseChars / 500 + englishWords / 275)))
+
+  statWords.textContent = String(words)
+  statChars.textContent = String(chars)
+  statReading.textContent = `${readingMinutes} min`
+}
+
+// ============================================================
+// Undo / Redo Custom History
+// ============================================================
+
+interface HistoryEntry {
+  text: string
+  selStart: number
+  selEnd: number
+}
+
+const undoStack: HistoryEntry[] = []
+const redoStack: HistoryEntry[] = []
+let lastHistoryText = ''
+let historyTimer: ReturnType<typeof setTimeout> | null = null
+
+function pushHistory(): void {
+  const text = editor.value
+  if (text === lastHistoryText) return
+  undoStack.push({
+    text: lastHistoryText,
+    selStart: editor.selectionStart,
+    selEnd: editor.selectionEnd,
+  })
+  if (undoStack.length > 200) undoStack.shift()
+  redoStack.length = 0
+  lastHistoryText = text
+}
+
+function scheduleHistory(): void {
+  if (historyTimer) clearTimeout(historyTimer)
+  historyTimer = setTimeout(pushHistory, 300)
+}
+
+function performUndo(): void {
+  if (undoStack.length === 0) return
+  pushHistory() // Save current state to redo
+  const entry = undoStack.pop()!
+  redoStack.push({
+    text: editor.value,
+    selStart: editor.selectionStart,
+    selEnd: editor.selectionEnd,
+  })
+  editor.value = entry.text
+  editor.selectionStart = entry.selStart
+  editor.selectionEnd = entry.selEnd
+  lastHistoryText = entry.text
+  update(editor.value)
+  updateLineNumbers(editor.value)
+}
+
+function performRedo(): void {
+  if (redoStack.length === 0) return
+  const entry = redoStack.pop()!
+  undoStack.push({
+    text: editor.value,
+    selStart: editor.selectionStart,
+    selEnd: editor.selectionEnd,
+  })
+  editor.value = entry.text
+  editor.selectionStart = entry.selStart
+  editor.selectionEnd = entry.selEnd
+  lastHistoryText = entry.text
+  update(editor.value)
+  updateLineNumbers(editor.value)
+}
+
+// ============================================================
 // Initialize (after all event listeners are registered)
 // ============================================================
 
 try {
+  initMinimap()
   editor.value = DEFAULT_CONTENT
+  lastHistoryText = DEFAULT_CONTENT
   update(DEFAULT_CONTENT)
   updateLineNumbers(DEFAULT_CONTENT)
 } catch (err) {
   console.error('[PreMarkdown] Initialization error:', err)
   // Even if parse/render fails, the editor and buttons still work
   editor.value = DEFAULT_CONTENT
+  lastHistoryText = DEFAULT_CONTENT
   updateLineNumbers(DEFAULT_CONTENT)
 }
