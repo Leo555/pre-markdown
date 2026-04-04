@@ -1,5 +1,9 @@
 # PreMarkdown API 文档
 
+> 📖 相关文档：[架构设计](./architecture.md) · [性能报告](./performance.md) · [贡献指南](../CONTRIBUTING.md) · [← 返回 README](../README.md)
+
+---
+
 ## @pre-markdown/parser
 
 ### `parse(input, options?): Document`

@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PreMarkdown - 快速开始</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f8f9fa; color: #333; line-height: 1.6;
+    }
+    .container { max-width: 960px; margin: 0 auto; padding: 24px; }
+    h1 { margin-bottom: 8px; color: #1a1a2e; }
+    .subtitle { color: #666; margin-bottom: 32px; font-size: 15px; }
+    .subtitle a { color: #6c5ce7; text-decoration: none; }
+    .subtitle a:hover { text-decoration: underline; }
+
+    .card {
+      background: #fff; border-radius: 10px; padding: 24px;
+      margin-bottom: 24px; box-shadow: 0 1px 6px rgba(0,0,0,0.08);
+    }
+    .card h2 {
+      font-size: 17px; color: #2c3e50; margin-bottom: 12px;
+      padding-bottom: 8px; border-bottom: 2px solid #6c5ce7;
+    }
+    .card p { margin-bottom: 12px; font-size: 14px; color: #555; }
+
+    .code-block {
+      background: #1e1e2e; color: #cdd6f4; padding: 16px 20px;
+      border-radius: 8px; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      font-size: 13px; line-height: 1.7; overflow-x: auto; margin-bottom: 16px;
+      white-space: pre;
+    }
+    .code-block .kw { color: #cba6f7; }
+    .code-block .str { color: #a6e3a1; }
+    .code-block .fn { color: #89b4fa; }
+    .code-block .cm { color: #6c7086; }
+
+    .columns { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 12px; }
+    .col-label {
+      font-size: 11px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 1px; color: #999; margin-bottom: 6px;
+    }
+    .input-box {
+      background: #f4f4f8; border: 1px solid #e2e2e8; border-radius: 6px;
+      padding: 12px 16px; font-family: monospace; font-size: 13px;
+      line-height: 1.6; white-space: pre-wrap; color: #444;
+    }
+    .output-box {
+      background: #fafbfc; border: 1px solid #e2e2e8; border-radius: 6px;
+      padding: 12px 16px; font-size: 14px; line-height: 1.7;
+    }
+    .output-box h1, .output-box h2, .output-box h3 { margin: 0.4em 0; }
+    .output-box p { margin: 0.4em 0; }
+    .output-box ul, .output-box ol { padding-left: 1.5em; margin: 0.4em 0; }
+    .output-box code {
+      background: #eee; padding: 1px 5px; border-radius: 3px;
+      font-size: 0.9em; font-family: monospace;
+    }
+    .output-box pre { background: #f0f0f5; padding: 10px; border-radius: 6px; overflow-x: auto; }
+    .output-box pre code { background: none; padding: 0; }
+    .output-box blockquote {
+      border-left: 3px solid #6c5ce7; padding: 6px 12px; margin: 0.5em 0;
+      background: #f4f0ff; color: #555;
+    }
+    .output-box table { border-collapse: collapse; width: 100%; margin: 0.5em 0; }
+    .output-box th, .output-box td { border: 1px solid #ddd; padding: 6px 10px; text-align: left; }
+    .output-box th { background: #f5f5f5; font-weight: 600; }
+    .output-box img { max-width: 100%; }
+    .output-box hr { border: none; border-top: 1px solid #ddd; margin: 1em 0; }
+
+    .stat {
+      display: inline-block; padding: 4px 10px; background: #f0edff;
+      border-radius: 4px; font-size: 12px; color: #6c5ce7;
+      font-weight: 600; margin-right: 8px; margin-top: 8px;
+    }
+
+    .html-source {
+      background: #f4f4f8; border: 1px solid #e2e2e8; border-radius: 6px;
+      padding: 12px 16px; font-family: monospace; font-size: 12px;
+      line-height: 1.6; white-space: pre-wrap; color: #666;
+      word-break: break-all; margin-top: 8px;
+    }
+
+    @media (max-width: 640px) {
+      .columns { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>⚡ 快速开始</h1>
+    <nav class="subtitle" style="font-size: 13px;">
+      📖 示例导航：
+      <strong style="color: #333;">快速开始</strong>
+      <a href="basic.html" style="margin-left: 8px;">基础用法</a>
+      <a href="ast-walker.html" style="margin-left: 8px;">AST 遍历</a>
+      <a href="ast-transform.html" style="margin-left: 8px;">AST 转换</a>
+      <a href="custom-renderer.html" style="margin-left: 8px;">自定义渲染</a>
+      <a href="incremental-parsing.html" style="margin-left: 8px;">增量解析</a>
+      <a href="live-editor.html" style="margin-left: 8px;">实时编辑器</a>
+    </nav>
+
+    <!-- 示例 1: 一行代码完成转换 -->
+    <div class="card">
+      <h2>1. 解析 Markdown → HTML（最简用法）</h2>
+      <p>只需两步：用 <code>parse()</code> 生成 AST，用 <code>renderToHtml()</code> 输出 HTML。</p>
+      <div class="code-block" id="code1"></div>
+      <div class="columns">
+        <div>
+          <div class="col-label">📝 Markdown 输入</div>
+          <div class="input-box" id="input1"></div>
+        </div>
+        <div>
+          <div class="col-label">🌐 HTML 渲染结果</div>
+          <div class="output-box" id="output1"></div>
+        </div>
+      </div>
+      <div id="stats1"></div>
+    </div>
+
+    <!-- 示例 2: 查看 AST 结构 -->
+    <div class="card">
+      <h2>2. 查看 AST 结构</h2>
+      <p>解析后的 AST 是一棵标准的树结构，包含 <code>type</code>、<code>children</code> 等字段。</p>
+      <div class="code-block" id="code2"></div>
+      <div class="columns">
+        <div>
+          <div class="col-label">📝 Markdown 输入</div>
+          <div class="input-box" id="input2"></div>
+        </div>
+        <div>
+          <div class="col-label">🌲 AST 输出</div>
+          <div class="input-box" id="output2" style="max-height: 400px; overflow-y: auto;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 示例 3: 渲染选项 -->
+    <div class="card">
+      <h2>3. 渲染选项</h2>
+      <p>通过选项自定义渲染行为：代码高亮、标题 ID、安全过滤等。</p>
+      <div class="code-block" id="code3"></div>
+
+      <h3 style="font-size: 14px; margin: 16px 0 8px; color: #444;">3a. 代码高亮</h3>
+      <div class="columns">
+        <div>
+          <div class="col-label">📝 输入</div>
+          <div class="input-box" id="input3a"></div>
+        </div>
+        <div>
+          <div class="col-label">🌐 高亮结果</div>
+          <div class="output-box" id="output3a"></div>
+        </div>
+      </div>
+
+      <h3 style="font-size: 14px; margin: 16px 0 8px; color: #444;">3b. 标题自动生成 ID（用于锚点跳转）</h3>
+      <div class="columns">
+        <div>
+          <div class="col-label">📝 输入</div>
+          <div class="input-box" id="input3b"></div>
+        </div>
+        <div>
+          <div class="col-label">📄 生成的 HTML</div>
+          <div class="html-source" id="output3b"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 示例 4: GFM 扩展语法 -->
+    <div class="card">
+      <h2>4. GFM 及扩展语法支持</h2>
+      <p>PreMarkdown 支持 CommonMark + GFM（表格、任务列表、删除线）等扩展语法。</p>
+      <div class="columns">
+        <div>
+          <div class="col-label">📝 Markdown 输入</div>
+          <div class="input-box" id="input4"></div>
+        </div>
+        <div>
+          <div class="col-label">🌐 渲染结果</div>
+          <div class="output-box" id="output4"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 示例 5: 安全渲染 -->
+    <div class="card">
+      <h2>5. 安全渲染（XSS 防护）</h2>
+      <p><code>sanitize: true</code>（默认开启）会自动过滤 <code>javascript:</code> 等危险协议。</p>
+      <div class="code-block" id="code5"></div>
+      <div class="columns">
+        <div>
+          <div class="col-label">⚠️ 恶意输入</div>
+          <div class="input-box" id="input5"></div>
+        </div>
+        <div>
+          <div class="col-label">🛡️ 安全输出 HTML</div>
+          <div class="html-source" id="output5"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { parse } from '@pre-markdown/parser'
+    import { renderToHtml } from '@pre-markdown/renderer'
+
+    try {
+      // ========== 示例 1: 最简用法 ==========
+      document.getElementById('code1').innerHTML =
+`<span class="kw">import</span> { <span class="fn">parse</span> } <span class="kw">from</span> <span class="str">'@pre-markdown/parser'</span>
+<span class="kw">import</span> { <span class="fn">renderToHtml</span> } <span class="kw">from</span> <span class="str">'@pre-markdown/renderer'</span>
+
+<span class="kw">const</span> ast = <span class="fn">parse</span>(<span class="str">'# Hello **World**\\n\\n一段正文。'</span>)
+<span class="kw">const</span> html = <span class="fn">renderToHtml</span>(ast)
+document.body.innerHTML = html`
+
+      const md1 = '# Hello **World**\n\n一段正文，包含 `代码` 和 *斜体*。'
+      const t0 = performance.now()
+      const ast1 = parse(md1)
+      const t1 = performance.now()
+      const html1 = renderToHtml(ast1)
+      const t2 = performance.now()
+
+      document.getElementById('input1').textContent = md1
+      document.getElementById('output1').innerHTML = html1
+      document.getElementById('stats1').innerHTML =
+        `<span class="stat">解析: ${(t1 - t0).toFixed(2)}ms</span>` +
+        `<span class="stat">渲染: ${(t2 - t1).toFixed(2)}ms</span>` +
+        `<span class="stat">总耗时: ${(t2 - t0).toFixed(2)}ms</span>`
+
+      // ========== 示例 2: AST 结构 ==========
+      document.getElementById('code2').innerHTML =
+`<span class="kw">import</span> { <span class="fn">parse</span> } <span class="kw">from</span> <span class="str">'@pre-markdown/parser'</span>
+
+<span class="kw">const</span> ast = <span class="fn">parse</span>(<span class="str">'# 标题\\n\\n一段文本'</span>)
+console.<span class="fn">log</span>(JSON.<span class="fn">stringify</span>(ast, null, 2))
+<span class="cm">// → { type: "document", children: [{ type: "heading", ... }, ...] }</span>`
+
+      const md2 = '# 标题\n\n一段 **加粗** 文本'
+      const ast2 = parse(md2)
+      document.getElementById('input2').textContent = md2
+      // 精简 AST 输出（去掉 id 和 position 让输出更清晰）
+      const cleanAst = JSON.parse(JSON.stringify(ast2, (key, val) => {
+        if (key === 'id' || key === 'loc') return undefined
+        return val
+      }))
+      document.getElementById('output2').textContent = JSON.stringify(cleanAst, null, 2)
+
+      // ========== 示例 3: 渲染选项 ==========
+      document.getElementById('code3').innerHTML =
+`<span class="cm">// 代码高亮（传入自定义 highlight 函数）</span>
+<span class="kw">const</span> html = <span class="fn">renderToHtml</span>(ast, {
+  <span class="fn">highlight</span>: (code, lang) => myHighlighter(code, lang)
+})
+
+<span class="cm">// 标题自动生成 id（用于锚点）</span>
+<span class="kw">const</span> html2 = <span class="fn">renderToHtml</span>(ast, {
+  <span class="fn">headingId</span>: (text, depth) => text.toLowerCase().replace(/\\s+/g, '-')
+})`
+
+      // 3a: 代码高亮
+      const md3a = '```js\nconst x = 42\nconsole.log(x)\n```'
+      const ast3a = parse(md3a)
+      const html3a = renderToHtml(ast3a, {
+        highlight: (code, lang) => {
+          if (lang === 'js' || lang === 'javascript') {
+            return code
+              .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+              .replace(/\b(const|let|var|function|return|if|else)\b/g, '<span style="color:#c678dd">$1</span>')
+              .replace(/\b(\d+)\b/g, '<span style="color:#d19a66">$1</span>')
+              .replace(/(console)\.(log)/g, '<span style="color:#e5c07b">$1</span>.<span style="color:#61afef">$2</span>')
+          }
+          return code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        }
+      })
+      document.getElementById('input3a').textContent = md3a
+      document.getElementById('output3a').innerHTML = html3a
+
+      // 3b: 标题 ID
+      const md3b = '# 快速开始\n## 安装依赖\n### 第一步'
+      const ast3b = parse(md3b)
+      const html3b = renderToHtml(ast3b, {
+        headingId: (text, depth) => text.toLowerCase().replace(/\s+/g, '-')
+      })
+      document.getElementById('input3b').textContent = md3b
+      document.getElementById('output3b').textContent = html3b
+
+      // ========== 示例 4: GFM 扩展 ==========
+      const md4 = `| 特性 | 说明 |
+|------|------|
+| 表格 | ✅ GFM 表格 |
+| 删除线 | ~~已完成~~ |
+
+- [x] 已完成任务
+- [ ] 待办任务
+
+> 引用文本
+>
+> 支持多行`
+
+      const ast4 = parse(md4)
+      const html4 = renderToHtml(ast4)
+      document.getElementById('input4').textContent = md4
+      document.getElementById('output4').innerHTML = html4
+
+      // ========== 示例 5: 安全渲染 ==========
+      document.getElementById('code5').innerHTML =
+`<span class="cm">// sanitize 默认为 true，自动过滤危险协议</span>
+<span class="kw">const</span> html = <span class="fn">renderToHtml</span>(ast, { sanitize: <span class="kw">true</span> })
+
+<span class="cm">// javascript: 链接会被过滤为空</span>
+<span class="cm">// HTML 标签会被转义</span>`
+
+      const md5 = '[点我有惊喜](javascript:alert("XSS"))\n\n<script>alert("hack")<\/script>'
+      const ast5 = parse(md5)
+      const html5 = renderToHtml(ast5, { sanitize: true })
+      document.getElementById('input5').textContent = md5
+      document.getElementById('output5').textContent = html5
+
+    } catch (e) {
+      console.error('运行错误', e)
+      document.body.innerHTML = '<p style="padding: 20px; color: red;">❌ 需要在 PreMarkdown dev 服务器中运行。运行 <code>pnpm dev</code> 后访问此页面。</p>'
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,178 @@
+name: Performance Regression
+
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - 'packages/parser/**'
+      - 'packages/renderer/**'
+      - 'packages/core/**'
+      - 'packages/layout/**'
+      - 'harness/**'
+  workflow_dispatch:
+
+concurrency:
+  group: bench-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  benchmark:
+    name: Benchmark
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Checkout PR
+        uses: actions/checkout@v5
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run PR benchmark
+        id: bench_pr
+        run: |
+          echo "=== PR Branch Benchmark ===" | tee bench-pr.txt
+          npx tsx harness/profile.ts 2>&1 | tee -a bench-pr.txt
+
+      - name: Checkout base branch
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          clean: false
+          path: base
+
+      - name: Install base dependencies
+        run: |
+          cd base
+          pnpm install --frozen-lockfile
+
+      - name: Run base benchmark
+        id: bench_base
+        run: |
+          cd base
+          echo "=== Base Branch Benchmark ===" | tee ../bench-base.txt
+          npx tsx harness/profile.ts 2>&1 | tee -a ../bench-base.txt
+
+      - name: Compare results
+        id: compare
+        run: |
+          cat << 'SCRIPT' > compare.js
+          const fs = require('fs');
+
+          function extractMetrics(text) {
+            const metrics = {};
+            const lines = text.split('\n');
+            for (const line of lines) {
+              const match = line.match(/^(.+?)\s+median:\s+([\d.]+)ms/);
+              if (match) {
+                metrics[match[1].trim()] = parseFloat(match[2]);
+              }
+            }
+            return metrics;
+          }
+
+          const prText = fs.readFileSync('bench-pr.txt', 'utf-8');
+          const baseText = fs.readFileSync('bench-base.txt', 'utf-8');
+
+          const prMetrics = extractMetrics(prText);
+          const baseMetrics = extractMetrics(baseText);
+
+          let comment = '## ⚡ Performance Benchmark Results\n\n';
+          comment += '| Metric | Base | PR | Change |\n';
+          comment += '|--------|------|------|--------|\n';
+
+          let hasRegression = false;
+          const THRESHOLD = 1.15; // 15% regression threshold
+
+          for (const [name, prVal] of Object.entries(prMetrics)) {
+            const baseVal = baseMetrics[name];
+            if (baseVal === undefined) continue;
+
+            const ratio = prVal / baseVal;
+            const pct = ((ratio - 1) * 100).toFixed(1);
+            let status = '';
+            if (ratio > THRESHOLD) {
+              status = '🔴 +' + pct + '%';
+              hasRegression = true;
+            } else if (ratio < 0.9) {
+              status = '🟢 ' + pct + '%';
+            } else {
+              status = '⚪ ' + (pct > 0 ? '+' : '') + pct + '%';
+            }
+            comment += `| ${name} | ${baseVal.toFixed(3)}ms | ${prVal.toFixed(3)}ms | ${status} |\n`;
+          }
+
+          comment += '\n';
+          if (hasRegression) {
+            comment += '> ⚠️ **Performance regression detected!** One or more metrics regressed by >15%.\n';
+          } else {
+            comment += '> ✅ No significant performance regression detected.\n';
+          }
+
+          comment += '\n<details><summary>Raw output</summary>\n\n';
+          comment += '**PR:**\n```\n' + prText + '\n```\n\n';
+          comment += '**Base:**\n```\n' + baseText + '\n```\n</details>\n';
+
+          fs.writeFileSync('bench-comment.md', comment);
+
+          // Set output for regression check
+          if (hasRegression) {
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, 'regression=true\n');
+          } else {
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, 'regression=false\n');
+          }
+          SCRIPT
+
+          node compare.js
+
+      - name: Comment on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const body = fs.readFileSync('bench-comment.md', 'utf-8');
+
+            // Find existing benchmark comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const botComment = comments.find(c =>
+              c.user.type === 'Bot' && c.body.includes('Performance Benchmark Results')
+            );
+
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: body,
+              });
+            }
+
+      - name: Check for regression
+        if: steps.compare.outputs.regression == 'true'
+        run: |
+          echo "⚠️ Performance regression detected! Review the benchmark results."
+          echo "Note: This is a warning, not blocking the PR."

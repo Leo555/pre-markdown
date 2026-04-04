@@ -121,3 +121,17 @@ export type { VisitorCallback } from './ast/visitor.js'
 // Event System
 export { EventBus } from './events/event-bus.js'
 export type { EditorEvents } from './events/event-bus.js'
+
+// Plugin System
+export { PluginManager } from './plugin/manager.js'
+export type {
+  Plugin,
+  BlockParseHook,
+  BlockParseContext,
+  InlineParseHook,
+  InlineParseContext,
+  InlineParseResult,
+  ASTTransformHook,
+  RenderHook,
+  RenderContext,
+} from './plugin/types.js'

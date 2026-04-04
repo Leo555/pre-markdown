@@ -114,11 +114,15 @@
       font-family: var(--font-mono);
       font-size: 14px;
       line-height: 1.7;
-      background: var(--bg-input);
-      color: var(--text);
+      background: transparent;
+      color: transparent;
+      caret-color: var(--text);
       tab-size: 2;
+      position: relative;
+      z-index: 2;
     }
     textarea#editor::placeholder { color: var(--text-dim); }
+    textarea#editor::selection { background: rgba(108, 92, 231, 0.35); }
 
     .editor-wrapper {
       flex: 1;
@@ -126,6 +130,69 @@
       overflow: hidden;
       background: var(--bg-input);
     }
+
+    /* Syntax highlight backdrop */
+    .editor-area {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+    .editor-area textarea#editor {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+    #highlight-backdrop {
+      padding: 20px 20px 20px 0;
+      font-family: var(--font-mono);
+      font-size: 14px;
+      line-height: 1.7;
+      tab-size: 2;
+      color: var(--text);
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      overflow-y: auto;
+      overflow-x: hidden;
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 1;
+      margin: 0;
+      border: none;
+    }
+    #highlight-backdrop code { font-family: inherit; font-size: inherit; padding: 0; background: none; }
+
+    /* Markdown syntax highlight tokens */
+    .hl-heading { color: #f1c40f; font-weight: 700; }
+    .hl-heading-marker { color: #e67e22; font-weight: 700; }
+    .hl-bold { color: #fff; font-weight: 700; }
+    .hl-italic { color: #c8c9ce; font-style: italic; }
+    .hl-bold-italic { color: #fff; font-weight: 700; font-style: italic; }
+    .hl-strike { color: var(--text-dim); text-decoration: line-through; }
+    .hl-code { color: #a29bfe; background: rgba(108, 92, 231, 0.1); border-radius: 3px; }
+    .hl-code-fence { color: #00cec9; }
+    .hl-code-lang { color: #55efc4; }
+    .hl-link-text { color: #74b9ff; }
+    .hl-link-url { color: #636e72; }
+    .hl-link-bracket { color: #636e72; }
+    .hl-image-marker { color: #fd79a8; }
+    .hl-list-marker { color: #e17055; font-weight: 600; }
+    .hl-blockquote-marker { color: #6c5ce7; font-weight: 600; }
+    .hl-hr { color: #636e72; }
+    .hl-html { color: #e17055; }
+    .hl-escape { color: #fdcb6e; }
+    .hl-table-border { color: #636e72; }
+    .hl-math { color: #a29bfe; }
+    .hl-highlight { color: #ffeaa7; background: rgba(255, 220, 50, 0.1); }
+    .hl-frontmatter { color: #636e72; font-style: italic; }
+    .hl-container { color: #00cec9; font-weight: 600; }
+    .hl-task-check { color: #00b894; font-weight: 600; }
+    .hl-footnote { color: #a29bfe; }
     .line-numbers {
       padding: 20px 8px 20px 12px;
       font-family: var(--font-mono);
@@ -373,7 +440,10 @@
     </div>
     <div class="editor-wrapper">
       <div class="line-numbers" id="line-numbers"></div>
-      <textarea id="editor" spellcheck="false" placeholder="输入 Markdown 内容..."></textarea>
+      <div class="editor-area">
+        <pre id="highlight-backdrop"><code id="highlight-code"></code></pre>
+        <textarea id="editor" spellcheck="false" placeholder="输入 Markdown 内容..."></textarea>
+      </div>
     </div>
   </div>
   <div class="divider" id="divider"></div>

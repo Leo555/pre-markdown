@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PreMarkdown - AST 遍历与查询</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f8f9fa; color: #333; line-height: 1.6;
+    }
+    .container { max-width: 960px; margin: 0 auto; padding: 24px; }
+    h1 { margin-bottom: 8px; color: #1a1a2e; }
+    .subtitle { color: #666; margin-bottom: 32px; font-size: 15px; }
+    .subtitle a { color: #6c5ce7; text-decoration: none; }
+    .subtitle a:hover { text-decoration: underline; }
+
+    .card {
+      background: #fff; border-radius: 10px; padding: 24px;
+      margin-bottom: 24px; box-shadow: 0 1px 6px rgba(0,0,0,0.08);
+    }
+    .card h2 {
+      font-size: 17px; color: #2c3e50; margin-bottom: 12px;
+      padding-bottom: 8px; border-bottom: 2px solid #6c5ce7;
+    }
+    .card p { margin-bottom: 12px; font-size: 14px; color: #555; }
+
+    .code-block {
+      background: #1e1e2e; color: #cdd6f4; padding: 16px 20px;
+      border-radius: 8px; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      font-size: 13px; line-height: 1.7; overflow-x: auto; margin-bottom: 16px;
+      white-space: pre;
+    }
+    .code-block .kw { color: #cba6f7; }
+    .code-block .str { color: #a6e3a1; }
+    .code-block .fn { color: #89b4fa; }
+    .code-block .cm { color: #6c7086; }
+
+    .columns { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 12px; }
+    .col-label {
+      font-size: 11px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 1px; color: #999; margin-bottom: 6px;
+    }
+    .input-box {
+      background: #f4f4f8; border: 1px solid #e2e2e8; border-radius: 6px;
+      padding: 12px 16px; font-family: monospace; font-size: 13px;
+      line-height: 1.6; white-space: pre-wrap; color: #444;
+    }
+
+    table.result-table {
+      width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 13px;
+    }
+    table.result-table th, table.result-table td {
+      border: 1px solid #e2e2e8; padding: 8px 12px; text-align: left;
+    }
+    table.result-table th { background: #f0edff; color: #6c5ce7; font-weight: 600; }
+    table.result-table tr:nth-child(even) { background: #fafbfc; }
+
+    .badge {
+      display: inline-block; padding: 2px 8px; border-radius: 4px;
+      font-size: 11px; font-weight: 600;
+    }
+    .badge-heading { background: #fff3bf; color: #b35c00; }
+    .badge-link { background: #d0ebff; color: #1864ab; }
+    .badge-image { background: #ffe3e3; color: #c92a2a; }
+    .badge-code { background: #e8deee; color: #7b2cbf; }
+    .badge-text { background: #e6fcf5; color: #087f5b; }
+
+    .tag-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .tag {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 4px 10px; background: #f0edff; border-radius: 20px;
+      font-size: 12px; color: #6c5ce7; font-weight: 500;
+    }
+    .tag .count { background: #6c5ce7; color: #fff; padding: 1px 6px; border-radius: 10px; font-size: 11px; }
+
+    @media (max-width: 640px) {
+      .columns { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🌲 AST 遍历与查询</h1>
+    <nav class="subtitle" style="font-size: 13px;">
+      📖 示例导航：
+      <a href="quick-start.html">快速开始</a>
+      <a href="basic.html" style="margin-left: 8px;">基础用法</a>
+      <strong style="color: #333;">AST 遍历</strong>
+      <a href="ast-transform.html" style="margin-left: 8px;">AST 转换</a>
+      <a href="custom-renderer.html" style="margin-left: 8px;">自定义渲染</a>
+      <a href="incremental-parsing.html" style="margin-left: 8px;">增量解析</a>
+      <a href="live-editor.html" style="margin-left: 8px;">实时编辑器</a>
+    </nav>
+    <p class="subtitle" style="font-size: 14px;">使用 <code>walk</code>、<code>findAll</code>、<code>findFirst</code>、<code>getTextContent</code> 操作 AST。</p>
+
+    <!-- 示例 1: walk 遍历 -->
+    <div class="card">
+      <h2>1. walk() — 深度优先遍历</h2>
+      <p>遍历整棵 AST 树，对每个节点执行回调。可以用来收集信息、统计或修改节点。</p>
+      <div class="code-block" id="code1"></div>
+      <div class="columns">
+        <div>
+          <div class="col-label">📝 Markdown 输入</div>
+          <div class="input-box" id="input1"></div>
+        </div>
+        <div>
+          <div class="col-label">📊 节点类型统计</div>
+          <div class="tag-list" id="output1"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 示例 2: 提取标题目录 -->
+    <div class="card">
+      <h2>2. walk() — 提取文档标题目录</h2>
+      <p>遍历 AST 收集所有 <code>heading</code> 节点，用 <code>getTextContent()</code> 获取纯文本内容。</p>
+      <div class="code-block" id="code2"></div>
+      <div class="columns">
+        <div>
+          <div class="col-label">📝 Markdown 输入</div>
+          <div class="input-box" id="input2"></div>
+        </div>
+        <div>
+          <div class="col-label">📑 提取的目录</div>
+          <table class="result-table" id="output2">
+            <thead><tr><th>层级</th><th>标题文本</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- 示例 3: findAll 查询 -->
+    <div class="card">
+      <h2>3. findAll() — 查找所有链接和图片</h2>
+      <p><code>findAll</code> 接受一个类型守卫函数，返回所有匹配节点的数组。</p>
+      <div class="code-block" id="code3"></div>
+      <div class="columns">
+        <div>
+          <div class="col-label">📝 Markdown 输入</div>
+          <div class="input-box" id="input3"></div>
+        </div>
+        <div>
+          <div class="col-label">🔍 查找结果</div>
+          <table class="result-table" id="output3">
+            <thead><tr><th>类型</th><th>文本 / Alt</th><th>URL</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- 示例 4: findFirst -->
+    <div class="card">
+      <h2>4. findFirst() — 查找首个匹配节点</h2>
+      <p>找到第一个匹配的节点后立即停止遍历，适用于只需取一个结果的场景。</p>
+      <div class="code-block" id="code4"></div>
+      <div class="columns">
+        <div>
+          <div class="col-label">📝 Markdown 输入</div>
+          <div class="input-box" id="input4"></div>
+        </div>
+        <div>
+          <div class="col-label">🎯 首个代码块</div>
+          <div class="input-box" id="output4" style="background: #1e1e2e; color: #a6e3a1;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 示例 5: walk + 修改 AST -->
+    <div class="card">
+      <h2>5. 修改 AST（实用场景）</h2>
+      <p>遍历 AST 可以直接修改节点属性，例如给所有链接添加 <code>baseUrl</code> 前缀。</p>
+      <div class="code-block" id="code5"></div>
+      <div class="columns">
+        <div>
+          <div class="col-label">🔗 修改前</div>
+          <table class="result-table" id="before5">
+            <thead><tr><th>链接文本</th><th>URL</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div>
+          <div class="col-label">🔗 修改后（添加 baseUrl）</div>
+          <table class="result-table" id="after5">
+            <thead><tr><th>链接文本</th><th>URL</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { parse } from '@pre-markdown/parser'
+    import { walk, findAll, findFirst, getTextContent } from '@pre-markdown/core'
+
+    try {
+      // ========== 示例 1: walk 统计 ==========
+      document.getElementById('code1').innerHTML =
+`<span class="kw">import</span> { <span class="fn">walk</span> } <span class="kw">from</span> <span class="str">'@pre-markdown/core'</span>
+
+<span class="kw">const</span> counts = {}
+<span class="fn">walk</span>(ast, (node) => {
+  counts[node.type] = (counts[node.type] || 0) + 1
+})`
+
+      const md1 = `# 标题
+
+一段 **加粗** 和 *斜体* 文本，以及 \`代码\`。
+
+- 列表项 1
+- 列表项 2
+
+> 引用
+
+[链接](https://example.com)
+
+![图片](https://example.com/img.png)`
+
+      const ast1 = parse(md1)
+      const counts = {}
+      walk(ast1, (node) => {
+        counts[node.type] = (counts[node.type] || 0) + 1
+      })
+      document.getElementById('input1').textContent = md1
+      const output1 = document.getElementById('output1')
+      Object.entries(counts)
+        .sort((a, b) => b[1] - a[1])
+        .forEach(([type, count]) => {
+          const tag = document.createElement('span')
+          tag.className = 'tag'
+          tag.innerHTML = `${type} <span class="count">${count}</span>`
+          output1.appendChild(tag)
+        })
+
+      // ========== 示例 2: 提取标题 ==========
+      document.getElementById('code2').innerHTML =
+`<span class="kw">import</span> { <span class="fn">walk</span>, <span class="fn">getTextContent</span> } <span class="kw">from</span> <span class="str">'@pre-markdown/core'</span>
+
+<span class="kw">const</span> headings = []
+<span class="fn">walk</span>(ast, (node) => {
+  <span class="kw">if</span> (node.type === <span class="str">'heading'</span>) {
+    headings.<span class="fn">push</span>({
+      depth: node.depth,
+      text: <span class="fn">getTextContent</span>(node.children)
+    })
+  }
+})`
+
+      const md2 = `# 项目简介
+## 安装
+### npm
+### yarn
+## 基本用法
+### 解析
+### 渲染
+## 高级功能
+### AST 遍历
+### 插件系统`
+
+      const ast2 = parse(md2)
+      const headings = []
+      walk(ast2, (node) => {
+        if (node.type === 'heading') {
+          headings.push({ depth: node.depth, text: getTextContent(node.children) })
+        }
+      })
+      document.getElementById('input2').textContent = md2
+      const tbody2 = document.querySelector('#output2 tbody')
+      headings.forEach(h => {
+        const tr = document.createElement('tr')
+        const indent = '　'.repeat(h.depth - 1)
+        tr.innerHTML = `<td><span class="badge badge-heading">H${h.depth}</span></td><td>${indent}${h.text}</td>`
+        tbody2.appendChild(tr)
+      })
+
+      // ========== 示例 3: findAll ==========
+      document.getElementById('code3').innerHTML =
+`<span class="kw">import</span> { <span class="fn">findAll</span>, <span class="fn">getTextContent</span> } <span class="kw">from</span> <span class="str">'@pre-markdown/core'</span>
+
+<span class="cm">// 查找所有链接</span>
+<span class="kw">const</span> links = <span class="fn">findAll</span>(ast, (n) => n.type === <span class="str">'link'</span>)
+
+<span class="cm">// 查找所有图片</span>
+<span class="kw">const</span> images = <span class="fn">findAll</span>(ast, (n) => n.type === <span class="str">'image'</span>)`
+
+      const md3 = `# 资源汇总
+
+- 官网：[PreMarkdown](https://pre-markdown.dev)
+- 代码：[GitHub Repo](https://github.com/example/pre-markdown)
+- 文档：[API 文档](https://pre-markdown.dev/api)
+
+## 图片资源
+
+![Logo](https://example.com/logo.png)
+![Banner](https://example.com/banner.jpg)`
+
+      const ast3 = parse(md3)
+      const links = findAll(ast3, (n) => n.type === 'link')
+      const images = findAll(ast3, (n) => n.type === 'image')
+      document.getElementById('input3').textContent = md3
+      const tbody3 = document.querySelector('#output3 tbody')
+      links.forEach(link => {
+        const tr = document.createElement('tr')
+        tr.innerHTML = `<td><span class="badge badge-link">链接</span></td><td>${getTextContent(link.children)}</td><td>${link.url}</td>`
+        tbody3.appendChild(tr)
+      })
+      images.forEach(img => {
+        const tr = document.createElement('tr')
+        tr.innerHTML = `<td><span class="badge badge-image">图片</span></td><td>${img.alt}</td><td>${img.url}</td>`
+        tbody3.appendChild(tr)
+      })
+
+      // ========== 示例 4: findFirst ==========
+      document.getElementById('code4').innerHTML =
+`<span class="kw">import</span> { <span class="fn">findFirst</span> } <span class="kw">from</span> <span class="str">'@pre-markdown/core'</span>
+
+<span class="cm">// 找到第一个代码块</span>
+<span class="kw">const</span> firstCode = <span class="fn">findFirst</span>(ast, (n) => n.type === <span class="str">'codeBlock'</span>)
+console.<span class="fn">log</span>(firstCode?.value) <span class="cm">// 代码内容</span>
+console.<span class="fn">log</span>(firstCode?.lang)  <span class="cm">// 语言标识</span>`
+
+      const md4 = `# 示例代码
+
+先来一段 JS：
+
+\`\`\`javascript
+function greet(name) {
+  return 'Hello, ' + name + '!'
+}
+\`\`\`
+
+再来一段 Python：
+
+\`\`\`python
+def greet(name):
+    return f"Hello, {name}!"
+\`\`\``
+
+      const ast4 = parse(md4)
+      const firstCode = findFirst(ast4, (n) => n.type === 'codeBlock')
+      document.getElementById('input4').textContent = md4
+      if (firstCode) {
+        document.getElementById('output4').textContent =
+          `[lang: ${firstCode.lang || 'none'}]\n${firstCode.value}`
+      }
+
+      // ========== 示例 5: 修改 AST ==========
+      document.getElementById('code5').innerHTML =
+`<span class="cm">// 给所有相对链接添加 baseUrl</span>
+<span class="kw">const</span> baseUrl = <span class="str">'https://cdn.example.com'</span>
+<span class="fn">walk</span>(ast, (node) => {
+  <span class="kw">if</span> (node.type === <span class="str">'link'</span> && !node.url.<span class="fn">startsWith</span>(<span class="str">'http'</span>)) {
+    node.url = baseUrl + node.url
+  }
+})`
+
+      const md5 = `- [首页](/)
+- [文档](/docs)
+- [GitHub](https://github.com)`
+
+      const ast5 = parse(md5)
+      // 收集修改前的链接
+      const before = []
+      walk(ast5, (node) => {
+        if (node.type === 'link') {
+          before.push({ text: getTextContent(node.children), url: node.url })
+        }
+      })
+      const tbodyBefore = document.querySelector('#before5 tbody')
+      before.forEach(l => {
+        const tr = document.createElement('tr')
+        tr.innerHTML = `<td>${l.text}</td><td>${l.url}</td>`
+        tbodyBefore.appendChild(tr)
+      })
+
+      // 修改 AST
+      const baseUrl = 'https://cdn.example.com'
+      walk(ast5, (node) => {
+        if (node.type === 'link' && !node.url.startsWith('http')) {
+          node.url = baseUrl + node.url
+        }
+      })
+
+      // 收集修改后的链接
+      const after = []
+      walk(ast5, (node) => {
+        if (node.type === 'link') {
+          after.push({ text: getTextContent(node.children), url: node.url })
+        }
+      })
+      const tbodyAfter = document.querySelector('#after5 tbody')
+      after.forEach(l => {
+        const tr = document.createElement('tr')
+        tr.innerHTML = `<td>${l.text}</td><td>${l.url}</td>`
+        tbodyAfter.appendChild(tr)
+      })
+
+    } catch (e) {
+      console.error('运行错误', e)
+      document.body.innerHTML = '<p style="padding: 20px; color: red;">❌ 需要在 PreMarkdown dev 服务器中运行。运行 <code>pnpm dev</code> 后访问此页面。</p>'
+    }
+  </script>
+</body>
+</html>

@@ -48,6 +48,7 @@ import type {
   Ruby,
   Emoji,
 } from '@pre-markdown/core'
+import type { PluginManager, RenderContext } from '@pre-markdown/core'
 
 /** Renderer options */
 export interface RendererOptions {
@@ -61,6 +62,8 @@ export interface RendererOptions {
   baseUrl?: string
   /** Inline parser for lazy-parsed nodes (nodes with _raw) */
   inlineParser?: ((raw: string) => InlineNode[]) | null
+  /** Plugin manager for render hooks */
+  plugins?: PluginManager | null
 }
 
 // ============================================================
@@ -131,10 +134,17 @@ export function renderToHtml(doc: Document, options?: RendererOptions): string {
     headingId: null,
     baseUrl: '',
     inlineParser: null,
+    plugins: null,
     ...options,
   }
 
-  return renderBlockNodes(doc.children, opts)
+  // Apply plugin transform hooks before rendering
+  let finalDoc = doc
+  if (opts.plugins && opts.plugins.hasTransformHooks()) {
+    finalDoc = opts.plugins.applyTransforms(doc)
+  }
+
+  return renderBlockNodes(finalDoc.children, opts)
 }
 
 /**
@@ -166,6 +176,31 @@ function renderBlockNodes(nodes: BlockNode[], opts: Required<RendererOptions>): 
 }
 
 function renderBlockNode(node: BlockNode, opts: Required<RendererOptions>): string {
+  // Plugin render hook dispatch
+  if (opts.plugins && opts.plugins.hasRenderHook(node.type)) {
+    const defaultHtml = renderBlockNodeDefault(node, opts)
+    const pluginResult = opts.plugins.tryRender({
+      node,
+      defaultHtml,
+      renderChildren: (children) => {
+        // Determine if children are block or inline
+        if (children.length > 0 && 'type' in children[0]!) {
+          const first = children[0] as any
+          if (first.type === 'text' || first.type === 'emphasis' || first.type === 'strong' ||
+              first.type === 'inlineCode' || first.type === 'link' || first.type === 'image') {
+            return renderInlineNodes(children as InlineNode[], opts)
+          }
+        }
+        return renderBlockNodes(children as BlockNode[], opts)
+      },
+    })
+    if (pluginResult !== undefined) return pluginResult
+    return defaultHtml
+  }
+  return renderBlockNodeDefault(node, opts)
+}
+
+function renderBlockNodeDefault(node: BlockNode, opts: Required<RendererOptions>): string {
   switch (node.type) {
     case 'heading':
       return renderHeading(node, opts)
@@ -331,6 +366,21 @@ function renderInlineNodes(nodes: InlineNode[], opts: Required<RendererOptions>)
 }
 
 function renderInlineNode(node: InlineNode, opts: Required<RendererOptions>): string {
+  // Plugin render hook dispatch
+  if (opts.plugins && opts.plugins.hasRenderHook(node.type)) {
+    const defaultHtml = renderInlineNodeDefault(node, opts)
+    const pluginResult = opts.plugins.tryRender({
+      node,
+      defaultHtml,
+      renderChildren: (children) => renderInlineNodes(children as InlineNode[], opts),
+    })
+    if (pluginResult !== undefined) return pluginResult
+    return defaultHtml
+  }
+  return renderInlineNodeDefault(node, opts)
+}
+
+function renderInlineNodeDefault(node: InlineNode, opts: Required<RendererOptions>): string {
   switch (node.type) {
     case 'text':
       return escapeHtml(node.value)
@@ -481,11 +531,19 @@ export function renderToDOM(doc: Document, options?: RendererOptions): DocumentF
     headingId: null,
     baseUrl: '',
     inlineParser: null,
+    plugins: null,
     ...options,
   }
+
+  // Apply plugin transform hooks before rendering
+  let finalDoc = doc
+  if (opts.plugins && opts.plugins.hasTransformHooks()) {
+    finalDoc = opts.plugins.applyTransforms(doc)
+  }
+
   const frag = document.createDocumentFragment()
-  for (let i = 0; i < doc.children.length; i++) {
-    const el = renderBlockToDOM(doc.children[i]!, opts)
+  for (let i = 0; i < finalDoc.children.length; i++) {
+    const el = renderBlockToDOM(finalDoc.children[i]!, opts)
     if (el) frag.appendChild(el)
   }
   return frag

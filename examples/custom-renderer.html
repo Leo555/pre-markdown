@@ -23,6 +23,16 @@
 <body>
   <div class="container">
     <h1>🎨 PreMarkdown 自定义渲染器示例</h1>
+    <nav style="margin-bottom: 20px; font-size: 13px; color: #888;">
+      📖 示例导航：
+      <a href="quick-start.html" style="color: #6c5ce7; margin-right: 8px;">快速开始</a>
+      <a href="basic.html" style="color: #6c5ce7; margin-right: 8px;">基础用法</a>
+      <a href="ast-walker.html" style="color: #6c5ce7; margin-right: 8px;">AST 遍历</a>
+      <a href="ast-transform.html" style="color: #6c5ce7; margin-right: 8px;">AST 转换</a>
+      <strong style="color: #333;">自定义渲染</strong>
+      <a href="incremental-parsing.html" style="color: #6c5ce7; margin-left: 8px;">增量解析</a>
+      <a href="live-editor.html" style="color: #6c5ce7; margin-left: 8px;">实时编辑器</a>
+    </nav>
     <p style="margin-bottom: 20px; color: #666;">展示如何通过自定义渲染 hooks 扩展 Markdown 功能。</p>
 
     <!-- 示例 1: 代码高亮 -->
@@ -116,49 +126,45 @@
     .dark-theme code { background: #1e1e1e; color: #ce9178; padding: 2px 6px; border-radius: 3px; }
   </style>
 
-  <script>
+  <script type="module">
+    import { parse } from '@pre-markdown/parser'
+    import { renderToHtml } from '@pre-markdown/renderer'
+
     // 代码示例
-    document.getElementById('code1').textContent = `import { renderToHtml } from '@pre-markdown/renderer'
+    document.getElementById('code1').textContent = `import { parse } from '@pre-markdown/parser'
+import { renderToHtml } from '@pre-markdown/renderer'
 
+const ast = parse(markdown)
 const html = renderToHtml(ast, {
-  hooks: {
-    highlightCode: (code, language) => {
-      // 使用任意高亮库（highlight.js、Prism 等）
-      if (language === 'javascript') {
-        return highlightJS(code, 'javascript')
-      }
-      return escapeHtml(code)
+  highlight: (code, language) => {
+    // 使用任意高亮库（highlight.js、Prism 等）
+    if (language === 'javascript') {
+      return highlightJS(code, 'javascript')
     }
+    return escapeHtml(code)
   }
 })`
 
-    document.getElementById('code2').textContent = `renderToHtml(ast, {
-  hooks: {
-    renderLink: (url, text, title) => {
-      const isExternal = url.startsWith('http')
-      const target = isExternal ? ' target="_blank" rel="noopener"' : ''
-      const icon = isExternal ? ' 🔗' : ''
-      return \`<a href="\${url}" title="\${title}"\${target}>\${text}\${icon}</a>\`
-    }
-  }
+    document.getElementById('code2').textContent = `// renderToHtml 的渲染输出可通过后处理进行自定义
+// 例如：用 DOMParser 解析后修改链接属性
+const html = renderToHtml(ast)
+const parser = new DOMParser()
+const doc = parser.parseFromString(html, 'text/html')
+doc.querySelectorAll('a[href^="http"]').forEach(a => {
+  a.setAttribute('target', '_blank')
+  a.setAttribute('rel', 'noopener')
+  a.textContent += ' 🔗'
 })`
 
-    document.getElementById('code3').textContent = `function slugify(text) {
+    document.getElementById('code3').textContent = `// 使用 headingId 选项自动生成标题锚点
+function slugify(text) {
   return text.toLowerCase()
     .replace(/\\s+/g, '-')
     .replace(/[^\\w-]/g, '')
 }
 
-renderToHtml(ast, {
-  hooks: {
-    renderHeading: (level, text, id) => {
-      const slug = slugify(text)
-      return \`<h\${level} id="\${slug}" class="heading-with-anchor">
-        \${text}
-        <a href="#\${slug}">🔗</a>
-      </h\${level}>\`
-    }
-  }
+const html = renderToHtml(ast, {
+  headingId: (text, depth) => slugify(text)
 })`
 
     document.getElementById('code5').textContent = `function getReadingTime(html) {
@@ -174,63 +180,64 @@ html = \`<div class="reading-time">\${getReadingTime(html)}</div>\`
 
     // 运行示例
     try {
-      const { parse } = window.preMarkdownParser
-      const { renderToHtml } = window.preMarkdownRenderer
-
       // 示例 1: 代码高亮（简单模拟）
       const md1 = '```javascript\nconst x = 42\nconsole.log(x)\n```'
       const ast1 = parse(md1)
       const html1 = renderToHtml(ast1, {
-        hooks: {
-          highlightCode: (code, lang) => {
-            if (lang === 'javascript') {
-              return code
-                .replace(/const/g, '<span class="hljs-keyword">const</span>')
-                .replace(/console\.log/g, '<span class="hljs-attr">console.log</span>')
-                .replace(/42/g, '<span class="hljs-number">42</span>')
-            }
+        highlight: (code, lang) => {
+          if (lang === 'javascript') {
             return code
+              .replace(/const/g, '<span class="hljs-keyword">const</span>')
+              .replace(/console\.log/g, '<span class="hljs-attr">console.log</span>')
+              .replace(/42/g, '<span class="hljs-number">42</span>')
           }
+          return code
         }
       })
       document.getElementById('input1').textContent = md1
-      document.getElementById('output1').innerHTML = '<pre style="background: #1e1e1e; color: #d4d4d4; padding: 10px; border-radius: 4px;">' + html1.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</pre>'
+      document.getElementById('output1').innerHTML = html1
 
-      // 示例 2: 自定义链接
+      // 示例 2: 自定义链接（后处理方式）
       const md2 = '[GitHub](https://github.com) 和 [本地链接](/docs)'
       const ast2 = parse(md2)
-      const html2 = renderToHtml(ast2, {
-        hooks: {
-          renderLink: (url, text) => {
-            const isExternal = url.startsWith('http')
-            const target = isExternal ? ' target="_blank" rel="noopener"' : ''
-            const icon = isExternal ? ' 🔗' : ''
-            return `<a href="${url}"${target}>${text}${icon}</a>`
-          }
+      const rawHtml2 = renderToHtml(ast2)
+      // 后处理：为外部链接添加 target="_blank" 和图标
+      const tempDiv = document.createElement('div')
+      tempDiv.innerHTML = rawHtml2
+      tempDiv.querySelectorAll('a').forEach(a => {
+        const href = a.getAttribute('href') || ''
+        if (href.startsWith('http')) {
+          a.setAttribute('target', '_blank')
+          a.setAttribute('rel', 'noopener')
+          a.textContent += ' 🔗'
         }
       })
       document.getElementById('input2').textContent = md2
-      document.getElementById('output2').innerHTML = html2
+      document.getElementById('output2').innerHTML = tempDiv.innerHTML
 
-      // 示例 3: 带锚点的标题
+      // 示例 3: 带锚点的标题（使用 headingId 选项）
       const md3 = '# 简介\n## 快速开始\n### 安装'
       const ast3 = parse(md3)
       function slugify(text) {
         return text.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '')
       }
       const html3 = renderToHtml(ast3, {
-        hooks: {
-          renderHeading: (level, text) => {
-            const slug = slugify(text)
-            return `<h${level} id="${slug}" class="heading-with-anchor">
-              ${text}
-              <a href="#${slug}" title="复制链接">🔗</a>
-            </h${level}>`
-          }
-        }
+        headingId: (text, depth) => slugify(text)
+      })
+      // 后处理：添加锚点链接样式
+      const tempDiv3 = document.createElement('div')
+      tempDiv3.innerHTML = html3
+      tempDiv3.querySelectorAll('h1[id], h2[id], h3[id], h4[id], h5[id], h6[id]').forEach(h => {
+        const id = h.getAttribute('id')
+        h.classList.add('heading-with-anchor')
+        const a = document.createElement('a')
+        a.href = '#' + id
+        a.title = '复制链接'
+        a.textContent = '🔗'
+        h.appendChild(a)
       })
       document.getElementById('input3').textContent = md3
-      document.getElementById('output3').innerHTML = html3
+      document.getElementById('output3').innerHTML = tempDiv3.innerHTML
 
       // 示例 4: 主题切换
       const md4 = '# 标题\n\n这是一段 **粗体** 文本，包含 `代码块`。'

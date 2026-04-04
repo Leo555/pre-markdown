@@ -1,7 +1,10 @@
-# PreMarkdown 开发准则
+# PreMarkdown 贡献指南 & 开发准则
 
-> 本文档定义项目的开发流程、质量标准和工程规范。  
-> 所有代码变更（无论人工还是 AI）都必须遵守这些准则。
+> 📖 相关文档：[API 文档](./docs/api.md) · [架构设计](./docs/architecture.md) · [性能报告](./docs/performance.md) · [← 返回 README](./README.md)
+
+感谢你对 PreMarkdown 的关注！本文档定义了项目的开发流程、质量标准和工程规范。所有代码变更（无论人工还是 AI）都必须遵守这些准则。
+
+我们致力于提供一个友好、包容的贡献环境。请在参与时保持尊重和建设性。
 
 ---
 
@@ -158,14 +161,14 @@ chore: 工程配置
 ### 报告 Bug
 
 1. 搜索已有 issue，确保未重复报告
-2. [创建新 issue](https://github.com/user/pre-markdown/issues/new)，附上：
+2. [创建新 issue](https://github.com/Leo555/pre-markdown/issues/new)，附上：
    - 清晰的问题描述
    - 复现步骤（最小化代码示例）
    - 环境信息（Node 版本、操作系统等）
 
 ### 功能建议
 
-1. 在 [Discussions](https://github.com/user/pre-markdown/discussions) 中讨论你的想法
+1. 在 [Discussions](https://github.com/Leo555/pre-markdown/discussions) 中讨论你的想法
 2. 如果社区支持，创建 issue 并标记 `feature-request`
 
 ### 代码贡献
@@ -188,5 +191,5 @@ pnpm format     # 自动格式化
 ### 获取帮助
 
 - 查看 [完整文档](./docs)
-- 在 [Discussions](https://github.com/user/pre-markdown/discussions) 中提问
-- 搜索 [已有 issue](https://github.com/user/pre-markdown/issues)
+- 在 [Discussions](https://github.com/Leo555/pre-markdown/discussions) 中提问
+- 搜索 [已有 issue](https://github.com/Leo555/pre-markdown/issues)

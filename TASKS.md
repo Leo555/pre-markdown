@@ -12,11 +12,11 @@
 | 阶段 | 状态 | 进度 |
 |------|------|------|
 | Phase 1：核心引擎 | ✅ 已完成 | 100% |
-| Phase 2：性能优化（核心） | 🔨 进行中 | 80% |
+| Phase 2：性能优化（核心） | ✅ 已完成 | 100% |
 | Phase 3：Pretext 深度集成（核心） | 🔨 进行中 | 55% |
 | Phase 4：语法兼容性（次要） | 🔨 进行中 | 70% |
-| Phase 5：生态与文档 | 🔨 进行中 | 30% |
-| Phase 6：编辑器输入框优化 | 🔨 进行中 | 70% |
+| Phase 5：生态与文档 | 🔨 进行中 | 60% |
+| Phase 6：编辑器输入框优化 | 🔨 进行中 | 80% |
 
 ---
 
@@ -88,8 +88,8 @@
 ### 2.4 性能压测与 CI
 - [x] 6 引擎性能压测页面（benchmark/index.html）
 - [x] 13 个测试文件覆盖 1KB ~ 50MB
-- [ ] 自动化 CI 性能回归（每次 PR 跑 benchmark，对比基线）
-- [ ] 性能报告生成（P50/P95/P99、吞吐量、内存峰值）
+- [x] 自动化 CI 性能回归（每次 PR 跑 benchmark，对比基线）
+- [x] 性能报告生成（P50/P95/P99、吞吐量、内存峰值）— docs/performance.md
 
 ### 2.5 性能目标
 
@@ -195,7 +195,7 @@
 > 同前，不变
 
 ### 5.1 插件系统
-- [ ] 插件接口 + 语法扩展 Hook + 渲染扩展 Hook
+- [x] 插件接口 + 语法扩展 Hook + 渲染扩展 Hook（Plugin/PluginManager，block/inline/transform/render 四种 Hook）
 - [ ] 内置插件：KaTeX / Mermaid / 代码高亮
 
 ### 5.2 npm 发布
@@ -207,12 +207,12 @@
 ### 5.3 文档
 - [x] `docs/architecture.md` — 架构设计（两阶段流水线、AST 设计、性能优化策略、pretext 集成）
 - [x] `docs/api.md` — API 文档（parse / renderToHtml / IncrementalParser / LayoutEngine 完整参数）
-- [ ] `docs/performance.md` — 性能报告（7 引擎对比数据）
+- [x] `docs/performance.md` — 性能报告（7 引擎对比数据）
 - [ ] `docs/plugins.md` — 插件开发指南
 
 ### 5.4 CI/CD + Demo
 - [x] 6 引擎压测 + 兼容性测试页面
-- [ ] GitHub Actions (test + bench + publish)
+- [x] GitHub Actions (test + typecheck + lint + build + bench regression)
 - [ ] 在线 Playground
 
 ### 5.5 Markdown 输入框优化（Demo 编辑器体验）
@@ -228,8 +228,8 @@
 - [x] 响应式布局（移动端 ≤768px 上下堆叠排列）
 
 #### 语法高亮
-- [ ] Markdown 语法着色（标题、粗体、代码、链接等不同颜色）
-- [ ] 基于 AST 的高亮（parse 后根据节点位置着色，而非正则）
+- [x] Markdown 语法着色（标题、粗体、代码、链接等不同颜色）
+- [x] 基于行级正则的快速高亮（overlay 模式：透明 textarea + 高亮 pre 层）
 - [ ] 代码块内语法高亮（集成 Prism / Shiki）
 
 #### 编辑增强
@@ -237,7 +237,7 @@
 - [x] 自动补全：`- ` 列表续行、`> ` 引用续行、有序列表自增编号
 - [x] Tab / Shift+Tab 缩进/反缩进（单行 + 多行选区支持）
 - [x] 括号/引号自动配对 + 选中文字自动包裹（`*` `_` `` ` `` `~` `[` `(` `"` `'`）
-- [ ] 拖拽/粘贴图片自动插入 `![](url)` 占位
+- [x] 拖拽/粘贴图片自动插入 `![](url)` 占位
 
 #### 工具栏
 - [x] Markdown 工具栏（H1-H3/加粗/斜体/删除线/代码/链接/图片/列表/任务/引用/代码块/表格/分隔线）
@@ -274,6 +274,12 @@
 
 | 日期 | 变更内容 |
 |------|---------|
+| 2026-04-04 | GitHub Actions CI：test（Node 18/20/22 矩阵）+ typecheck + lint + build + 包体积检查 |
+| 2026-04-04 | 性能回归 CI：PR 自动 benchmark 对比基线，15% 阈值告警，PR 评论输出对比表 |
+| 2026-04-04 | 插件系统：Plugin 接口 + PluginManager + block/inline/transform/render 四种 Hook + 渲染器集成 + 15 测试 |
+| 2026-04-04 | 性能报告 docs/performance.md（P50/P95/P99、吞吐量、7 引擎对比、包体积、优化策略汇总） |
+| 2026-04-04 | Markdown 语法高亮着色（overlay 模式：透明 textarea + 高亮 pre 层，25+ token 类型） |
+| 2026-04-04 | 拖拽/粘贴图片自动插入 ![](dataUrl)（FileReader → data URL，async placeholder → replace） |
 | 2026-04-04 | Entity references 确认 94% (16/17)；标记实体引用快速路径完成 |
 | 2026-04-04 | Thematic break 打断列表 + 列表项内嵌 hr 渲染修复；Thematic breaks 79%→95%, Lists 12%→27%, List items 38%→48% → 418/652 (64.1%) |
 | 2026-04-04 | 增量解析 LRU 缓存：基于 FNV-1a 指纹的段落粒度 BlockNode 缓存复用，256 容量 LRU 淘汰 |

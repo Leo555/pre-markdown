@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PreMarkdown - 实时编辑器</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #1a1a2e; color: #e4e5e9; height: 100vh;
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+
+    /* Header */
+    header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 20px; background: #16162a; border-bottom: 1px solid #2a2d3a;
+      flex-shrink: 0;
+    }
+    header .title {
+      font-size: 16px; font-weight: 700; letter-spacing: -0.3px;
+    }
+    header .title span { color: #6c5ce7; }
+    header .stats {
+      display: flex; gap: 16px; font-size: 12px; color: #8b8d97;
+    }
+    header .stats b { color: #00cec9; font-weight: 600; }
+    header .links { display: flex; gap: 8px; }
+    header .links a {
+      font-size: 12px; color: #6c5ce7; text-decoration: none;
+      padding: 4px 10px; border: 1px solid #6c5ce740; border-radius: 4px;
+    }
+    header .links a:hover { background: #6c5ce720; }
+
+    /* Main */
+    main { flex: 1; display: flex; overflow: hidden; min-height: 0; }
+
+    /* Panels */
+    .panel {
+      flex: 1; display: flex; flex-direction: column; overflow: hidden;
+    }
+    .panel-label {
+      padding: 6px 16px; font-size: 11px; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 1px; color: #8b8d97;
+      background: #16162a; border-bottom: 1px solid #2a2d3a; flex-shrink: 0;
+    }
+    .divider {
+      width: 4px; background: #2a2d3a; flex-shrink: 0; cursor: col-resize;
+      transition: background 0.15s;
+    }
+    .divider:hover { background: #6c5ce7; }
+
+    /* Editor */
+    textarea#editor {
+      flex: 1; resize: none; border: none; outline: none;
+      padding: 20px; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      font-size: 14px; line-height: 1.7; background: #0f0f1a; color: #e4e5e9;
+      tab-size: 2;
+    }
+    textarea#editor::placeholder { color: #555; }
+
+    /* Preview */
+    #preview {
+      flex: 1; overflow-y: auto; padding: 20px 28px;
+      background: #0f0f1a; font-size: 15px; line-height: 1.75;
+    }
+    #preview h1 { font-size: 2em; margin: 0.6em 0 0.3em; font-weight: 800; border-bottom: 2px solid #2a2d3a; padding-bottom: 0.2em; }
+    #preview h2 { font-size: 1.5em; margin: 0.5em 0 0.3em; font-weight: 700; color: #6c5ce7; }
+    #preview h3 { font-size: 1.2em; margin: 0.4em 0 0.2em; font-weight: 600; }
+    #preview p { margin: 0.5em 0; }
+    #preview a { color: #6c5ce7; text-decoration: none; }
+    #preview a:hover { text-decoration: underline; }
+    #preview strong { color: #fff; }
+    #preview em { color: #c8c9ce; }
+    #preview del { color: #8b8d97; }
+    #preview code {
+      font-family: 'JetBrains Mono', monospace; font-size: 0.88em;
+      background: rgba(108, 92, 231, 0.12); color: #a29bfe;
+      padding: 2px 6px; border-radius: 4px;
+    }
+    #preview pre {
+      background: #13151d; border: 1px solid #2a2d3a; border-radius: 8px;
+      padding: 14px 18px; overflow-x: auto; margin: 0.6em 0;
+    }
+    #preview pre code { background: none; padding: 0; color: #e4e5e9; font-size: 13px; }
+    #preview blockquote {
+      border-left: 4px solid #6c5ce7; padding: 6px 14px; margin: 0.6em 0;
+      background: rgba(108, 92, 231, 0.08); color: #c8c9ce;
+      border-radius: 0 8px 8px 0;
+    }
+    #preview ul, #preview ol { padding-left: 1.6em; margin: 0.4em 0; }
+    #preview li { margin: 0.2em 0; }
+    #preview li input[type="checkbox"] { margin-right: 6px; }
+    #preview table { border-collapse: collapse; width: 100%; margin: 0.6em 0; }
+    #preview th, #preview td { border: 1px solid #2a2d3a; padding: 6px 10px; text-align: left; }
+    #preview th { background: #16162a; font-weight: 600; }
+    #preview hr { border: none; border-top: 1px solid #2a2d3a; margin: 1.2em 0; }
+    #preview img { max-width: 100%; border-radius: 8px; }
+    #preview mark { background: rgba(255, 220, 50, 0.2); color: #ffe066; padding: 1px 4px; border-radius: 3px; }
+
+    /* Footer */
+    footer {
+      padding: 6px 20px; font-size: 11px; color: #8b8d97;
+      background: #16162a; border-top: 1px solid #2a2d3a; flex-shrink: 0;
+      display: flex; justify-content: space-between;
+    }
+    footer b { color: #00cec9; }
+
+    @media (max-width: 768px) {
+      main { flex-direction: column; }
+      .divider { width: auto; height: 4px; cursor: row-resize; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="title"><span>Pre</span>Markdown <small style="font-weight: 400; color: #8b8d97; font-size: 12px;">Live Editor</small></div>
+  <div class="stats">
+    <span>解析: <b id="stat-parse">--</b></span>
+    <span>渲染: <b id="stat-render">--</b></span>
+    <span>节点: <b id="stat-nodes">--</b></span>
+  </div>
+  <div class="links">
+    <a href="quick-start.html">快速开始</a>
+    <a href="ast-walker.html">AST 遍历</a>
+    <a href="basic.html">更多示例</a>
+  </div>
+</header>
+
+<main>
+  <div class="panel">
+    <div class="panel-label">✏️ Markdown</div>
+    <textarea id="editor" spellcheck="false" placeholder="在这里输入 Markdown ..."></textarea>
+  </div>
+  <div class="divider" id="divider"></div>
+  <div class="panel">
+    <div class="panel-label">👁️ 预览</div>
+    <div id="preview"></div>
+  </div>
+</main>
+
+<footer>
+  <span>PreMarkdown 实时编辑器 — 输入即解析，输出即渲染</span>
+  <span>行数: <b id="stat-lines">0</b> · 字符: <b id="stat-chars">0</b></span>
+</footer>
+
+<script type="module">
+  import { parse } from '@pre-markdown/parser'
+  import { renderToHtml } from '@pre-markdown/renderer'
+  import { walk } from '@pre-markdown/core'
+
+  const editor = document.getElementById('editor')
+  const preview = document.getElementById('preview')
+
+  const defaultMarkdown = `# 🚀 PreMarkdown 实时编辑器
+
+在左侧输入 Markdown，右侧实时预览渲染结果。
+
+## 基本语法
+
+这是 **加粗**，这是 *斜体*，这是 ~~删除线~~，这是 \`行内代码\`。
+
+## 列表
+
+- 无序列表项 A
+- 无序列表项 B
+  - 嵌套子项
+
+1. 有序列表 1
+2. 有序列表 2
+
+## 任务列表
+
+- [x] 已完成任务
+- [ ] 待办任务
+- [ ] 另一个待办
+
+## 引用
+
+> "优秀的工具让复杂的事情变得简单。"
+>
+> — PreMarkdown
+
+## 代码块
+
+\`\`\`javascript
+import { parse } from '@pre-markdown/parser'
+import { renderToHtml } from '@pre-markdown/renderer'
+
+const ast = parse('# Hello World')
+const html = renderToHtml(ast)
+console.log(html)
+\`\`\`
+
+## 表格
+
+| 功能 | 状态 | 说明 |
+|------|:----:|------|
+| CommonMark | ✅ | 完整支持 |
+| GFM 表格 | ✅ | 包含对齐 |
+| 任务列表 | ✅ | 交互式 |
+| 增量解析 | ✅ | < 1ms |
+
+## 链接和图片
+
+访问 [PreMarkdown 官网](https://example.com) 了解更多。
+
+---
+
+*试试修改左侧内容，右侧会实时更新！*
+`
+
+  editor.value = defaultMarkdown
+
+  let debounceTimer = null
+
+  function updatePreview() {
+    const text = editor.value
+
+    // 解析
+    const t0 = performance.now()
+    const ast = parse(text)
+    const t1 = performance.now()
+
+    // 渲染
+    const html = renderToHtml(ast)
+    const t2 = performance.now()
+
+    // 统计节点数
+    let nodeCount = 0
+    walk(ast, () => { nodeCount++ })
+
+    // 更新预览
+    preview.innerHTML = html
+
+    // 更新统计
+    document.getElementById('stat-parse').textContent = (t1 - t0).toFixed(2) + 'ms'
+    document.getElementById('stat-render').textContent = (t2 - t1).toFixed(2) + 'ms'
+    document.getElementById('stat-nodes').textContent = nodeCount
+    document.getElementById('stat-lines').textContent = text.split('\\n').length
+    document.getElementById('stat-chars').textContent = text.length
+  }
+
+  editor.addEventListener('input', () => {
+    clearTimeout(debounceTimer)
+    debounceTimer = setTimeout(updatePreview, 30)
+  })
+
+  // 初始渲染
+  updatePreview()
+
+  // 拖拽分割条
+  const divider = document.getElementById('divider')
+  let isDragging = false
+
+  divider.addEventListener('mousedown', (e) => {
+    isDragging = true
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+    e.preventDefault()
+  })
+
+  document.addEventListener('mousemove', (e) => {
+    if (!isDragging) return
+    const mainEl = document.querySelector('main')
+    const rect = mainEl.getBoundingClientRect()
+    const ratio = (e.clientX - rect.left) / rect.width
+    const clamped = Math.max(0.2, Math.min(0.8, ratio))
+    const panels = mainEl.querySelectorAll('.panel')
+    panels[0].style.flex = clamped
+    panels[1].style.flex = 1 - clamped
+  })
+
+  document.addEventListener('mouseup', () => {
+    if (isDragging) {
+      isDragging = false
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+  })
+
+  // Tab 键支持
+  editor.addEventListener('keydown', (e) => {
+    if (e.key === 'Tab') {
+      e.preventDefault()
+      const start = editor.selectionStart
+      const end = editor.selectionEnd
+      editor.value = editor.value.substring(0, start) + '  ' + editor.value.substring(end)
+      editor.selectionStart = editor.selectionEnd = start + 2
+      updatePreview()
+    }
+  })
+</script>
+</body>
+</html>

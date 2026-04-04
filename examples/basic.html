@@ -21,6 +21,16 @@
 <body>
   <div class="container">
     <h1>🚀 PreMarkdown 基础用法示例</h1>
+    <nav style="margin-bottom: 24px; font-size: 13px; color: #888;">
+      📖 示例导航：
+      <a href="quick-start.html" style="color: #6c5ce7; margin-right: 8px;">快速开始</a>
+      <strong style="color: #333;">基础用法</strong>
+      <a href="ast-walker.html" style="color: #6c5ce7; margin-left: 8px;">AST 遍历</a>
+      <a href="ast-transform.html" style="color: #6c5ce7; margin-left: 8px;">AST 转换</a>
+      <a href="custom-renderer.html" style="color: #6c5ce7; margin-left: 8px;">自定义渲染</a>
+      <a href="incremental-parsing.html" style="color: #6c5ce7; margin-left: 8px;">增量解析</a>
+      <a href="live-editor.html" style="color: #6c5ce7; margin-left: 8px;">实时编辑器</a>
+    </nav>
 
     <!-- 示例 1: 解析和渲染 -->
     <div class="example">
@@ -80,7 +90,10 @@
     </div>
   </div>
 
-  <script>
+  <script type="module">
+    import { parse } from '@pre-markdown/parser'
+    import { renderToHtml } from '@pre-markdown/renderer'
+
     // 代码展示
     document.getElementById('code1').textContent = `import { parse } from '@pre-markdown/parser'
 import { renderToHtml } from '@pre-markdown/renderer'
@@ -104,8 +117,6 @@ const html = renderToHtml(ast, {
 
     // 示例 1: 基础解析
     try {
-      const { parse } = window.preMarkdownParser
-      const { renderToHtml } = window.preMarkdownRenderer
       
       const markdown1 = '# Hello **World**\n\n这是一个段落。'
       const t0 = performance.now()

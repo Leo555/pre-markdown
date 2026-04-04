@@ -10,6 +10,8 @@ import type { Document } from '@pre-markdown/core'
 const editor = document.getElementById('editor') as HTMLTextAreaElement
 const preview = document.getElementById('preview') as HTMLDivElement
 const lineNumbers = document.getElementById('line-numbers') as HTMLDivElement
+const highlightCode = document.getElementById('highlight-code') as HTMLElement
+const highlightBackdrop = document.getElementById('highlight-backdrop') as HTMLPreElement
 const statParse = document.getElementById('stat-parse')!
 const statRender = document.getElementById('stat-render')!
 const statNodes = document.getElementById('stat-nodes')!
@@ -162,6 +164,405 @@ Parser → AST → Renderer → HTML
 *Made with :heart: by PreMarkdown*
 `
 
+// ============================================================
+// Markdown Syntax Highlighting (line-based regex, fast path)
+// ============================================================
+
+/** Escape HTML special chars for display in the highlight backdrop */
+function escHtml(str: string): string {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+
+/**
+ * Apply syntax highlighting to a Markdown string.
+ * Returns HTML with <span class="hl-xxx"> tokens.
+ * Uses a line-based approach for performance (no full AST walk needed).
+ */
+function highlightMarkdown(text: string): string {
+  const lines = text.split('\n')
+  const out: string[] = []
+  let inCodeBlock = false
+  let codeFenceChar = ''
+  let codeFenceLen = 0
+  let inFrontMatter = false
+
+  for (let i = 0; i < lines.length; i++) {
+    const raw = lines[i]!
+    const line = escHtml(raw)
+
+    // Front matter (---) at start of document
+    if (i === 0 && raw === '---') {
+      inFrontMatter = true
+      out.push(`<span class="hl-frontmatter">${line}</span>`)
+      continue
+    }
+    if (inFrontMatter) {
+      if (raw === '---') {
+        inFrontMatter = false
+        out.push(`<span class="hl-frontmatter">${line}</span>`)
+      } else {
+        out.push(`<span class="hl-frontmatter">${line}</span>`)
+      }
+      continue
+    }
+
+    // Fenced code blocks
+    if (inCodeBlock) {
+      const closeRe = codeFenceChar === '`' ? /^(\s*`{3,})\s*$/ : /^(\s*~{3,})\s*$/
+      if (closeRe.test(raw)) {
+        inCodeBlock = false
+        out.push(`<span class="hl-code-fence">${line}</span>`)
+      } else {
+        out.push(`<span class="hl-code">${line}</span>`)
+      }
+      continue
+    }
+
+    // Code fence opening
+    const fenceMatch = /^(\s*)((`{3,})(.*)|~{3,}(.*)?)$/.exec(raw)
+    if (fenceMatch) {
+      const backtickFence = fenceMatch[3]
+      if (backtickFence) {
+        codeFenceChar = '`'
+        codeFenceLen = backtickFence.length
+        const lang = fenceMatch[4] || ''
+        const escapedPrefix = escHtml(fenceMatch[1]! + backtickFence)
+        const escapedLang = escHtml(lang)
+        inCodeBlock = true
+        if (lang.trim()) {
+          out.push(`<span class="hl-code-fence">${escapedPrefix}</span><span class="hl-code-lang">${escapedLang}</span>`)
+        } else {
+          out.push(`<span class="hl-code-fence">${line}</span>`)
+        }
+        continue
+      }
+      const tildeFence = raw.match(/^(\s*)(~{3,})(.*)$/)
+      if (tildeFence) {
+        codeFenceChar = '~'
+        codeFenceLen = tildeFence[2]!.length
+        const lang = tildeFence[3] || ''
+        const escapedPrefix = escHtml(tildeFence[1]! + tildeFence[2]!)
+        const escapedLang = escHtml(lang)
+        inCodeBlock = true
+        if (lang.trim()) {
+          out.push(`<span class="hl-code-fence">${escapedPrefix}</span><span class="hl-code-lang">${escapedLang}</span>`)
+        } else {
+          out.push(`<span class="hl-code-fence">${line}</span>`)
+        }
+        continue
+      }
+    }
+
+    // ATX Headings
+    const headingMatch = /^(#{1,6})\s(.*)$/.exec(raw)
+    if (headingMatch) {
+      const marker = escHtml(headingMatch[1]!)
+      const content = highlightInline(headingMatch[2]!)
+      out.push(`<span class="hl-heading-marker">${marker}</span> <span class="hl-heading">${content}</span>`)
+      continue
+    }
+
+    // Thematic break (---, ***, ___)
+    if (/^\s{0,3}([-*_])\s*(\1\s*){2,}$/.test(raw)) {
+      out.push(`<span class="hl-hr">${line}</span>`)
+      continue
+    }
+
+    // Container opening/closing (:::: info / :::)
+    if (/^\s*:{3,}/.test(raw)) {
+      out.push(`<span class="hl-container">${line}</span>`)
+      continue
+    }
+
+    // Blockquote
+    const bqMatch = /^(\s*>+\s?)(.*)$/.exec(raw)
+    if (bqMatch) {
+      const marker = escHtml(bqMatch[1]!)
+      const content = highlightInline(bqMatch[2]!)
+      out.push(`<span class="hl-blockquote-marker">${marker}</span>${content}`)
+      continue
+    }
+
+    // Unordered list
+    const ulMatch = /^(\s*)([-*+])\s(.*)$/.exec(raw)
+    if (ulMatch) {
+      const indent = escHtml(ulMatch[1]!)
+      const marker = escHtml(ulMatch[2]!)
+      const rest = ulMatch[3]!
+      // Task list item
+      const taskMatch = /^\[([ xX])\]\s(.*)$/.exec(rest)
+      if (taskMatch) {
+        const check = escHtml(`[${taskMatch[1]}]`)
+        const content = highlightInline(taskMatch[2]!)
+        out.push(`${indent}<span class="hl-list-marker">${marker}</span> <span class="hl-task-check">${check}</span> ${content}`)
+      } else {
+        out.push(`${indent}<span class="hl-list-marker">${marker}</span> ${highlightInline(rest)}`)
+      }
+      continue
+    }
+
+    // Ordered list
+    const olMatch = /^(\s*)(\d+[.)]\s)(.*)$/.exec(raw)
+    if (olMatch) {
+      const indent = escHtml(olMatch[1]!)
+      const marker = escHtml(olMatch[2]!)
+      const content = highlightInline(olMatch[3]!)
+      out.push(`${indent}<span class="hl-list-marker">${marker}</span>${content}`)
+      continue
+    }
+
+    // Table row
+    if (/^\|/.test(raw) || /\|$/.test(raw.trim())) {
+      out.push(highlightTableRow(raw))
+      continue
+    }
+
+    // Setext heading underline
+    if (/^={3,}\s*$/.test(raw) || /^-{3,}\s*$/.test(raw)) {
+      out.push(`<span class="hl-heading-marker">${line}</span>`)
+      continue
+    }
+
+    // Footnote definition
+    if (/^\[\^[^\]]+\]:/.test(raw)) {
+      out.push(`<span class="hl-footnote">${line}</span>`)
+      continue
+    }
+
+    // Details / fold block (+++)
+    if (/^\+{3}/.test(raw)) {
+      out.push(`<span class="hl-container">${line}</span>`)
+      continue
+    }
+
+    // Regular paragraph — apply inline highlighting
+    out.push(highlightInline(raw))
+  }
+
+  return out.join('\n')
+}
+
+/** Highlight inline Markdown tokens within a line */
+function highlightInline(raw: string): string {
+  // We process the string sequentially to avoid overlapping matches
+  let result = ''
+  let i = 0
+  const len = raw.length
+
+  while (i < len) {
+    const ch = raw.charCodeAt(i)
+
+    // Backslash escape
+    if (ch === 0x5C /* \ */ && i + 1 < len) {
+      result += `<span class="hl-escape">${escHtml(raw[i]! + raw[i + 1]!)}</span>`
+      i += 2
+      continue
+    }
+
+    // Inline code (backtick)
+    if (ch === 0x60 /* ` */) {
+      // Find matching backtick(s)
+      let ticks = 1
+      while (i + ticks < len && raw.charCodeAt(i + ticks) === 0x60) ticks++
+      const closeIdx = raw.indexOf('`'.repeat(ticks), i + ticks)
+      if (closeIdx !== -1) {
+        const full = raw.slice(i, closeIdx + ticks)
+        result += `<span class="hl-code">${escHtml(full)}</span>`
+        i = closeIdx + ticks
+        continue
+      }
+    }
+
+    // Math inline ($...$)
+    if (ch === 0x24 /* $ */ && i + 1 < len && raw.charCodeAt(i + 1) !== 0x24) {
+      const closeIdx = raw.indexOf('$', i + 1)
+      if (closeIdx !== -1 && closeIdx > i + 1) {
+        const full = raw.slice(i, closeIdx + 1)
+        result += `<span class="hl-math">${escHtml(full)}</span>`
+        i = closeIdx + 1
+        continue
+      }
+    }
+    // Math block inline ($$...$$)
+    if (ch === 0x24 && i + 1 < len && raw.charCodeAt(i + 1) === 0x24) {
+      const closeIdx = raw.indexOf('$$', i + 2)
+      if (closeIdx !== -1) {
+        const full = raw.slice(i, closeIdx + 2)
+        result += `<span class="hl-math">${escHtml(full)}</span>`
+        i = closeIdx + 2
+        continue
+      }
+    }
+
+    // Highlight (==text==)
+    if (ch === 0x3D /* = */ && i + 1 < len && raw.charCodeAt(i + 1) === 0x3D) {
+      const closeIdx = raw.indexOf('==', i + 2)
+      if (closeIdx !== -1) {
+        const full = raw.slice(i, closeIdx + 2)
+        result += `<span class="hl-highlight">${escHtml(full)}</span>`
+        i = closeIdx + 2
+        continue
+      }
+    }
+
+    // Strikethrough (~~text~~)
+    if (ch === 0x7E /* ~ */ && i + 1 < len && raw.charCodeAt(i + 1) === 0x7E) {
+      const closeIdx = raw.indexOf('~~', i + 2)
+      if (closeIdx !== -1) {
+        const full = raw.slice(i, closeIdx + 2)
+        result += `<span class="hl-strike">${escHtml(full)}</span>`
+        i = closeIdx + 2
+        continue
+      }
+    }
+
+    // Image ![alt](url)
+    if (ch === 0x21 /* ! */ && i + 1 < len && raw.charCodeAt(i + 1) === 0x5B /* [ */) {
+      const closeB = raw.indexOf(']', i + 2)
+      if (closeB !== -1 && closeB + 1 < len && raw.charCodeAt(closeB + 1) === 0x28 /* ( */) {
+        const closeP = raw.indexOf(')', closeB + 2)
+        if (closeP !== -1) {
+          const alt = raw.slice(i + 2, closeB)
+          const url = raw.slice(closeB + 2, closeP)
+          result += `<span class="hl-image-marker">!</span><span class="hl-link-bracket">[</span><span class="hl-link-text">${escHtml(alt)}</span><span class="hl-link-bracket">](</span><span class="hl-link-url">${escHtml(url)}</span><span class="hl-link-bracket">)</span>`
+          i = closeP + 1
+          continue
+        }
+      }
+    }
+
+    // Audio/Video !audio[...](url) / !video[...](url)
+    if (ch === 0x21 /* ! */ && (raw.startsWith('audio[', i + 1) || raw.startsWith('video[', i + 1))) {
+      const bracket = raw.indexOf('[', i + 1)
+      const closeB = raw.indexOf(']', bracket + 1)
+      if (closeB !== -1 && closeB + 1 < len && raw.charCodeAt(closeB + 1) === 0x28) {
+        const closeP = raw.indexOf(')', closeB + 2)
+        if (closeP !== -1) {
+          const full = raw.slice(i, closeP + 1)
+          result += `<span class="hl-image-marker">${escHtml(full)}</span>`
+          i = closeP + 1
+          continue
+        }
+      }
+    }
+
+    // Link [text](url)
+    if (ch === 0x5B /* [ */) {
+      const closeB = raw.indexOf(']', i + 1)
+      if (closeB !== -1 && closeB + 1 < len && raw.charCodeAt(closeB + 1) === 0x28 /* ( */) {
+        const closeP = raw.indexOf(')', closeB + 2)
+        if (closeP !== -1) {
+          const text = raw.slice(i + 1, closeB)
+          const url = raw.slice(closeB + 2, closeP)
+          result += `<span class="hl-link-bracket">[</span><span class="hl-link-text">${escHtml(text)}</span><span class="hl-link-bracket">](</span><span class="hl-link-url">${escHtml(url)}</span><span class="hl-link-bracket">)</span>`
+          i = closeP + 1
+          continue
+        }
+      }
+      // Footnote reference [^xxx]
+      if (i + 1 < len && raw.charCodeAt(i + 1) === 0x5E) {
+        const closeB = raw.indexOf(']', i + 2)
+        if (closeB !== -1) {
+          const full = raw.slice(i, closeB + 1)
+          result += `<span class="hl-footnote">${escHtml(full)}</span>`
+          i = closeB + 1
+          continue
+        }
+      }
+    }
+
+    // Bold+Italic (***text***) or Bold (**text**) or Italic (*text*)
+    if (ch === 0x2A /* * */ || ch === 0x5F /* _ */) {
+      const marker = raw[i]!
+      // Count consecutive markers
+      let mCount = 1
+      while (i + mCount < len && raw[i + mCount] === marker) mCount++
+
+      if (mCount >= 3) {
+        // Bold+Italic
+        const closeIdx = raw.indexOf(marker.repeat(3), i + 3)
+        if (closeIdx !== -1) {
+          const full = raw.slice(i, closeIdx + 3)
+          result += `<span class="hl-bold-italic">${escHtml(full)}</span>`
+          i = closeIdx + 3
+          continue
+        }
+      }
+      if (mCount >= 2) {
+        // Bold
+        const closeIdx = raw.indexOf(marker.repeat(2), i + 2)
+        if (closeIdx !== -1) {
+          const full = raw.slice(i, closeIdx + 2)
+          result += `<span class="hl-bold">${escHtml(full)}</span>`
+          i = closeIdx + 2
+          continue
+        }
+      }
+      if (mCount >= 1) {
+        // Italic
+        const closeIdx = raw.indexOf(marker, i + 1)
+        if (closeIdx !== -1 && closeIdx > i + 1) {
+          const full = raw.slice(i, closeIdx + 1)
+          result += `<span class="hl-italic">${escHtml(full)}</span>`
+          i = closeIdx + 1
+          continue
+        }
+      }
+    }
+
+    // HTML tags
+    if (ch === 0x3C /* < */) {
+      const closeIdx = raw.indexOf('>', i + 1)
+      if (closeIdx !== -1) {
+        const tag = raw.slice(i, closeIdx + 1)
+        // Only highlight if it looks like a valid tag
+        if (/^<\/?[a-zA-Z][^>]*>$/.test(tag) || /^<!--/.test(tag)) {
+          result += `<span class="hl-html">${escHtml(tag)}</span>`
+          i = closeIdx + 1
+          continue
+        }
+      }
+    }
+
+    // Emoji :name:
+    if (ch === 0x3A /* : */) {
+      const closeIdx = raw.indexOf(':', i + 1)
+      if (closeIdx !== -1 && closeIdx - i < 30 && /^:[a-z0-9_+-]+:$/.test(raw.slice(i, closeIdx + 1))) {
+        const emoji = raw.slice(i, closeIdx + 1)
+        result += `<span class="hl-math">${escHtml(emoji)}</span>`
+        i = closeIdx + 1
+        continue
+      }
+    }
+
+    // Default: plain text
+    result += escHtml(raw[i]!)
+    i++
+  }
+
+  return result
+}
+
+/** Highlight table row — colorize pipe separators */
+function highlightTableRow(raw: string): string {
+  const parts = raw.split('|')
+  const highlighted = parts.map((part, idx) => {
+    if (idx === 0 && part === '') return ''
+    if (idx === parts.length - 1 && part.trim() === '') return ''
+    // Table delimiter row (---, :--:, etc.)
+    if (/^\s*:?-+:?\s*$/.test(part)) {
+      return `<span class="hl-table-border">${escHtml(part)}</span>`
+    }
+    return highlightInline(part)
+  })
+  return highlighted.join(`<span class="hl-table-border">|</span>`)
+}
+
+/** Update the syntax highlight backdrop */
+function updateHighlight(value: string): void {
+  highlightCode.innerHTML = highlightMarkdown(value)
+}
+
 // State
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -180,6 +581,9 @@ function update(value: string): void {
 
   // Incremental DOM update: only replace changed blocks
   patchPreview(preview, html)
+
+  // Update syntax highlight backdrop
+  updateHighlight(value)
 
   // Update sync scroll data
   updateSyncData(value, ast)
@@ -245,6 +649,12 @@ editor.addEventListener('input', () => {
 // Update active line on cursor move
 editor.addEventListener('click', updateActiveLine)
 editor.addEventListener('keyup', updateActiveLine)
+
+// Always sync backdrop scroll with editor (direct, no debounce)
+editor.addEventListener('scroll', () => {
+  highlightBackdrop.scrollTop = editor.scrollTop
+  highlightBackdrop.scrollLeft = editor.scrollLeft
+}, { passive: true })
 
 // Tab key support in editor
 editor.addEventListener('keydown', (e) => {
@@ -457,6 +867,10 @@ function syncEditorToPreview(): void {
   // Sync line numbers (always, no lock needed)
   lineNumbers.scrollTop = editor.scrollTop
 
+  // Sync highlight backdrop scroll
+  highlightBackdrop.scrollTop = editor.scrollTop
+  highlightBackdrop.scrollLeft = editor.scrollLeft
+
   // Find which line is at the top of the editor viewport
   const lineHeight = parseFloat(getComputedStyle(editor).lineHeight) || 24
   const topLine = Math.floor(editor.scrollTop / lineHeight)
@@ -493,6 +907,7 @@ function syncPreviewToEditor(): void {
       lockScroll('preview')
       editor.scrollTop = i * lineHeight
       lineNumbers.scrollTop = editor.scrollTop
+      highlightBackdrop.scrollTop = editor.scrollTop
       break
     }
   }
@@ -667,6 +1082,94 @@ viewControls.addEventListener('click', (e) => {
   if (view === 'split') {
     editorPane.style.flex = ''
     previewPane.style.flex = ''
+  }
+})
+
+// ============================================================
+// Drag & Paste Image → auto-insert ![](url)
+// ============================================================
+
+/** Convert a File to a data URL */
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+}
+
+/** Insert image markdown for a file */
+async function insertImageFile(file: File): Promise<void> {
+  // Insert placeholder immediately
+  const name = file.name.replace(/\.[^.]+$/, '') || 'image'
+  const placeholder = `![${name}](uploading...)`
+  const start = editor.selectionStart
+  editor.value = editor.value.substring(0, start) + placeholder + editor.value.substring(editor.selectionEnd)
+  editor.selectionStart = editor.selectionEnd = start + placeholder.length
+  update(editor.value)
+  updateLineNumbers(editor.value)
+
+  try {
+    // Convert to data URL (local preview — no server upload)
+    const dataUrl = await fileToDataUrl(file)
+    // Replace placeholder with actual data URL
+    const currentValue = editor.value
+    const placeholderIdx = currentValue.indexOf(placeholder)
+    if (placeholderIdx !== -1) {
+      const final = `![${name}](${dataUrl})`
+      editor.value = currentValue.substring(0, placeholderIdx) + final + currentValue.substring(placeholderIdx + placeholder.length)
+      editor.selectionStart = editor.selectionEnd = placeholderIdx + final.length
+      update(editor.value)
+      updateLineNumbers(editor.value)
+    }
+  } catch {
+    // Leave placeholder as-is on error — user can manually fix
+    console.error('[PreMarkdown] Failed to read image file:', file.name)
+  }
+}
+
+/** Extract image files from a DataTransfer object */
+function getImageFiles(dt: DataTransfer): File[] {
+  const files: File[] = []
+  if (dt.files) {
+    for (let i = 0; i < dt.files.length; i++) {
+      const f = dt.files[i]!
+      if (f.type.startsWith('image/')) files.push(f)
+    }
+  }
+  return files
+}
+
+// Handle paste event
+editor.addEventListener('paste', (e) => {
+  if (!e.clipboardData) return
+  const images = getImageFiles(e.clipboardData)
+  if (images.length === 0) return
+
+  e.preventDefault()
+  for (const img of images) {
+    insertImageFile(img)
+  }
+})
+
+// Handle drag & drop
+editor.addEventListener('dragover', (e) => {
+  e.preventDefault()
+  e.dataTransfer!.dropEffect = 'copy'
+})
+
+editor.addEventListener('drop', (e) => {
+  if (!e.dataTransfer) return
+  const images = getImageFiles(e.dataTransfer)
+  if (images.length === 0) return
+
+  e.preventDefault()
+  // Set cursor position to drop location
+  // (browser may not always set this correctly for textarea, so we try)
+  editor.focus()
+  for (const img of images) {
+    insertImageFile(img)
   }
 })
 

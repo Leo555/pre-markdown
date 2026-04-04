@@ -2,143 +2,94 @@
 
 <div align="center">
 
-<img src="./generated-images/logo.png" alt="PreMarkdown Logo" width="200" />
+<img src="./generated-images/logo-icon-only.png" alt="PreMarkdown Logo" width="160" />
 
+**High-performance Markdown Engine** — Built with [pretext](https://github.com/chenglou/pretext) zero-reflow layout
+
+[![CI](https://github.com/Leo555/pre-markdown/actions/workflows/ci.yml/badge.svg)](https://github.com/Leo555/pre-markdown/actions/workflows/ci.yml)
 [![npm version](https://img.shields.io/npm/v/@pre-markdown/parser)](https://www.npmjs.com/package/@pre-markdown/parser)
 [![npm downloads](https://img.shields.io/npm/dm/@pre-markdown/parser)](https://www.npmjs.com/package/@pre-markdown/parser)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.5+-blue)](https://www.typescriptlang.org)
+[![Bundle Size](https://img.shields.io/badge/gzip-18.5KB-brightgreen)](https://bundlephobia.com/package/@pre-markdown/parser)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.5+-3178c6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![pnpm](https://img.shields.io/badge/pnpm-%3E%3D%208.0.0-blue)](https://pnpm.io)
 
-**高性能 Markdown 引擎** — 基于 [pretext](https://github.com/chenglou/pretext) 零 DOM 重排布局，打造 JavaScript 生态中最快的 Markdown 解析和渲染系统。
-
-[**简体中文**](./README.md) • [**English**](./README.en.md) • [**🚀 性能对标**](https://leo555.github.io/pre-markdown/benchmark/) • [**完整 API**](./docs/api.md)
+[English](./README.md) · [简体中文](./README.zh.md) · [📖 Live Examples](https://leo555.github.io/pre-markdown/examples/basic.html) · [🚀 Benchmarks](https://leo555.github.io/pre-markdown/benchmark/) · [API Docs](./docs/api.md)
 
 </div>
 
 ---
 
-## 📋 目录
+## Why PreMarkdown
 
-- [为什么选择 PreMarkdown](#-为什么选择-premardown)
-- [快速开始](#-快速开始)
-- [核心特性](#-核心特性)
-- [包结构](#-包结构)
-- [性能指标](#-性能指标)
-- [语法支持](#-语法支持)
-- [开发指南](#-开发指南)
-- [常见问题](#-常见问题)
-- [贡献指南](#-贡献指南)
-- [许可证](#-许可证)
+> 3x faster than marked, 10x faster than markdown-it, with zero DOM reflow, incremental parsing, and only **< 30KB gzip** bundle size.
 
----
+| Feature | PreMarkdown | marked | markdown-it | commonmark.js | Cherry |
+|---------|:---:|:---:|:---:|:---:|:---:|
+| **Focus** | **Peak Perf** | Speed | Plugin-rich | Spec Reference | Feature-rich |
+| **Complete AST** | ✅ | ❌ | ❌ Token | ✅ | ❌ |
+| **Incremental Parse** | ✅ < 1ms | ❌ | ❌ | ❌ | ✅ |
+| **Zero DOM Layout** | ✅ pretext | ❌ | ❌ | ❌ | ❌ DOM |
+| **Virtual Scrolling** | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **Tree-shakeable ESM** | ✅ | ✅ | ✅ | ❌ | ❌ |
+| **Core Size** | **18.5KB** | ~12KB | ~30KB | ~20KB | ~700KB |
 
-## 🎯 为什么选择 PreMarkdown
-
-**单行介绍：** 通过零 DOM 重排布局和增量解析，实现比 marked 快 3 倍、比 markdown-it 快 10 倍的 Markdown 引擎，同时保持 < 30KB gzip 的轻量级体积。
-
-### 性能 & 功能对标
-
-**[👉 在线性能对标页面（点击即用）](https://leo555.github.io/pre-markdown/benchmark/)**
-
-在浏览器中实时对比 **7 引擎性能** 和 **语法兼容性**，无需安装。
-
-> 也可本地运行：`pnpm dev` → 打开 http://localhost:9527/benchmark/
+**[👉 Try Live Benchmarks (7 engines, no install)](https://leo555.github.io/pre-markdown/benchmark/)**
 
 ---
 
-## 🚀 快速开始
+## Getting Started
 
-### 安装
+### Installation
 
 ```bash
-# 仅需解析 + 渲染
 npm install @pre-markdown/parser @pre-markdown/renderer
-
-# 或使用 pnpm / yarn
-pnpm add @pre-markdown/parser @pre-markdown/renderer
 ```
 
-### 基础用法
+### Basic Usage
 
 ```typescript
 import { parse } from '@pre-markdown/parser'
 import { renderToHtml } from '@pre-markdown/renderer'
 
-const markdown = '# Hello **World**\n\nThis is a paragraph.'
-const ast = parse(markdown)
-const html = renderToHtml(ast)
-
-console.log(html)
-// <h1>Hello <strong>World</strong></h1>\n<p>This is a paragraph.</p>
+const html = renderToHtml(parse('# Hello **World**'))
+// → <h1>Hello <strong>World</strong></h1>
 ```
 
-### CommonJS 兼容
-
-```javascript
-const { parse } = require('@pre-markdown/parser')
-const { renderToHtml } = require('@pre-markdown/renderer')
-
-const html = renderToHtml(parse('# Hello'))
-```
-
-### 仅获取 AST
-
-如果你只需要解析结构而不需要 HTML 渲染，可以单独安装 parser 包：
+### Parse Only (Get AST)
 
 ```typescript
 import { parse } from '@pre-markdown/parser'
 
 const doc = parse('Hello **world**')
-// {
-//   type: 'document',
-//   children: [
-//     {
-//       type: 'paragraph',
-//       children: [
-//         { type: 'text', content: 'Hello ' },
-//         { type: 'strong', children: [{ type: 'text', content: 'world' }] }
-//       ]
-//     }
-//   ]
-// }
+// { type: 'document', children: [{ type: 'paragraph', children: [...] }] }
 ```
 
-### 遍历和转换 AST
+### Walk & Query AST
 
 ```typescript
 import { parse } from '@pre-markdown/parser'
-import { Visitor } from '@pre-markdown/core'
+import { walk, findAll, getTextContent } from '@pre-markdown/core'
 
 const ast = parse(markdown)
 
-// 使用 Visitor 模式遍历 AST
-const visitor = new Visitor()
-visitor.on('heading', (node) => {
-  console.log(`Found heading level ${node.level}: ${node.children[0].content}`)
+walk(ast, (node) => {
+  if (node.type === 'heading') {
+    console.log(`H${node.depth}: ${getTextContent(node.children)}`)
+  }
 })
-visitor.visit(ast)
 
-// 或者使用 find 方法
-const headings = ast.find(n => n.type === 'heading')
+const links = findAll(ast, (n) => n.type === 'link')
 ```
 
-### 安全渲染（防止 XSS）
+### Safe Rendering (XSS Protection)
 
 ```typescript
-import { renderToHtml } from '@pre-markdown/renderer'
-
-const markdown = '[link](javascript:alert("XSS"))'
 const safeHtml = renderToHtml(ast, {
-  sanitize: true,
-  allowedProtocols: ['http', 'https', 'mailto', 'ftp']
+  sanitize: true  // enabled by default — filters javascript: and other dangerous protocols
 })
-// XSS 向量被自动转义
 ```
 
-### 增量解析（编辑场景）
-
-对于实时编辑器，PreMarkdown 支持只重新解析修改的部分，实现 < 1ms 响应：
+### Incremental Parsing (Real-time Editing)
 
 ```typescript
 import { IncrementalParser } from '@pre-markdown/parser'
@@ -146,19 +97,16 @@ import { IncrementalParser } from '@pre-markdown/parser'
 const parser = new IncrementalParser()
 let doc = parser.parse(initialMarkdown)
 
-// 用户编辑：第 5-6 行替换为新内容
 doc = parser.update({
   type: 'replace',
   startLine: 5,
   deleteCount: 1,
   insertLines: ['## New heading', 'Updated content']
 })
-// 仅重新解析受影响的块级节点，复用其他 AST 部分
+// Only affected block nodes are re-parsed — < 1ms response
 ```
 
-### 布局引擎（零 DOM 测量）
-
-结合 pretext 进行精确的文本测量和虚拟化滚动：
+### Layout Engine (Zero DOM Measurement)
 
 ```typescript
 import { LayoutEngine } from '@pre-markdown/layout'
@@ -169,324 +117,206 @@ const engine = new LayoutEngine({
   maxWidth: 800,
 })
 
-// 计算全文本布局（零 DOM reflow）
 const { height, lineCount } = engine.computeLayout(text)
-
-// 虚拨化视口（万行文档仍流畅）
-const viewport = engine.computeViewportLayout(
-  text,
-  scrollTop,      // 当前滚动位置
-  viewportHeight  // 视口高度
-)
+const viewport = engine.computeViewportLayout(text, scrollTop, viewportHeight)
 ```
 
 ---
 
-## 📚 示例页面和在线编辑器
+## Key Features
 
-### 🌐 在线编辑器（GitHub Pages）
-
-**[👉 立即试用 PreMarkdown 在线编辑器](https://leo555.github.io/pre-markdown/)**
-
-无需安装，直接在浏览器中编辑和预览 Markdown。支持：
-- ✅ 实时预览
-- ✅ 分享链接（URL 编码）
-- ✅ 导出为 HTML 或 MD
-- ✅ 完全离线运行
-- ✅ 零隐私泄露（本地处理）
-
-详见 [部署指南](./STANDALONE_DEPLOYMENT.md)
-
-### 📖 本地示例页面
-
-在本地开发时，可运行以下示例页面：
-
-| 页面 | 链接 | 说明 |
-|------|------|------|
-| **基础用法** | `/examples/basic.html` | 解析、渲染、AST、安全模式、性能基准 |
-| **AST 转换** | `/examples/ast-transform.html` | Visitor 模式、提取标题链接、统计文档 |
-| **自定义渲染器** | `/examples/custom-renderer.html` | 代码高亮、链接处理、主题定制 |
-| **增量解析** | `/examples/incremental-parsing.html` | 全量 vs 增量性能对比、大文档处理 |
-| **完整编辑器 Demo** | `/demo` | 二分屏实时编辑器、工具栏、快捷键 |
-| **性能压测** | [在线体验 →](https://leo555.github.io/pre-markdown/benchmark/) | 7 引擎实时性能对比、语法兼容性测试 |
-
-### 快速访问示例
-
-```bash
-# 启动开发服务器
-pnpm dev
-
-# 打开浏览器访问示例
-# http://localhost:9527/examples/basic.html
-# http://localhost:9527/examples/ast-transform.html
-# http://localhost:9527/examples/custom-renderer.html
-# http://localhost:9527/examples/incremental-parsing.html
-```
+| Category | Features |
+|----------|----------|
+| 🔥 **Peak Performance** | Parse + Render < 0.3ms (1KB), incremental < 1ms, zero DOM reflow, LRU cache |
+| 🏗️ **Complete AST** | Structured AST + Visitor pattern + EventBus hooks |
+| 🎯 **Virtual Scrolling** | Precise line heights via pretext, smooth 10K+ line docs |
+| 📦 **Lightweight** | < 30KB gzip, tree-shakeable ESM, zero deps (core) |
+| 🔒 **Secure** | XSS protection + URL protocol whitelist + CSS injection prevention |
 
 ---
 
-## ✨ 核心特性
+## Package Structure
 
-### 🔥 极致性能
-- **Parse + Render < 0.3ms**（1KB 文本） — 快于 marked
-- **增量更新 < 1ms** — 编辑时只重解析变更行，复用已有 AST
-- **零 DOM 重排** — 基于 pretext 的纯算术文本测量和布局计算
-- **LRU 缓存** — 自动缓存常见段落的测量结果
+```
+@pre-markdown/core       — AST types, Builder, Visitor, EventBus (zero deps)
+@pre-markdown/parser     — Markdown → AST parser (block + inline + incremental)
+@pre-markdown/renderer   — AST → HTML renderer (safe mode, highlight hook)
+@pre-markdown/layout     — pretext layout engine (measurement, LRU, virtualization)
+```
 
-### 🏗️ 完整的 AST
-- **结构化 AST** — 支持完整的递归遍历和转换
-- **Visitor 模式** — 内置 visitor 模式便于 AST 操作
-- **事件系统** — EventBus 支持自定义解析/渲染 hook
-
-### 🎯 虚拟化滚动
-- **精确行高** — 基于 pretext 精确计算每行高度
-- **万行流畅** — 支持 10000+ 行文档无卡顿滚动
-
-### 📦 轻量可插拔
-- **< 30KB gzip** — 核心包极致压缩
-- **Tree-shakeable ESM** — 按需引入，优化 bundle 体积
-- **零依赖**（core 包） — 轻松集成到任何项目
-
-### 🔒 安全渲染
-- **XSS 防护** — 自动转义危险字符和 HTML
-- **URL 过滤** — 支持协议白名单，防止 `javascript:` 等危险链接
-- **CSS 注入防护** — 清除不安全的样式属性
+| Use Case | Dependencies | Description |
+|----------|------|-------------|
+| Static Rendering | parser + renderer | Blogs, static docs |
+| Real-time Editor | parser + renderer + layout | Editors, note-taking apps |
+| AST Transformation | core + parser | Custom preprocessing, linters |
 
 ---
 
-## 📦 包结构
+## Example Pages
 
-PreMarkdown 由 4 个独立的 npm 包组成，支持灵活组合：
+### Live Demos (GitHub Pages)
 
-```
-@pre-markdown/core       — AST 类型、Builder、Visitor、EventBus（0 依赖）
-@pre-markdown/parser     — Markdown → AST 解析引擎（块级 + 内联 + 增量）
-@pre-markdown/renderer   — AST → HTML 渲染器（安全模式、代码高亮 hook）
-@pre-markdown/layout     — pretext 布局引擎（零 DOM 测量、LRU 缓存、虚拟化视口）
-```
+| Page | Link | Description |
+|------|------|-------------|
+| ⚡ Quick Start | [Live Demo →](https://leo555.github.io/pre-markdown/examples/quick-start.html) | Simplest usage, AST, render options, XSS |
+| 🚀 Basic Usage | [Live Demo →](https://leo555.github.io/pre-markdown/examples/basic.html) | Parse, render, AST, safe mode, perf |
+| 🌲 AST Walker | [Live Demo →](https://leo555.github.io/pre-markdown/examples/ast-walker.html) | walk / findAll / findFirst / getTextContent |
+| 🔧 AST Transform | [Live Demo →](https://leo555.github.io/pre-markdown/examples/ast-transform.html) | Visitor, extract headings/links, doc stats |
+| 🎨 Custom Renderer | [Live Demo →](https://leo555.github.io/pre-markdown/examples/custom-renderer.html) | Syntax highlighting, link handling, themes |
+| ⚡ Incremental Parse | [Live Demo →](https://leo555.github.io/pre-markdown/examples/incremental-parsing.html) | Full vs incremental, large docs |
+| ✏️ Live Editor | [Live Demo →](https://leo555.github.io/pre-markdown/examples/live-editor.html) | Split-pane editor with stats |
+| 📊 Benchmarks | [Live Demo →](https://leo555.github.io/pre-markdown/benchmark/) | 7-engine real-time comparison |
+| 🌐 Online Editor | [Live Demo →](https://leo555.github.io/pre-markdown/) | Full editor demo |
 
-### 常见组合
-
-| 场景 | 依赖 | 描述 |
-|------|------|------|
-| **静态渲染** | parser + renderer | 博客、文档静态生成 |
-| **实时编辑器** | parser + renderer + layout | 编辑器、笔记应用 |
-| **AST 转换** | core + parser | 自定义预处理、lint 工具 |
-| **性能基准** | parser + renderer + layout | 编辑器性能基准测试 |
-
----
-
-## 📊 性能指标
-
-### 核心基线（参考环境：MacBook Pro 16" M1 Pro）
-
-| 指标 | 目标 | 说明 |
-|------|------|------|
-| **Parse + Render 1KB** | < 0.3ms | 快于 marked 同等体积 |
-| **Parse + Render 100KB** | < 10ms | 处理大型文档 |
-| **Parse + Render 1MB** | < 100ms | 超大文档极限测试 |
-| **增量更新（单行）** | < 1ms | 编辑器快速响应 |
-| **pretext prepare()** | ≤ 19ms/500段 | 文本测量（零 DOM） |
-| **pretext layout()** | < 0.1ms/500段 | vs 原生 DOM reflow ~50ms |
-| **光标定位** | < 0.5ms | vs getBoundingClientRect ~5ms |
-| **核心体积** | < 30KB gzip | 与 markdown-it 相当 |
-
-### 运行性能对标
+### Run Locally
 
 ```bash
 pnpm dev
-# 打开 http://localhost:9527/benchmark/           — 7 引擎性能压测
-# 打开 http://localhost:9527/benchmark/compat.html — 7 引擎语法兼容性
+# Open http://localhost:9527/examples/quick-start.html
 ```
 
 ---
 
-## 📝 语法支持
+## Performance
 
-### ✅ CommonMark（主流语法 ≥ 80% 通过）
+> Tested on MacBook Pro 16" M1 Pro · [Full performance report](./docs/performance.md)
 
-标题、段落、引用、列表（有序/无序/嵌套）、代码块、水平线、链接、图片、强调（粗体/斜体）、行内代码、原始 HTML、硬换行、转义字符
-
-### ✅ GFM（GitHub Flavored Markdown）
-
-表格、删除线 (`~~text~~`)、任务列表 (`- [x] task`)、URL 自动链接
-
-### ✅ 扩展语法（Cherry 兼容）
-
-| 语法 | 示例 | 说明 |
-|------|------|------|
-| **数学公式** | `$$E=mc^2$$` | LaTeX 数学表达式 |
-| **上标/下标** | `H~2~O` `x^2^` | 化学式、数学符号 |
-| **删除线** | `~~删除~~` | GFM 删除线 |
-| **高亮** | `==highlight==` | 背景高亮 |
-| **字体样式** | `{color: red}text{/color}` | 彩色文字 |
-| **Ruby 注音** | `{base\|ruby}` | 中日韩文注音 |
-| **下划线** | `{u}underline{/u}` | 下划线文本 |
-| **面板块** | `::: info\nContent\n:::` | 信息/警告/错误面板 |
-| **折叠块** | `::: collapse\nContent\n:::` | 可展开/折叠内容 |
-| **FrontMatter** | `---\ntitle: doc\n---` | 文档元数据 |
-| **TOC** | `[TOC]` | 自动生成目录 |
+| Metric | Target | Actual |
+|--------|--------|--------|
+| Parse + Render 1KB | < 0.3ms | **0.059ms** ✅ |
+| Parse + Render 20KB | < 10ms | **0.618ms** ✅ |
+| Parse + Render 210KB | < 100ms | **~5ms** ✅ |
+| Incremental Update | < 1ms | **0.42ms** ✅ |
+| Core Bundle (gzip) | < 30KB | **18.5KB** ✅ |
 
 ---
 
-## 🛠️ 开发指南
+## Syntax Support
 
-### 环境要求
+### ✅ CommonMark (≥ 80% passing)
 
-- **Node.js** >= 18.0.0
-- **pnpm** >= 8.0.0
-- **TypeScript** 5.5+
+Headings, paragraphs, block quotes, lists, code blocks, horizontal rules, links, images, emphasis, inline code, raw HTML, hard line breaks, escaping
 
-### 本地开发
+### ✅ GFM
+
+Tables, strikethrough (`~~text~~`), task lists (`- [x] task`), URL autolinks
+
+### ✅ Extended Syntax
+
+Math `$$E=mc^2$$`, superscript/subscript `H~2~O`, highlight `==text==`, info panels `:::info`, collapsible blocks, FrontMatter, TOC, Ruby annotations, font color/size
+
+---
+
+## Development
+
+### Requirements
+
+- **Node.js** >= 18 · **pnpm** >= 8 · **TypeScript** 5.5+
+
+### Commands
 
 ```bash
-# 1. 安装依赖
-pnpm install
-
-# 2. 启动开发服务器
-pnpm dev
-# 打开浏览器访问 http://localhost:9527
-
-# 3. 运行测试
-pnpm test:run          # 运行全部 1038 个单元测试
-pnpm test:coverage     # 生成覆盖率报告
-
-# 4. 性能基准测试
-pnpm bench             # 运行 Vitest 基准测试
-
-# 5. 代码检查与格式化
-pnpm lint              # ESLint 检查
-pnpm format            # Prettier 自动格式化
-pnpm typecheck         # TypeScript 类型检查
-
-# 6. 构建发布版本
-pnpm build             # 构建所有包（ESM + CJS + .d.ts）
-pnpm clean             # 清理构建产物
+pnpm install          # Install dependencies
+pnpm dev              # Start dev server (http://localhost:9527)
+pnpm test:run         # Run all tests
+pnpm test:coverage    # Coverage report
+pnpm bench            # Performance benchmarks
+pnpm lint             # ESLint
+pnpm format           # Prettier
+pnpm typecheck        # TypeScript type checking
+pnpm build            # Build all packages (ESM + CJS + .d.ts)
 ```
 
-### 项目结构
+### Project Structure
 
 ```
 pre-markdown/
-├── packages/                   # 核心包（4 个 npm 包）
-│   ├── core/                  # @pre-markdown/core
-│   │   └── src/ast/           # AST 类型定义、Builder、Visitor、EventBus
-│   ├── parser/                # @pre-markdown/parser
-│   │   └── src/               # Markdown 解析引擎（块级 + 内联 + 增量）
-│   ├── renderer/              # @pre-markdown/renderer
-│   │   └── src/               # AST 到 HTML 渲染器
-│   └── layout/                # @pre-markdown/layout
-│       └── src/               # pretext 布局引擎（测量、缓存、虚拟化）
-├── harness/                    # 测试基础设施
-│   ├── specs/                 # 模块规格文档（Spec 驱动开发）
-│   ├── benchmarks/            # Vitest 基准测试
-│   └── fixtures/              # 测试用例和数据文件
-├── benchmark/                  # 浏览器性能压测页面
-│   ├── index.html             # 7 引擎性能对比压测
-│   └── compat.html            # 语法兼容性测试
-├── demo/                       # 编辑器 Demo
-├── docs/                       # 文档（API、指南等）
-└── .codebuddy/
-    └── instructions.md         # AI 助手执行准则
+├── packages/               # Core packages (4 npm packages)
+│   ├── core/              # @pre-markdown/core — AST types, Builder, Visitor
+│   ├── parser/            # @pre-markdown/parser — Markdown → AST
+│   ├── renderer/          # @pre-markdown/renderer — AST → HTML
+│   └── layout/            # @pre-markdown/layout — pretext layout engine
+├── harness/                # Test infra (specs / benchmarks / fixtures)
+├── benchmark/              # Browser 7-engine benchmark
+├── examples/               # Interactive example pages (7)
+├── docs/                   # Documentation (API / Architecture / Performance)
+└── demo/                   # Editor demo
 ```
-
-### 开发工作流程
-
-1. **创建分支** — 从 `main` 创建功能分支：`git checkout -b feat/your-feature`
-2. **编写测试** — 测试先行（TDD）。参考 `harness/specs/` 目录
-3. **实现功能** — 修改相关包的代码
-4. **验证质量** — 运行 `pnpm test:run` 和 `pnpm lint`
-5. **性能检验** — 若涉及 parser/renderer，运行 `pnpm bench` 确保性能无劣化
-6. **提交 PR** — 附上详细的改动说明和测试结果
-
-### 核心规范
-
-- **测试覆盖率** — 行 ≥ 90%、分支 ≥ 85%
-- **性能回归** — parser/renderer 改动性能劣化 > 20% 禁止提交
-- **AST 变更** — 修改 AST 必须同时更新 types/builder/visitor/parser/renderer 5 个文件
 
 ---
 
-## ❓ 常见问题
+## FAQ
 
-### Q: PreMarkdown 和 marked、markdown-it 有什么区别？
+<details>
+<summary><b>Q: How is PreMarkdown different from marked / markdown-it?</b></summary>
 
-**A:** 打开 [在线性能压测页面](https://leo555.github.io/pre-markdown/benchmark/)，可在浏览器中实时对比 7 个主流引擎的解析速度和语法覆盖率。也可在本地运行 `pnpm dev` 后访问 http://localhost:9527/benchmark/ 。
+Core advantages: **peak performance + zero DOM reflow**. Try the [live benchmark](https://leo555.github.io/pre-markdown/benchmark/) to compare 7 engines.
 
-### Q: 我需要自定义 Markdown 语法吗？
+- **marked** — Simple & fast, but no AST or incremental support
+- **markdown-it** — Rich plugins, but slower and needs DOM
+- **PreMarkdown** — Complete AST + incremental + zero DOM = fastest + most flexible
 
-**A:** 支持多种定制方式：
+</details>
 
-1. **Visitor 模式** — 在 AST 上修改节点
-2. **自定义渲染器** — 重写 renderToHtml 的 hook 函数
-3. **EventBus** — 在解析/渲染过程插入 hook
+<details>
+<summary><b>Q: Is syntax highlighting supported?</b></summary>
 
-详见 [自定义指南](./docs/customize.md)
-
-### Q: 支持代码高亮吗？
-
-**A:** renderToHtml 提供 `highlightCode` hook，你可以集成任意高亮库：
+`renderToHtml` provides a `highlight` hook compatible with highlight.js, Prism, Shiki, etc.:
 
 ```typescript
 renderToHtml(ast, {
-  hooks: {
-    highlightCode: (code, language) => {
-      return highlight(code, { language })
-    }
-  }
+  highlight: (code, lang) => hljs.highlight(code, { language: lang }).value
 })
 ```
 
-支持 highlight.js、Prism、Shiki 等所有流行库。
+</details>
 
-### Q: 能否用于服务端渲染（SSR）？
+<details>
+<summary><b>Q: Can it be used for SSR?</b></summary>
 
-**A:** 完全支持。PreMarkdown 是纯 JavaScript，无浏览器依赖：
+Fully supported. PreMarkdown is pure JavaScript with zero browser dependencies:
 
 ```typescript
-// Node.js 环境
 import { parse } from '@pre-markdown/parser'
 import { renderToHtml } from '@pre-markdown/renderer'
-
 const html = renderToHtml(parse(markdown))
-// 直接用于 SSR、静态生成等
 ```
 
-### Q: 核心体积真的 < 30KB 吗？
+</details>
 
-**A:** 是的。测量方式：
+<details>
+<summary><b>Q: Is the core really < 30KB gzip?</b></summary>
 
-```bash
-npm pack @pre-markdown/parser
-# 检查 .tgz 中 dist/ 文件夹大小
-# ESM bundle 约 15KB gzip
-```
+core + parser + renderer = **19.2KB** gzip (without layout). Full suite = **22.2KB** gzip. Verify on [Bundlephobia](https://bundlephobia.com/package/@pre-markdown/parser).
 
-具体见 [Bundlephobia](https://bundlephobia.com/package/@pre-markdown/parser)
-
-### Q: 如何向 PreMarkdown 贡献代码？
-
-**A:** 详见 [贡献指南](#贡献指南)
+</details>
 
 ---
 
-## 🤝 贡献指南
+## Contributing
 
-我们欢迎所有形式的贡献！详见 [CONTRIBUTING.md](./CONTRIBUTING.md)。
+We welcome all contributions! See [CONTRIBUTING.md](./CONTRIBUTING.md) for the full guide.
+
+Quick steps:
+
+1. Fork → branch `git checkout -b feat/your-feature`
+2. Write tests (TDD) → implement feature
+3. `pnpm test:run` + `pnpm lint` to verify
+4. Submit PR with clear description
+
+Commits follow [Conventional Commits](https://www.conventionalcommits.org): `feat:` / `fix:` / `perf:` / `docs:` / `test:` / `chore:`
 
 ---
 
-## 📄 许可证
+## License
 
-MIT © 2024 PreMarkdown Contributors
-
-详见 [LICENSE](./LICENSE) 文件。
+[MIT](./LICENSE) © 2024 PreMarkdown Contributors
 
 ---
 
 <div align="center">
 
-**如有问题或建议，欢迎 [提交 issue](https://github.com/your-org/pre-markdown/issues)** ❤️
+**Questions or suggestions? [Open an Issue](https://github.com/Leo555/pre-markdown/issues)** ❤️
 
 **Made with ❤️ by the PreMarkdown community**
 

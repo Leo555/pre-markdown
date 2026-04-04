@@ -31,6 +31,16 @@
 <body>
   <div class="container">
     <h1>⚡ PreMarkdown 增量解析示例</h1>
+    <nav style="margin-bottom: 12px; font-size: 13px; color: #888;">
+      📖 示例导航：
+      <a href="quick-start.html" style="color: #6c5ce7; margin-right: 8px;">快速开始</a>
+      <a href="basic.html" style="color: #6c5ce7; margin-right: 8px;">基础用法</a>
+      <a href="ast-walker.html" style="color: #6c5ce7; margin-right: 8px;">AST 遍历</a>
+      <a href="ast-transform.html" style="color: #6c5ce7; margin-right: 8px;">AST 转换</a>
+      <a href="custom-renderer.html" style="color: #6c5ce7; margin-right: 8px;">自定义渲染</a>
+      <strong style="color: #333;">增量解析</strong>
+      <a href="live-editor.html" style="color: #6c5ce7; margin-left: 8px;">实时编辑器</a>
+    </nav>
     <p class="subtitle">展示增量解析如何加速实时编辑，只重新解析改动部分。</p>
 
     <!-- 示例 1: 全量 vs 增量对比 -->
@@ -136,7 +146,11 @@
     </div>
   </div>
 
-  <script>
+  <script type="module">
+    import { parse, IncrementalParser } from '@pre-markdown/parser'
+    import { renderToHtml } from '@pre-markdown/renderer'
+    import { walk } from '@pre-markdown/core'
+
     document.getElementById('code2').textContent = `import { IncrementalParser } from '@pre-markdown/parser'
 
 const parser = new IncrementalParser()
@@ -186,57 +200,46 @@ doc = parser.update({
     editorEl.value = initialText
 
     let fullDoc = null
-    let incrParser = null
+    const incrParser = new IncrementalParser()
+    fullDoc = parse(initialText)
+    incrParser.parse(initialText)
 
-    try {
-      const { parse } = window.preMarkdownParser
-      const { renderToHtml } = window.preMarkdownRenderer
-      const { IncrementalParser } = window.preMarkdownParser
+    function updatePreview() {
+      const text = editorEl.value
+      const useIncr = useIncrementalEl.checked
 
-      fullDoc = parse(initialText)
-      incrParser = new IncrementalParser()
-      incrParser.parse(initialText)
-
-      function updatePreview() {
-        const text = editorEl.value
-        const useIncr = useIncrementalEl.checked
-
-        if (useIncr && incrParser) {
-          // 模拟增量更新（简化版）
-          const t0 = performance.now()
-          fullDoc = incrParser.parse(text)
-          const t1 = performance.now()
-          lastIncrTime = t1 - t0
-          incrParseTimeEl.textContent = lastIncrTime.toFixed(2)
-        }
-
-        // 全量解析用于对比
+      if (useIncr && incrParser) {
+        // 增量解析
         const t0 = performance.now()
-        fullDoc = parse(text)
+        fullDoc = incrParser.parse(text)
         const t1 = performance.now()
-        lastFullTime = t1 - t0
-        fullParseTimeEl.textContent = lastFullTime.toFixed(2)
-
-        // 计算性能提升
-        if (lastIncrTime > 0 && lastFullTime > 0) {
-          const su = (lastFullTime / lastIncrTime).toFixed(1)
-          speedupEl.textContent = su + 'x'
-        }
-
-        // 渲染
-        const html = renderToHtml(fullDoc)
-        previewEl.innerHTML = html
+        lastIncrTime = t1 - t0
+        incrParseTimeEl.textContent = lastIncrTime.toFixed(2)
       }
 
-      editorEl.addEventListener('input', () => {
-        setTimeout(updatePreview, 50)
-      })
+      // 全量解析用于对比
+      const t0 = performance.now()
+      fullDoc = parse(text)
+      const t1 = performance.now()
+      lastFullTime = t1 - t0
+      fullParseTimeEl.textContent = lastFullTime.toFixed(2)
 
-      updatePreview()
+      // 计算性能提升
+      if (lastIncrTime > 0 && lastFullTime > 0) {
+        const su = (lastFullTime / lastIncrTime).toFixed(1)
+        speedupEl.textContent = su + 'x'
+      }
 
-    } catch (e) {
-      console.error('需要在 dev 服务器运行', e)
+      // 渲染
+      const html = renderToHtml(fullDoc)
+      previewEl.innerHTML = html
     }
+
+    editorEl.addEventListener('input', () => {
+      setTimeout(updatePreview, 50)
+    })
+
+    updatePreview()
 
     // 示例 3: 大文档生成
     function generateLargeDoc() {
@@ -268,60 +271,54 @@ doc = parser.update({
     const editor2El = document.getElementById('editor2')
     editor2El.value = initialText
 
-    try {
-      const { parse } = window.preMarkdownParser
-      const { Visitor } = window.preMarkdownCore
+    function updateStats() {
+      const text = editor2El.value
+      const t0 = performance.now()
+      const ast = parse(text)
+      const t1 = performance.now()
 
-      function updateStats() {
-        const text = editor2El.value
-        const t0 = performance.now()
-        const ast = parse(text)
-        const t1 = performance.now()
+      const lines = text.split('\n').length
+      const words = text.match(/\S+/g)?.length || 0
+      const chars = text.length
 
-        const lines = text.split('\n').length
-        const words = text.match(/\S+/g)?.length || 0
-        const chars = text.length
-
-        let stats = {
-          headings: 0,
-          codeblocks: 0,
-          links: 0
-        }
-
-        const visitor = new Visitor()
-        visitor.on('heading', () => stats.headings++)
-        visitor.on('code_block', () => stats.codeblocks++)
-        visitor.on('link', () => stats.links++)
-
-        function countNodes(node) {
-          let count = 1
-          if (node.children && Array.isArray(node.children)) {
-            count += node.children.reduce((sum, child) => sum + countNodes(child), 0)
-          }
-          return count
-        }
-        const nodes = countNodes(ast)
-
-        document.getElementById('stat-lines').textContent = lines
-        document.getElementById('stat-words').textContent = words
-        document.getElementById('stat-chars').textContent = chars
-        document.getElementById('stat-nodes').textContent = nodes
-        document.getElementById('stat-time').textContent = (t1 - t0).toFixed(2) + 'ms'
-        document.getElementById('stat-headings').textContent = stats.headings
-        document.getElementById('stat-codeblocks').textContent = stats.codeblocks
-        document.getElementById('stat-links').textContent = stats.links
+      let stats = {
+        headings: 0,
+        codeblocks: 0,
+        links: 0
       }
 
-      editor2El.addEventListener('input', () => {
-        setTimeout(updateStats, 50)
+      walk(ast, (node) => {
+        if (node.type === 'heading') stats.headings++
+        if (node.type === 'codeBlock') stats.codeblocks++
+        if (node.type === 'link') stats.links++
       })
 
-      updateStats()
+      function countNodes(node) {
+        let count = 1
+        if (node.children && Array.isArray(node.children)) {
+          count += node.children.reduce((sum, child) => sum + countNodes(child), 0)
+        }
+        return count
+      }
+      const nodes = countNodes(ast)
 
-    } catch (e) {
-      console.error('统计错误', e)
+      document.getElementById('stat-lines').textContent = lines
+      document.getElementById('stat-words').textContent = words
+      document.getElementById('stat-chars').textContent = chars
+      document.getElementById('stat-nodes').textContent = nodes
+      document.getElementById('stat-time').textContent = (t1 - t0).toFixed(2) + 'ms'
+      document.getElementById('stat-headings').textContent = stats.headings
+      document.getElementById('stat-codeblocks').textContent = stats.codeblocks
+      document.getElementById('stat-links').textContent = stats.links
     }
 
+    editor2El.addEventListener('input', () => {
+      setTimeout(updateStats, 50)
+    })
+
+    updateStats()
+
+    // 将函数挂载到 window 供 onclick 调用
     window.generateLargeDoc = generateLargeDoc
     window.editLine10 = editLine10
     window.editLine500 = editLine500

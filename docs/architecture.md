@@ -1,5 +1,9 @@
 # PreMarkdown 架构设计
 
+> 📖 相关文档：[API 文档](./api.md) · [性能报告](./performance.md) · [贡献指南](../CONTRIBUTING.md) · [← 返回 README](../README.md)
+
+---
+
 ## 总览
 
 PreMarkdown 是基于 [pretext](https://github.com/chenglou/pretext) 的高性能 Markdown 引擎。核心设计理念：**性能第一，充分利用 pretext 零 DOM 重排布局能力**。

@@ -22,6 +22,16 @@
 <body>
   <div class="container">
     <h1>🔧 PreMarkdown AST 转换示例</h1>
+    <nav style="margin-bottom: 20px; font-size: 13px; color: #888;">
+      📖 示例导航：
+      <a href="quick-start.html" style="color: #6c5ce7; margin-right: 8px;">快速开始</a>
+      <a href="basic.html" style="color: #6c5ce7; margin-right: 8px;">基础用法</a>
+      <a href="ast-walker.html" style="color: #6c5ce7; margin-right: 8px;">AST 遍历</a>
+      <strong style="color: #333;">AST 转换</strong>
+      <a href="custom-renderer.html" style="color: #6c5ce7; margin-left: 8px;">自定义渲染</a>
+      <a href="incremental-parsing.html" style="color: #6c5ce7; margin-left: 8px;">增量解析</a>
+      <a href="live-editor.html" style="color: #6c5ce7; margin-left: 8px;">实时编辑器</a>
+    </nav>
     <p style="margin-bottom: 20px; color: #666;">展示如何使用 Visitor 模式遍历和转换 AST。</p>
 
     <!-- 示例 1: 提取所有标题 -->
@@ -82,40 +92,43 @@
     </div>
   </div>
 
-  <script>
+  <script type="module">
+    import { parse } from '@pre-markdown/parser'
+    import { walk, getTextContent } from '@pre-markdown/core'
+
     // 代码示例
     document.getElementById('code1').textContent = `import { parse } from '@pre-markdown/parser'
-import { Visitor } from '@pre-markdown/core'
+import { walk } from '@pre-markdown/core'
 
 const ast = parse(markdown)
 const headings = []
 
-const visitor = new Visitor()
-visitor.on('heading', (node) => {
-  headings.push({
-    level: node.level,
-    text: node.children[0].content
-  })
-})
-visitor.visit(ast)`
+walk(ast, (node) => {
+  if (node.type === 'heading') {
+    headings.push({
+      level: node.depth,
+      text: getTextContent(node.children)
+    })
+  }
+})`
 
     document.getElementById('code2').textContent = `const links = []
 const images = []
 
-const visitor = new Visitor()
-visitor.on('link', (node) => {
-  links.push({
-    text: node.children[0].content,
-    url: node.url
-  })
-})
-visitor.on('image', (node) => {
-  images.push({
-    alt: node.alt,
-    url: node.url
-  })
-})
-visitor.visit(ast)`
+walk(ast, (node) => {
+  if (node.type === 'link') {
+    links.push({
+      text: getTextContent(node.children),
+      url: node.url
+    })
+  }
+  if (node.type === 'image') {
+    images.push({
+      alt: node.alt,
+      url: node.url
+    })
+  }
+})`
 
     document.getElementById('code3').textContent = `// 修改 AST（转换链接）
 function transformLinks(node, baseUrl) {
@@ -133,22 +146,19 @@ let stats = {
   headings: 0, codeBlocks: 0, links: 0,
   images: 0, tables: 0, words: 0
 }
-const visitor = new Visitor()
-visitor.on('heading', () => stats.headings++)
-visitor.on('code_block', () => stats.codeBlocks++)
-visitor.on('link', () => stats.links++)
-visitor.on('image', () => stats.images++)
-visitor.on('table', () => stats.tables++)
-visitor.on('text', (node) => {
-  stats.words += node.content.split(/\\s+/).length
-})
-visitor.visit(ast)`
+walk(ast, (node) => {
+  if (node.type === 'heading') stats.headings++
+  if (node.type === 'codeBlock') stats.codeBlocks++
+  if (node.type === 'link') stats.links++
+  if (node.type === 'image') stats.images++
+  if (node.type === 'table') stats.tables++
+  if (node.type === 'text') {
+    stats.words += node.value.split(/\\s+/).length
+  }
+})`
 
     // 运行示例
     try {
-      const { parse } = window.preMarkdownParser
-      const { Visitor } = window.preMarkdownCore
-      
       const markdown = `# Markdown AST 转换示例
 ## 基本概念
 ### Visitor 模式
@@ -171,12 +181,12 @@ console.log('Hello')
       // 示例 1: 提取标题
       const ast = parse(markdown)
       const headings = []
-      const visitor1 = new Visitor()
-      visitor1.on('heading', (node) => {
-        const text = node.children[0]?.content || ''
-        headings.push({ level: node.level, text })
+      walk(ast, (node) => {
+        if (node.type === 'heading') {
+          const text = getTextContent(node.children)
+          headings.push({ level: node.depth, text })
+        }
       })
-      visitor1.visit(ast)
       
       document.getElementById('input1').textContent = markdown
       const tbody1 = document.querySelector('#output1 tbody')
@@ -189,15 +199,15 @@ console.log('Hello')
       // 示例 2: 收集链接和图片
       const links = []
       const images = []
-      const visitor2 = new Visitor()
-      visitor2.on('link', (node) => {
-        const text = node.children[0]?.content || ''
-        links.push({ type: '链接', text, url: node.url })
+      walk(ast, (node) => {
+        if (node.type === 'link') {
+          const text = getTextContent(node.children)
+          links.push({ type: '链接', text, url: node.url })
+        }
+        if (node.type === 'image') {
+          images.push({ type: '图片', text: node.alt, url: node.url })
+        }
       })
-      visitor2.on('image', (node) => {
-        images.push({ type: '图片', text: node.alt, url: node.url })
-      })
-      visitor2.visit(ast)
       
       const tbody2 = document.querySelector('#output2 tbody')
       const all = [...links, ...images]
@@ -221,11 +231,11 @@ console.log('Hello')
       
       document.getElementById('input3').textContent = '[GitHub](https://github.com)\n[官网](https://example.com)'
       const linkNodes = []
-      const visitor3 = new Visitor()
-      visitor3.on('link', (node) => {
-        linkNodes.push(`[${node.children[0]?.content}](${node.url})`)
+      walk(astCopy, (node) => {
+        if (node.type === 'link') {
+          linkNodes.push(`[${getTextContent(node.children)}](${node.url})`)
+        }
       })
-      visitor3.visit(astCopy)
       document.getElementById('output3').textContent = linkNodes.join('\n')
       
       // 示例 4: 统计
@@ -233,16 +243,16 @@ console.log('Hello')
         标题: 0, 代码块: 0, 链接: 0,
         图片: 0, 表格: 0, 单词数: 0
       }
-      const visitor4 = new Visitor()
-      visitor4.on('heading', () => stats.标题++)
-      visitor4.on('code_block', () => stats.代码块++)
-      visitor4.on('link', () => stats.链接++)
-      visitor4.on('image', () => stats.图片++)
-      visitor4.on('table', () => stats.表格++)
-      visitor4.on('text', (node) => {
-        stats.单词数 += (node.content.match(/\S+/g) || []).length
+      walk(ast, (node) => {
+        if (node.type === 'heading') stats.标题++
+        if (node.type === 'codeBlock') stats.代码块++
+        if (node.type === 'link') stats.链接++
+        if (node.type === 'image') stats.图片++
+        if (node.type === 'table') stats.表格++
+        if (node.type === 'text') {
+          stats.单词数 += (node.value.match(/\S+/g) || []).length
+        }
       })
-      visitor4.visit(ast)
       
       const tbody4 = document.querySelector('#output4 tbody')
       Object.entries(stats).forEach(([key, val]) => {
