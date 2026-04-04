@@ -247,7 +247,7 @@ function renderListItem(node: ListItem, opts: Required<RendererOptions>, loose =
       .map(c => renderInlineNodes(resolveInline(c as Paragraph, opts), opts))
       .join('\n')
   } else {
-    content = renderBlockNodes(node.children, opts)
+    content = '\n' + renderBlockNodes(node.children, opts)
   }
 
   if (node.checked !== undefined) {

@@ -14,7 +14,7 @@
 | Phase 1：核心引擎 | ✅ 已完成 | 100% |
 | Phase 2：性能优化（核心） | 🔨 进行中 | 80% |
 | Phase 3：Pretext 深度集成（核心） | 🔨 进行中 | 55% |
-| Phase 4：语法兼容性（次要） | 🔨 进行中 | 65% |
+| Phase 4：语法兼容性（次要） | 🔨 进行中 | 70% |
 | Phase 5：生态与文档 | 🔨 进行中 | 30% |
 | Phase 6：编辑器输入框优化 | 🔨 进行中 | 70% |
 
@@ -150,7 +150,7 @@
 > **验证标准**：CommonMark 主流 sections 通过率 ≥ 80%，日常使用无感知差异  
 > **原则**：不追求 100% 合规，focus 在用户最常用的语法子集
 
-### 4.1 当前 CommonMark 通过率：402/652 (61.7%)
+### 4.1 当前 CommonMark 通过率：418/652 (64.1%)
 
 **已满分 sections (10个)**：
 - [x] Precedence, Paragraphs, Blank lines, Inlines
@@ -158,20 +158,21 @@
 - [x] ATX headings, Fenced code blocks, Block quotes
 
 **高通过率 sections (够用，暂不投入)**：
-- HTML blocks 98%, Autolinks 95%, Raw HTML 95%, Entity references 94%
-- Setext headings 89%, Indented code blocks 83%, Code spans 82%
-- Thematic breaks 79%
+- HTML blocks 98%, Autolinks 95%, Raw HTML 95%, Thematic breaks 95%
+- Entity references 94%, Setext headings 89%, Indented code blocks 83%
+- Code spans 82%
 
 **中等通过率 sections (视需要修复)**：
-- [ ] Thematic breaks (79% → 目标 90%)
+- [x] Thematic breaks (79% → 95% ✅)
 - [ ] Setext headings (89%, 可接受)
 - [ ] Indented code blocks (83%, 可接受)
 
 **低通过率 sections (复杂规则，低优先)**：
+- List items (48%) — 需实现完整缩进规则
 - Emphasis (39%) — 规则极复杂，投入产出比低
 - Links (39%) — 需实现完整 link reference definitions
-- Lists/List items (12-38%) — 需实现完整缩进规则
 - Images (27%) — 依赖 link reference
+- Lists (27%) — 需实现完整缩进规则
 
 ### 4.2 适度修复（投入产出比高的）
 - [x] ATX heading 尾部 # 关闭 + 空标题 + 1-3 前导空格 → 336/652 (51.5%)
@@ -273,6 +274,7 @@
 
 | 日期 | 变更内容 |
 |------|---------|
+| 2026-04-04 | Thematic break 打断列表 + 列表项内嵌 hr 渲染修复；Thematic breaks 79%→95%, Lists 12%→27%, List items 38%→48% → 418/652 (64.1%) |
 | 2026-04-04 | 增量解析 LRU 缓存：基于 FNV-1a 指纹的段落粒度 BlockNode 缓存复用，256 容量 LRU 淘汰 |
 | 2026-04-04 | AST 节点 Flyweight：Break/SoftBreak/ThematicBreak 单例化，减少对象创建 |
 | 2026-04-04 | 内联解析器优化：tryEmphasis/tryInlineCode charCodeAt 快速路径 + HTML inline 分支合并；Code spans 64%→82% → 402/652 (61.7%) |

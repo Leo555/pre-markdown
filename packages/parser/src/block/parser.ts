@@ -686,9 +686,23 @@ function tryList(
     const currentOl = RE_OL_MARKER.exec(currentLine)
 
     // Must match the same list type
-    const isListItem = ordered ? !!currentOl : !!currentUl
+    let isListItem = ordered ? !!currentOl : !!currentUl
+
+    // A line that matches both a list marker and a thematic break
+    // should be treated as a thematic break (CommonMark spec: thematic break takes precedence)
+    if (isListItem && j > i) {
+      const currentStripped = strip3(currentLine)
+      if (RE_THEMATIC_BREAK.test(currentStripped)) {
+        isListItem = false
+      }
+    }
 
     if (!isListItem && j > i) {
+      // Thematic break interrupts a list (CommonMark spec)
+      const currentStripped = strip3(currentLine)
+      if (RE_THEMATIC_BREAK.test(currentStripped)) {
+        break
+      }
       // Check if it's continuation content (indented) or blank line within list
       if (isBlank(currentLine)) {
         // Check if next non-blank line is a list item
@@ -744,6 +758,8 @@ function tryList(
       }
       // Check for new list item
       if ((ordered ? RE_OL_MARKER : RE_UL_MARKER).test(itemLine)) break
+      // Check for thematic break interrupting the list item (CommonMark spec)
+      if (RE_THEMATIC_BREAK.test(strip3(itemLine))) break
       // Check for indented continuation
       if (/^(?: {2,}|\t)/.test(itemLine)) {
         itemLines.push(itemLine.replace(/^(?: {2,}|\t)/, ''))
