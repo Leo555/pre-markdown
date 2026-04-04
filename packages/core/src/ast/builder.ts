@@ -65,6 +65,21 @@ function nextId(): number {
 }
 
 // ============================================================
+// Node Pool: Flyweight pattern for frequently created leaf nodes
+// Reuse Break and SoftBreak singletons (they have no varying state).
+// For Text/InlineCode nodes, use monomorphic object shapes for V8 optimization.
+// ============================================================
+
+/** Shared Break instance (no unique state) */
+const BREAK_SINGLETON: Break = Object.freeze({ type: 'break', id: 0 }) as Break
+
+/** Shared SoftBreak instance (no unique state) */
+const SOFT_BREAK_SINGLETON: SoftBreak = Object.freeze({ type: 'softBreak', id: 0 }) as SoftBreak
+
+/** Shared ThematicBreak instance (no unique state) */
+const THEMATIC_BREAK_SINGLETON: ThematicBreak = Object.freeze({ type: 'thematicBreak', id: 0 }) as ThematicBreak
+
+// ============================================================
 // Block-Level Builders
 // ============================================================
 
@@ -117,6 +132,7 @@ export function createCodeBlock(
 }
 
 export function createThematicBreak(loc?: SourceLocation): ThematicBreak {
+  if (!loc) return THEMATIC_BREAK_SINGLETON
   return { type: 'thematicBreak', loc, id: nextId() }
 }
 
@@ -228,10 +244,12 @@ export function createHtmlInline(value: string, loc?: SourceLocation): HtmlInlin
 }
 
 export function createBreak(loc?: SourceLocation): Break {
+  if (!loc) return BREAK_SINGLETON
   return { type: 'break', loc, id: nextId() }
 }
 
 export function createSoftBreak(loc?: SourceLocation): SoftBreak {
+  if (!loc) return SOFT_BREAK_SINGLETON
   return { type: 'softBreak', loc, id: nextId() }
 }
 

@@ -70,7 +70,7 @@
 - [x] parseInlineFast 快速路径（纯文本内容跳过递归，emphasis 2.3x 提速）
 - [x] 内联解析器：charCodeAt 替代 indexOf/repeat，合并 HTML inline 分支，emphasis delimiter run 优化
 - [x] 块级解析器：正则替换为 charCodeAt 快速路径（strip3/isBlank/isIndentCode），减少 RE.exec
-- [ ] AST 节点对象池（复用节点减少 GC 压力）
+- [x] AST 节点 Flyweight 优化（Break/SoftBreak/ThematicBreak 单例，减少 GC 压力）
 - [x] 懒解析内联（lazyInline — 仅在渲染时才解析段落内联内容，解析阶段 5.6x 提速）
 
 ### 2.2 渲染器热路径优化
@@ -273,6 +273,7 @@
 
 | 日期 | 变更内容 |
 |------|---------|
+| 2026-04-04 | AST 节点 Flyweight：Break/SoftBreak/ThematicBreak 单例化，减少对象创建 |
 | 2026-04-04 | 内联解析器优化：tryEmphasis/tryInlineCode charCodeAt 快速路径 + HTML inline 分支合并；Code spans 64%→82% → 402/652 (61.7%) |
 | 2026-04-04 | 块级解析器 RE→charCodeAt 优化（strip3/isBlank/isIndentCode）；Block quotes 25/25 + Fenced code 29/29 满分 → 398/652 (61.0%) |
 | 2026-04-03 | 懒解析内联 lazyInline 5.6x 提速 + 行级 FNV-1a hash + AST 节点复用 + 二分查找变更范围 |
