@@ -314,6 +314,20 @@
   .score-card .score { font-size: 24px; font-weight: 800; font-family: var(--mono); }
 </style>
 
+<!-- Loading Overlay -->
+<div class="loading-overlay" id="loading-overlay">
+  <div class="loading-card">
+    <div class="loading-spinner"></div>
+    <div class="loading-text" id="loading-text">正在加载测试文件...</div>
+    <div class="loading-progress-wrapper">
+      <div class="loading-bar-bg">
+        <div class="loading-bar" id="loading-bar"></div>
+      </div>
+      <span class="loading-progress" id="loading-progress"></span>
+    </div>
+  </div>
+</div>
+
 <!-- Scripts -->
 <script type="module" src="./main.ts"></script>
 <script type="module" src="./compat-inline.ts"></script>

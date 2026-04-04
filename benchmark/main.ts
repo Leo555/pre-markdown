@@ -202,6 +202,61 @@ const ALL_FILES = [
 ]
 
 // ============================================================
+// Loading overlay
+// ============================================================
+const $loadingOverlay = document.getElementById('loading-overlay')!
+const $loadingText = document.getElementById('loading-text')!
+const $loadingProgress = document.getElementById('loading-progress')!
+const $loadingBar = document.getElementById('loading-bar')!
+
+function showLoading(text: string, progress = 0) {
+  $loadingOverlay.classList.add('visible')
+  $loadingText.textContent = text
+  $loadingProgress.textContent = progress > 0 ? `${Math.round(progress)}%` : ''
+  $loadingBar.style.width = `${progress}%`
+}
+
+function hideLoading() {
+  $loadingOverlay.classList.remove('visible')
+}
+
+async function preloadFiles(files: string[]): Promise<Map<string, string>> {
+  const loaded = new Map<string, string>()
+  const toLoad = files.filter(f => !fileCache.has(f))
+  const cached = files.filter(f => fileCache.has(f))
+
+  // 已缓存的直接取出
+  for (const f of cached) {
+    loaded.set(f, fileCache.get(f)!)
+  }
+
+  if (toLoad.length === 0) return loaded
+
+  showLoading(`正在加载测试文件 (0/${toLoad.length})...`, 0)
+  await new Promise(r => setTimeout(r, 50)) // 让 UI 更新
+
+  for (let i = 0; i < toLoad.length; i++) {
+    const name = toLoad[i]!
+    const progress = ((i) / toLoad.length) * 100
+    showLoading(`正在加载: ${name} (${i + 1}/${toLoad.length})`, progress)
+    await new Promise(r => setTimeout(r, 10)) // 让 UI 更新
+
+    try {
+      const text = await loadFile(name)
+      loaded.set(name, text)
+    } catch (e: any) {
+      log(`⚠ 文件加载失败: ${name} — ${e.message}`, 'err')
+    }
+  }
+
+  showLoading('文件加载完成，准备开始压测...', 100)
+  await new Promise(r => setTimeout(r, 300)) // 短暂显示完成状态
+  hideLoading()
+
+  return loaded
+}
+
+// ============================================================
 // Main runner
 // ============================================================
 async function runBenchmark() {
@@ -210,9 +265,21 @@ async function runBenchmark() {
   const warmup = parseInt((document.getElementById('warmup') as HTMLInputElement).value) || 2
   const btn = document.getElementById('btn-run') as HTMLButtonElement
   btn.disabled = true
-  $status.textContent = '压测进行中...'
 
   const files = fileSelect === 'ALL' ? ALL_FILES : [fileSelect]
+
+  // ① 预加载所有测试文件
+  const preloaded = await preloadFiles(files)
+
+  if (preloaded.size === 0) {
+    log('所有文件加载失败，压测终止。', 'err')
+    $status.textContent = '文件加载失败'
+    btn.disabled = false
+    return
+  }
+
+  // ② 开始压测
+  $status.textContent = '压测进行中...'
 
   log(`\n${'='.repeat(70)}`, 'info')
   log(`压测开始 — ${new Date().toLocaleTimeString()} — ${warmup} 次预热 + ${iterations} 次迭代 — ${files.length} 个文件`, 'info')
@@ -220,17 +287,15 @@ async function runBenchmark() {
   log(`${'='.repeat(70)}`, 'info')
 
   for (const fileName of files) {
+    const md = preloaded.get(fileName)
+    if (!md) {
+      log(`\n▶ ${fileName} — 跳过（加载失败）`, 'warn')
+      continue
+    }
+
     $status.textContent = `测试: ${fileName}...`
     log(`\n▶ ${fileName}`, 'info')
     await new Promise(r => setTimeout(r, 30))
-
-    let md: string
-    try {
-      md = await loadFile(fileName)
-    } catch (e: any) {
-      log(`  加载失败: ${e.message}`, 'err')
-      continue
-    }
 
     const size = new Blob([md]).size
     const lines = md.split('\n').length
