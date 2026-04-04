@@ -3,12 +3,11 @@
  *
  * 引擎列表:
  *   1. PreMarkdown (本项目)
- *   2. Cherry Markdown Engine (腾讯)
- *   3. marked (最流行, 速度型)
- *   4. markdown-it (功能完整, 插件丰富)
- *   5. commonmark.js (严格 CommonMark 规范)
- *   6. showdown (历史悠久)
- *   7. remarkable (markdown-it 前身)
+ *   2. marked (最流行, 速度型)
+ *   3. markdown-it (功能完整, 插件丰富)
+ *   4. commonmark.js (严格 CommonMark 规范)
+ *   5. showdown (历史悠久)
+ *   6. remarkable (markdown-it 前身)
  */
 import { parse } from '@pre-markdown/parser'
 import { renderToHtml } from '@pre-markdown/renderer'
@@ -18,7 +17,6 @@ import MarkdownIt from 'markdown-it'
 import * as commonmark from 'commonmark'
 import Showdown from 'showdown'
 import { Remarkable } from 'remarkable'
-import CherryEngine from 'cherry-markdown'
 
 // ============================================================
 // DOM
@@ -43,9 +41,6 @@ const sdConverter = new Showdown.Converter()
 
 // remarkable instance
 const remarkableInst = new Remarkable()
-
-// Cherry engine instance
-const cherryEngine = new CherryEngine({ global: { flowSessionContext: false } })
 
 // ============================================================
 // Logging
@@ -96,7 +91,12 @@ function benchEngine(
   fn: (md: string) => void,
   md: string,
   iterations: number,
+  warmup: number,
 ): EngineResult {
+  // Warm-up: 预热轮次，让 V8 JIT 充分编译优化，结果丢弃
+  for (let i = 0; i < warmup; i++) {
+    fn(md)
+  }
   const times: number[] = []
   for (let i = 0; i < iterations; i++) {
     const t0 = performance.now()
@@ -107,7 +107,13 @@ function benchEngine(
   return { name, total: median(times), parse: 0, render: 0, all: times }
 }
 
-function benchPreMarkdown(md: string, iterations: number): EngineResult {
+function benchPreMarkdown(md: string, iterations: number, warmup: number): EngineResult {
+  // Warm-up: 预热轮次，让 V8 JIT 充分编译优化，结果丢弃
+  for (let i = 0; i < warmup; i++) {
+    resetNodeIds()
+    const ast = parse(md)
+    renderToHtml(ast, { sanitize: true })
+  }
   const parseTimes: number[] = []
   const renderTimes: number[] = []
   for (let i = 0; i < iterations; i++) {
@@ -187,7 +193,7 @@ function addResult(fileName: string, size: number, lines: number, results: Engin
 // ============================================================
 // Engine names & order
 // ============================================================
-const ENGINE_NAMES = ['PreMarkdown', 'Cherry', 'marked', 'markdown-it', 'commonmark', 'showdown', 'remarkable']
+const ENGINE_NAMES = ['PreMarkdown', 'marked', 'markdown-it', 'commonmark', 'showdown', 'remarkable']
 
 const ALL_FILES = [
   'test_basic.md', 'test_code.md', 'test_table.md', 'test_special.md', 'test_complex.md',
@@ -201,6 +207,7 @@ const ALL_FILES = [
 async function runBenchmark() {
   const fileSelect = (document.getElementById('file-select') as HTMLSelectElement).value
   const iterations = parseInt((document.getElementById('iterations') as HTMLInputElement).value) || 3
+  const warmup = parseInt((document.getElementById('warmup') as HTMLInputElement).value) || 2
   const btn = document.getElementById('btn-run') as HTMLButtonElement
   btn.disabled = true
   $status.textContent = '压测进行中...'
@@ -208,7 +215,7 @@ async function runBenchmark() {
   const files = fileSelect === 'ALL' ? ALL_FILES : [fileSelect]
 
   log(`\n${'='.repeat(70)}`, 'info')
-  log(`压测开始 — ${new Date().toLocaleTimeString()} — ${iterations} 次迭代 — ${files.length} 个文件`, 'info')
+  log(`压测开始 — ${new Date().toLocaleTimeString()} — ${warmup} 次预热 + ${iterations} 次迭代 — ${files.length} 个文件`, 'info')
   log(`引擎: ${ENGINE_NAMES.join(' | ')}`, 'info')
   log(`${'='.repeat(70)}`, 'info')
 
@@ -232,51 +239,39 @@ async function runBenchmark() {
     const results: EngineResult[] = []
 
     // 1. PreMarkdown
-    log(`  PreMarkdown...`)
+    log(`  PreMarkdown (预热 ${warmup} 次)...`)
     await new Promise(r => setTimeout(r, 5))
-    const pre = benchPreMarkdown(md, iterations)
+    const pre = benchPreMarkdown(md, iterations, warmup)
     results.push(pre)
     log(`    Parse: ${pre.all.map(fms).join(', ')}  |  median: ${fms(pre.parse)}`)
     log(`    Render: ${fms(pre.render)}  |  Total: ${fms(pre.total)}`, 'info')
 
-    // 2. Cherry
-    if (!skipHeavy) {
-      log(`  Cherry...`)
-      await new Promise(r => setTimeout(r, 5))
-      const rCherry = benchEngine('Cherry', (m) => cherryEngine.makeHtml(m), md, iterations)
-      results.push(rCherry)
-      log(`    ${rCherry.all.map(fms).join(', ')}  |  median: ${fms(rCherry.total)}`, 'info')
-    } else {
-      results.push({ name: 'Cherry', total: -1, parse: 0, render: 0, all: [] })
-      log(`  Cherry: 跳过 (>5MB)`, 'warn')
-    }
-
-    // 3. marked
-    log(`  marked...`)
+    // 2. marked
+    log(`  marked (预热 ${warmup} 次)...`)
     await new Promise(r => setTimeout(r, 5))
-    const rMarked = benchEngine('marked', (m) => marked(m), md, iterations)
+    const rMarked = benchEngine('marked', (m) => marked(m), md, iterations, warmup)
     results.push(rMarked)
     log(`    ${rMarked.all.map(fms).join(', ')}  |  median: ${fms(rMarked.total)}`, 'info')
 
-    // 4. markdown-it
-    log(`  markdown-it...`)
+    // 3. markdown-it
+    log(`  markdown-it (预热 ${warmup} 次)...`)
     await new Promise(r => setTimeout(r, 5))
-    const rMdit = benchEngine('markdown-it', (m) => mdit.render(m), md, iterations)
+    const rMdit = benchEngine('markdown-it', (m) => mdit.render(m), md, iterations, warmup)
     results.push(rMdit)
     log(`    ${rMdit.all.map(fms).join(', ')}  |  median: ${fms(rMdit.total)}`, 'info')
 
-    // 5. commonmark
-    log(`  commonmark...`)
+    // 4. commonmark
+    log(`  commonmark (预热 ${warmup} 次)...`)
     await new Promise(r => setTimeout(r, 5))
-    const rCm = benchEngine('commonmark', (m) => cmWriter.render(cmReader.parse(m)), md, iterations)
+    const rCm = benchEngine('commonmark', (m) => cmWriter.render(cmReader.parse(m)), md, iterations, warmup)
     results.push(rCm)
     log(`    ${rCm.all.map(fms).join(', ')}  |  median: ${fms(rCm.total)}`, 'info')
 
-    // 6. showdown
+    // 5. showdown
     if (!skipHeavy) {
-      log(`  showdown...`)
+      log(`  showdown (预热 ${warmup} 次)...`)
       await new Promise(r => setTimeout(r, 5))
-      const rSd = benchEngine('showdown', (m) => sdConverter.makeHtml(m), md, iterations)
+      const rSd = benchEngine('showdown', (m) => sdConverter.makeHtml(m), md, iterations, warmup)
       results.push(rSd)
       log(`    ${rSd.all.map(fms).join(', ')}  |  median: ${fms(rSd.total)}`, 'info')
     } else {
@@ -284,10 +279,10 @@ async function runBenchmark() {
       log(`  showdown: 跳过 (>5MB)`, 'warn')
     }
 
-    // 7. remarkable
-    log(`  remarkable...`)
+    // 6. remarkable
+    log(`  remarkable (预热 ${warmup} 次)...`)
     await new Promise(r => setTimeout(r, 5))
-    const rRm = benchEngine('remarkable', (m) => remarkableInst.render(m), md, iterations)
+    const rRm = benchEngine('remarkable', (m) => remarkableInst.render(m), md, iterations, warmup)
     results.push(rRm)
     log(`    ${rRm.all.map(fms).join(', ')}  |  median: ${fms(rRm.total)}`, 'info')
 

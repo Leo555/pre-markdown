@@ -11,7 +11,6 @@ import MarkdownIt from 'markdown-it'
 import * as commonmark from 'commonmark'
 import Showdown from 'showdown'
 import { Remarkable } from 'remarkable'
-import CherryEngine from 'cherry-markdown'
 
 // ============================================================
 // Engines
@@ -22,19 +21,12 @@ const cmWriter = new commonmark.HtmlRenderer()
 const sdConverter = new Showdown.Converter({ tables: true, strikethrough: true, tasklists: true })
 const remarkableInst = new Remarkable()
 
-let cherryEngine: any = null
-try { cherryEngine = new CherryEngine({ global: { flowSessionContext: false } }) } catch {}
-
 type RenderFn = (md: string) => string
 
 const engines: { name: string; render: RenderFn }[] = [
   {
     name: 'PreMarkdown',
     render: (md) => { resetNodeIds(); return renderToHtml(parse(md), { sanitize: false }) },
-  },
-  {
-    name: 'Cherry',
-    render: (md) => cherryEngine ? cherryEngine.makeHtml(md) : '',
   },
   {
     name: 'marked',
@@ -133,20 +125,6 @@ const testGroups: TestGroup[] = [
       { name: '上标 ^text^', markdown: 'H^2^O', expect: ['<sup', '2'] },
       { name: '下标 ~text~', markdown: 'H~2~O', expect: ['<sub', '2'] },
       { name: '脚注引用 [^1]', markdown: 'Text[^1]\n\n[^1]: Footnote', expect: ['1'] },
-    ],
-  },
-  {
-    category: 'Cherry 扩展语法',
-    tests: [
-      { name: '字体颜色 !!color text!!', markdown: '!!red 红色文字!!', expect: ['color', 'red'] },
-      { name: '字体大小 !size text!', markdown: '!24 大号文字!', expect: ['font-size', '24'] },
-      { name: '背景色 !!!color text!!!', markdown: '!!!yellow 黄色背景!!!', expect: ['background', 'yellow'] },
-      { name: '下划线 /text/', markdown: 'This is /underlined/ text', expect: ['underline'] },
-      { name: '下标 ^^text^^', markdown: '^^subscript^^', expect: ['<sub', 'subscript'] },
-      { name: 'Ruby 注音 {text|ann}', markdown: '{漢字|かんじ}', expect: ['<ruby', 'かんじ'] },
-      { name: '面板 ::: info', markdown: '::: info 提示\n内容\n:::', expect: ['info'] },
-      { name: '折叠块 +++', markdown: '+++ 标题\n内容\n+++', expect: ['<details', '<summary', '标题'] },
-      { name: 'TOC [toc]', markdown: '# Title\n\n[toc]', expect: ['toc'] },
     ],
   },
   {

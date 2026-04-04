@@ -25,9 +25,6 @@ button:hover { opacity: 0.85; }
 button:disabled { opacity: 0.4; cursor: not-allowed; }
 button.danger { background: var(--red); }
 .status { font-family: var(--mono); font-size: 13px; color: var(--yellow); margin-left: 12px; }
-.cherry-status { font-family: var(--mono); font-size: 12px; margin-left: 8px; }
-.cherry-ok { color: var(--green); }
-.cherry-fail { color: var(--red); }
 table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 13px; }
 th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); }
 th { background: var(--surface); color: var(--dim); font-weight: 600; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; position: sticky; top: 0; }

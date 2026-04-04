@@ -35,7 +35,6 @@ export default defineConfig(({ command }) => ({
       'commonmark': resolve(benchNodeModules, 'commonmark'),
       'showdown': resolve(benchNodeModules, 'showdown'),
       'remarkable': resolve(benchNodeModules, 'remarkable'),
-      'cherry-markdown': resolve(benchNodeModules, 'cherry-markdown/dist/cherry-markdown.engine.core.esm.js'),
     },
   },
   server: {
