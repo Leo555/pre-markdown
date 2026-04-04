@@ -13,9 +13,9 @@
 |------|------|------|
 | Phase 1：核心引擎 | ✅ 已完成 | 100% |
 | Phase 2：性能优化（核心） | ✅ 已完成 | 100% |
-| Phase 3：Pretext 深度集成（核心） | 🔨 进行中 | 55% |
+| Phase 3：Pretext 深度集成（核心） | 🔨 进行中 | 80% |
 | Phase 4：语法兼容性（次要） | 🔨 进行中 | 70% |
-| Phase 5：生态与文档 | 🔨 进行中 | 70% |
+| Phase 5：生态与文档 | 🔨 进行中 | 85% |
 | Phase 6：编辑器输入框优化 | 🔨 进行中 | 80% |
 
 ---
@@ -114,17 +114,17 @@
 - [x] 集成 @chenglou/pretext prepare() / layout() / layoutWithLines()
 - [x] LRU 缓存（512 PreparedText + 256 WithSegments）
 - [x] 可插拔 MeasurementBackend（浏览器=pretext / Node.js=fallback）
-- [ ] Web Worker 离线 prepare()（大文档不阻塞主线程）
+- [x] Web Worker 离线 prepare()（大文档不阻塞主线程）
 - [x] prepare() 增量更新（updateDocumentLayout — 只重算变更段落，复用未变更高度）
 - [x] 多字体混排支持（computeCodeLayout — 代码块用 codeFont/codeLineHeight）
 
 ### 3.2 Pretext 虚拟化滚动
 - [x] 视口虚拟化布局（computeViewportLayout，2x 缓冲区）
 - [x] 多段落文档布局（computeDocumentLayout）/ hitTest
-- [ ] 动态高度虚拟列表（基于 pretext 精确高度，非估算）
+- [x] 动态高度虚拟列表（基于 pretext 精确高度，非估算）
 - [x] 滚动防抖 + requestAnimationFrame 调度
-- [ ] 大文档（10K+ 行）虚拟滚动性能 < 16ms/frame
-- [ ] 窗口 Resize 重布局 < 5ms
+- [x] 大文档（10K+ 行）虚拟滚动性能 < 16ms/frame
+- [x] 窗口 Resize 重布局 < 5ms
 
 ### 3.3 Pretext 驱动的编辑器布局
 - [ ] 光标定位（x,y 坐标 → 文档 offset，完全通过 pretext 计算）
@@ -196,7 +196,7 @@
 
 ### 5.1 插件系统
 - [x] 插件接口 + 语法扩展 Hook + 渲染扩展 Hook（Plugin/PluginManager，block/inline/transform/render 四种 Hook）
-- [ ] 内置插件：KaTeX / Mermaid / 代码高亮
+- [x] 内置插件：KaTeX / Mermaid / 代码高亮（createKatexPlugin / createMermaidPlugin / createHighlightPlugin）
 
 ### 5.2 npm 发布
 - [x] ESM + CJS + .d.ts 构建（tsup，4 个核心包全部通过）
@@ -260,13 +260,13 @@
 | 类别 | 总计 | 已完成 | 未开始 |
 |------|------|--------|--------|
 | Phase 1：核心引擎 | 50 | 50 | 0 |
-| Phase 2：性能优化 | 20 | 2 | 18 |
-| Phase 3：Pretext 深度集成 | 15 | 5 | 10 |
+| Phase 2：性能优化 | 20 | 20 | 0 |
+| Phase 3：Pretext 深度集成 | 15 | 12 | 3 |
 | Phase 4：语法兼容性 | 12 | 7 | 5 |
-| Phase 5：生态与文档 | 10 | 8 | 2 |
-| **合计** | **107** | **73** | **34** |
+| Phase 5：生态与文档 | 10 | 9 | 1 |
+| **合计** | **107** | **98** | **9** |
 
-> 当前总体完成度：**≈ 68%**
+> 当前总体完成度：**≈ 92%**
 
 ---
 
@@ -274,6 +274,10 @@
 
 | 日期 | 变更内容 |
 |------|---------|
+| 2026-04-04 | 内置插件：createKatexPlugin（数学公式渲染）、createMermaidPlugin（图表容器）、createHighlightPlugin（代码高亮 + 行号），15 测试全通过 |
+| 2026-04-04 | VirtualList 动态高度虚拟列表：基于 pretext 精确高度、O(log n) 二分查找、增量更新、overscan 缓冲、hitTest、relayout，37 测试 + 7 性能测试全通过 |
+| 2026-04-04 | Web Worker 离线 prepare()：WorkerMeasurementBackend + worker-script + prepareAsync 批量异步准备 + LRU 缓存，大文档不阻塞主线程 |
+| 2026-04-04 | 性能目标达成：10K 项目虚拟滚动 < 16ms/frame ✅、1K Resize < 5ms ✅、10K Resize < 16ms ✅、viewport 计算 < 1ms ✅ |
 | 2026-04-04 | docs/plugins.md 插件开发指南：Plugin 接口、四种 Hook 详解（block/inline/transform/render）、KaTeX/Mermaid/highlight/mention 示例、PluginManager API、最佳实践 |
 | 2026-04-04 | docs 交叉链接更新：所有文档页面顶部增加插件指南链接；api.md 补充插件系统 API 参考 |
 | 2026-04-04 | README 优化：默认英文版（README.md），中文版（README.zh.md），删除 README.en.md |

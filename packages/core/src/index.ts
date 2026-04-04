@@ -135,3 +135,18 @@ export type {
   RenderHook,
   RenderContext,
 } from './plugin/types.js'
+
+// Built-in Plugins
+export {
+  createKatexPlugin,
+  createMermaidPlugin,
+  createHighlightPlugin,
+} from './plugins/index.js'
+export type {
+  KatexRenderer,
+  KatexPluginOptions,
+  MermaidRenderer,
+  MermaidPluginOptions,
+  HighlightFunction,
+  HighlightPluginOptions,
+} from './plugins/index.js'

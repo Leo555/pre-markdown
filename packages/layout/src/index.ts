@@ -568,3 +568,22 @@ export class LayoutEngine {
     return prepared
   }
 }
+
+// ============================================================
+// Worker Backend (Web Worker offloading for large documents)
+// ============================================================
+
+export { createWorkerBackend } from './worker-backend.js'
+export type { WorkerMeasurementBackend } from './worker-backend.js'
+
+// ============================================================
+// Virtual List (dynamic-height virtual scrolling)
+// ============================================================
+
+export { VirtualList } from './virtual-list.js'
+export type {
+  VirtualListConfig,
+  VirtualListItem,
+  ViewportRange,
+  ViewportChangeCallback,
+} from './virtual-list.js'
