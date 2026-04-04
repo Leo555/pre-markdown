@@ -587,3 +587,26 @@ export type {
   ViewportRange,
   ViewportChangeCallback,
 } from './virtual-list.js'
+
+// ============================================================
+// Cursor & Selection Engine (pretext-based cursor positioning)
+// ============================================================
+
+export { CursorEngine } from './cursor.js'
+export type {
+  Point,
+  Rect,
+  CursorPosition,
+  VisualLineInfo,
+  LineNumberInfo,
+} from './cursor.js'
+
+// ============================================================
+// Line Renderer (pretext-based line number rendering)
+// ============================================================
+
+export { LineRenderer } from './line-renderer.js'
+export type {
+  LineRendererConfig,
+  RenderedLineNumber,
+} from './line-renderer.js'

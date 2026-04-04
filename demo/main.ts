@@ -5,6 +5,7 @@ import { parse } from '@pre-markdown/parser'
 import { renderToHtml } from '@pre-markdown/renderer'
 import { walk } from '@pre-markdown/core'
 import type { Document } from '@pre-markdown/core'
+import { LayoutEngine, CursorEngine } from '@pre-markdown/layout'
 
 // Elements
 const editor = document.getElementById('editor') as HTMLTextAreaElement
@@ -17,6 +18,55 @@ const statRender = document.getElementById('stat-render')!
 const statNodes = document.getElementById('stat-nodes')!
 const statLines = document.getElementById('stat-lines')!
 const statTotal = document.getElementById('stat-total')!
+
+// ============================================================
+// Pretext Layout Engine & Cursor Engine
+// ============================================================
+
+// Get editor computed styles for accurate font configuration
+const editorStyles = getComputedStyle(editor)
+const editorFont = `${editorStyles.fontSize} ${editorStyles.fontFamily.split(',')[0]?.trim() || 'monospace'}`
+const editorLineHeight = parseFloat(editorStyles.lineHeight) || 24
+
+// Initialize LayoutEngine with editor's actual font metrics
+let layoutEngine: LayoutEngine
+let cursorEngine: CursorEngine
+
+try {
+  layoutEngine = new LayoutEngine({
+    font: editorFont,
+    lineHeight: editorLineHeight,
+    maxWidth: editor.clientWidth || 600,
+  })
+  cursorEngine = new CursorEngine(layoutEngine)
+} catch {
+  // Fallback if pretext fails to initialize (e.g., no Canvas)
+  const { createFallbackBackend } = await import('@pre-markdown/layout')
+  const backend = createFallbackBackend(8)
+  layoutEngine = new LayoutEngine({
+    font: editorFont,
+    lineHeight: editorLineHeight,
+    maxWidth: editor.clientWidth || 600,
+  }, backend)
+  cursorEngine = new CursorEngine(layoutEngine)
+}
+
+// Update maxWidth on resize
+const resizeObserver = new ResizeObserver((entries) => {
+  for (const entry of entries) {
+    if (entry.target === editor || entry.target === editor.parentElement) {
+      const newWidth = editor.clientWidth
+      if (newWidth > 0) {
+        layoutEngine.updateConfig({ maxWidth: newWidth })
+        cursorEngine.recompute()
+        updateLineNumbers(editor.value)
+      }
+    }
+  }
+})
+if (editor.parentElement) {
+  resizeObserver.observe(editor.parentElement)
+}
 
 // Default content showcasing all supported syntax
 const DEFAULT_CONTENT = `# PreMarkdown Demo
@@ -566,6 +616,25 @@ function updateHighlight(value: string): void {
 // State
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
 
+// highlight.js integration for code block syntax highlighting
+declare const hljs: {
+  highlight: (code: string, options: { language: string }) => { value: string }
+  getLanguage: (lang: string) => unknown
+} | undefined
+
+/** Highlight code using highlight.js (if available) */
+function highlightCodeBlock(code: string, lang?: string): string {
+  if (typeof hljs !== 'undefined' && lang && hljs.getLanguage(lang)) {
+    try {
+      return hljs.highlight(code, { language: lang }).value
+    } catch {
+      // Fallback to escaped HTML
+    }
+  }
+  // Default: escape HTML
+  return code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+
 function countNodes(doc: Document): number {
   let count = 0
   walk(doc, (_node) => { count++ })
@@ -576,7 +645,7 @@ function update(value: string): void {
   const t0 = performance.now()
   const ast = parse(value)
   const t1 = performance.now()
-  const html = renderToHtml(ast, { sanitize: true })
+  const html = renderToHtml(ast, { sanitize: true, highlight: highlightCodeBlock })
   const t2 = performance.now()
 
   // Incremental DOM update: only replace changed blocks
@@ -588,32 +657,47 @@ function update(value: string): void {
   // Update sync scroll data
   updateSyncData(value, ast)
 
+  // Update pretext CursorEngine (for line numbers & sync scroll)
+  cursorEngine.setText(value)
+  const t3 = performance.now()
+
   const parseMs = (t1 - t0).toFixed(2)
   const renderMs = (t2 - t1).toFixed(2)
-  const totalMs = (t2 - t0).toFixed(2)
+  const layoutMs = (t3 - t2).toFixed(2)
+  const totalMs = (t3 - t0).toFixed(2)
   const nodes = countNodes(ast)
   const lines = value.split('\n').length
+  const visualLines = cursorEngine.getVisualLineCount()
 
   statParse.textContent = `${parseMs}ms`
   statRender.textContent = `${renderMs}ms`
   statNodes.textContent = String(nodes)
-  statLines.textContent = String(lines)
-  statTotal.textContent = `Total: ${totalMs}ms`
+  statLines.textContent = `${lines} (${visualLines} visual)`
+  statTotal.textContent = `Total: ${totalMs}ms (layout: ${layoutMs}ms)`
 }
 
 // ============================================================
-// Line Numbers
+// Line Numbers (powered by pretext CursorEngine)
 // ============================================================
 
 let lastLineCount = 0
 let currentLine = 0
 
 function updateLineNumbers(value: string): void {
-  const lines = value.split('\n').length
+  // Update CursorEngine with new text
+  cursorEngine.setText(value)
+
+  const lineNums = cursorEngine.getLineNumbers()
+  const lines = lineNums.length
+
   if (lines !== lastLineCount) {
     const nums: string[] = []
-    for (let i = 1; i <= lines; i++) {
-      nums.push(`<div${i === currentLine ? ' class="active-line"' : ''}>${i}</div>`)
+    for (const info of lineNums) {
+      const isActive = info.lineNumber === currentLine
+      // Use height from pretext to align with soft-wrapped lines
+      nums.push(
+        `<div${isActive ? ' class="active-line"' : ''} style="height:${info.height}px;line-height:${info.height}px" data-line="${info.lineNumber}">${info.lineNumber}</div>`
+      )
     }
     lineNumbers.innerHTML = nums.join('')
     lastLineCount = lines
@@ -628,10 +712,10 @@ function updateActiveLine(): void {
   const line = editor.value.slice(0, pos).split('\n').length
   if (line !== currentLine) {
     // Remove old highlight
-    const old = lineNumbers.children[currentLine - 1]
+    const old = lineNumbers.querySelector(`[data-line="${currentLine}"]`)
     if (old) old.classList.remove('active-line')
     // Add new highlight
-    const cur = lineNumbers.children[line - 1]
+    const cur = lineNumbers.querySelector(`[data-line="${line}"]`)
     if (cur) cur.classList.add('active-line')
     currentLine = line
   }
@@ -871,9 +955,9 @@ function syncEditorToPreview(): void {
   highlightBackdrop.scrollTop = editor.scrollTop
   highlightBackdrop.scrollLeft = editor.scrollLeft
 
-  // Find which line is at the top of the editor viewport
-  const lineHeight = parseFloat(getComputedStyle(editor).lineHeight) || 24
-  const topLine = Math.floor(editor.scrollTop / lineHeight)
+  // Use pretext CursorEngine for precise line calculation
+  const visualLine = cursorEngine.getVisualLineAtY(editor.scrollTop)
+  const topLine = visualLine ? visualLine.sourceLine : 0
   const blockIndex = lineBlockMap[topLine] ?? 0
 
   // Find the corresponding DOM element in preview
@@ -903,9 +987,12 @@ function syncPreviewToEditor(): void {
   // Find the first line of this block in the editor
   for (let i = 0; i < lineBlockMap.length; i++) {
     if (lineBlockMap[i] === blockIndex) {
-      const lineHeight = parseFloat(getComputedStyle(editor).lineHeight) || 24
+      // Use pretext CursorEngine for precise Y position
+      const lineNums = cursorEngine.getLineNumbers()
+      const lineInfo = lineNums[i]
+      const targetY = lineInfo ? lineInfo.y : i * editorLineHeight
       lockScroll('preview')
-      editor.scrollTop = i * lineHeight
+      editor.scrollTop = targetY
       lineNumbers.scrollTop = editor.scrollTop
       highlightBackdrop.scrollTop = editor.scrollTop
       break

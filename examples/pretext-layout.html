@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PreMarkdown - Pretext 布局引擎</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0f1117; color: #e4e5e9; line-height: 1.6;
+    }
+    .container { max-width: 1100px; margin: 0 auto; padding: 24px; }
+    h1 { margin-bottom: 8px; color: #e4e5e9; font-size: 28px; }
+    h1 span { color: #6c5ce7; }
+    .subtitle { color: #8b8d97; margin-bottom: 32px; font-size: 14px; }
+    .subtitle a { color: #6c5ce7; text-decoration: none; }
+    .subtitle a:hover { text-decoration: underline; }
+
+    .card {
+      background: #1a1d27; border-radius: 12px; padding: 24px;
+      margin-bottom: 24px; border: 1px solid #2a2d3a;
+    }
+    .card h2 {
+      font-size: 17px; color: #e4e5e9; margin-bottom: 12px;
+      padding-bottom: 8px; border-bottom: 2px solid #6c5ce7;
+    }
+    .card p { margin-bottom: 12px; font-size: 14px; color: #8b8d97; }
+
+    .code-block {
+      background: #13151d; color: #cdd6f4; padding: 16px 20px;
+      border-radius: 8px; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      font-size: 13px; line-height: 1.7; overflow-x: auto; margin-bottom: 16px;
+      white-space: pre; border: 1px solid #2a2d3a;
+    }
+    .code-block .kw { color: #cba6f7; }
+    .code-block .str { color: #a6e3a1; }
+    .code-block .fn { color: #89b4fa; }
+    .code-block .cm { color: #6c7086; }
+    .code-block .num { color: #fab387; }
+
+    .columns { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 12px; }
+    .col-label {
+      font-size: 11px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 1px; color: #8b8d97; margin-bottom: 6px;
+    }
+
+    .stat-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 12px; margin-top: 16px;
+    }
+    .stat-card {
+      background: #13151d; border: 1px solid #2a2d3a; border-radius: 8px;
+      padding: 14px 16px;
+    }
+    .stat-card .label { font-size: 11px; color: #8b8d97; text-transform: uppercase; letter-spacing: 0.5px; }
+    .stat-card .value { font-size: 24px; font-weight: 700; color: #00cec9; margin-top: 4px; }
+    .stat-card .unit { font-size: 12px; color: #6c5ce7; font-weight: 600; }
+
+    /* Editor area for demos */
+    .demo-editor-wrap {
+      position: relative; background: #13151d; border: 1px solid #2a2d3a;
+      border-radius: 8px; overflow: hidden; margin-top: 12px;
+    }
+    .demo-editor {
+      width: 100%; min-height: 120px; resize: vertical; border: none; outline: none;
+      padding: 16px; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      font-size: 14px; line-height: 1.7; background: transparent; color: #e4e5e9;
+      tab-size: 2;
+    }
+
+    /* Canvas for rendering */
+    .demo-canvas-wrap {
+      position: relative; background: #13151d; border: 1px solid #2a2d3a;
+      border-radius: 8px; overflow: hidden; margin-top: 12px; min-height: 150px;
+    }
+    canvas.demo-canvas {
+      display: block; width: 100%;
+    }
+
+    /* Cursor + selection overlay */
+    .cursor-area {
+      position: relative; background: #13151d; border: 1px solid #2a2d3a;
+      border-radius: 8px; overflow: hidden; margin-top: 12px;
+      min-height: 200px; cursor: text; user-select: none;
+    }
+    .cursor-area .text-layer {
+      padding: 16px; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      font-size: 14px; line-height: 24px; color: #e4e5e9;
+      white-space: pre-wrap; word-wrap: break-word;
+    }
+    .cursor-area .selection-rect {
+      position: absolute; background: rgba(108, 92, 231, 0.35);
+      pointer-events: none;
+    }
+    .cursor-area .cursor-line {
+      position: absolute; width: 2px; background: #e4e5e9;
+      pointer-events: none; animation: blink 1s step-end infinite;
+    }
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0; }
+    }
+
+    /* Line numbers demo */
+    .line-demo-wrap {
+      display: flex; background: #13151d; border: 1px solid #2a2d3a;
+      border-radius: 8px; overflow: hidden; margin-top: 12px;
+    }
+    .line-gutter {
+      flex-shrink: 0; min-width: 48px; padding: 16px 8px 16px 12px;
+      font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 14px;
+      line-height: 24px; color: #555; text-align: right; user-select: none;
+      border-right: 1px solid #2a2d3a; background: rgba(15, 17, 23, 0.5);
+    }
+    .line-gutter .ln-active { color: #6c5ce7; font-weight: 600; }
+    .line-gutter .ln-wrap { color: #333; font-style: italic; }
+    .line-content {
+      flex: 1; padding: 16px; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      font-size: 14px; line-height: 24px; color: #e4e5e9;
+      white-space: pre-wrap; word-wrap: break-word; overflow-x: auto;
+    }
+
+    /* Benchmark button */
+    .btn {
+      display: inline-block; padding: 8px 20px; background: #6c5ce7; color: #fff;
+      border: none; border-radius: 6px; cursor: pointer; font-size: 13px;
+      font-weight: 600; transition: all 0.15s; margin-right: 8px; margin-top: 8px;
+    }
+    .btn:hover { background: #5a4fb5; }
+    .btn:disabled { background: #333; color: #666; cursor: not-allowed; }
+    .btn-secondary {
+      background: transparent; border: 1px solid #6c5ce7; color: #6c5ce7;
+    }
+    .btn-secondary:hover { background: rgba(108, 92, 231, 0.15); }
+
+    /* Result log */
+    .log-area {
+      background: #0a0c12; border: 1px solid #2a2d3a; border-radius: 6px;
+      padding: 12px 16px; margin-top: 12px; font-family: monospace;
+      font-size: 12px; line-height: 1.7; color: #8b8d97;
+      max-height: 200px; overflow-y: auto;
+    }
+    .log-area .log-line { margin-bottom: 2px; }
+    .log-area .log-time { color: #00cec9; font-weight: 600; }
+    .log-area .log-label { color: #6c5ce7; }
+    .log-area .log-value { color: #e4e5e9; }
+
+    .tag {
+      display: inline-block; padding: 2px 8px; border-radius: 4px;
+      font-size: 11px; font-weight: 600;
+    }
+    .tag-green { background: rgba(0, 206, 201, 0.15); color: #00cec9; }
+    .tag-purple { background: rgba(108, 92, 231, 0.15); color: #a29bfe; }
+    .tag-orange { background: rgba(253, 203, 110, 0.15); color: #fdcb6e; }
+
+    .info-box {
+      background: rgba(108, 92, 231, 0.08); border-left: 3px solid #6c5ce7;
+      padding: 12px 16px; border-radius: 0 8px 8px 0; margin-top: 12px;
+      font-size: 13px; color: #a29bfe;
+    }
+
+    @media (max-width: 640px) {
+      .columns { grid-template-columns: 1fr; }
+      .stat-grid { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>⚡ <span>Pretext</span> 布局引擎演示</h1>
+    <nav class="subtitle" style="font-size: 13px;">
+      📖 示例导航：
+      <a href="quick-start.html">快速开始</a>
+      <a href="basic.html" style="margin-left: 8px;">基础用法</a>
+      <a href="ast-walker.html" style="margin-left: 8px;">AST 遍历</a>
+      <a href="ast-transform.html" style="margin-left: 8px;">AST 转换</a>
+      <a href="custom-renderer.html" style="margin-left: 8px;">自定义渲染</a>
+      <a href="incremental-parsing.html" style="margin-left: 8px;">增量解析</a>
+      <a href="live-editor.html" style="margin-left: 8px;">实时编辑器</a>
+      <strong style="color: #e4e5e9; margin-left: 8px;">Pretext 布局</strong>
+    </nav>
+    <p class="subtitle">
+      展示 <code style="color: #a29bfe;">@chenglou/pretext</code> 零 DOM 重排布局引擎在 Markdown 编辑器中的核心能力：
+      文本测量、光标定位、选区高亮、自动换行行号、虚拟化滚动。
+    </p>
+
+    <!-- ===== Demo 1: 零 DOM 重排文本测量 ===== -->
+    <div class="card">
+      <h2>1. 零 DOM 重排文本测量 <span class="tag tag-green">核心特性</span></h2>
+      <p>
+        传统方案需要将文本插入 DOM 并触发浏览器 reflow 来获取宽高。
+        Pretext 通过 Canvas API 进行纯算术测量，<strong style="color:#00cec9;">完全零 DOM 操作</strong>。
+      </p>
+      <div class="code-block" id="code1"></div>
+      <p>输入文本，观察 pretext 的 <code>prepare()</code> + <code>layout()</code> 两阶段测量：</p>
+      <div class="demo-editor-wrap">
+        <textarea class="demo-editor" id="editor1" rows="3">PreMarkdown 使用 @chenglou/pretext 实现零 DOM 重排的文本布局引擎。这段文字会被精确测量宽度和高度，完全不触发浏览器 reflow。中英文混排也能精确处理！</textarea>
+      </div>
+      <div class="stat-grid" id="stats1">
+        <div class="stat-card">
+          <div class="label">prepare() 耗时</div>
+          <div class="value" id="stat-prepare">--</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">layout() 耗时</div>
+          <div class="value" id="stat-layout">--</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">总高度</div>
+          <div class="value" id="stat-height">--</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">视觉行数</div>
+          <div class="value" id="stat-lines">--</div>
+        </div>
+      </div>
+      <div class="info-box">
+        💡 <code>prepare()</code> 是一次性文本分析（≤ 5ms），结果可缓存；<code>layout()</code> 是纯算术（≤ 0.001ms），每帧可调用。
+      </div>
+    </div>
+
+    <!-- ===== Demo 2: 光标定位 ===== -->
+    <div class="card">
+      <h2>2. Pretext 驱动的光标定位 <span class="tag tag-purple">CursorEngine</span></h2>
+      <p>
+        点击下方文本区域，光标位置完全通过 pretext 计算 —— <code>xyToOffset(x, y)</code> 将点击坐标转换为文本偏移量，
+        <code>offsetToPosition(offset)</code> 将偏移量转换为像素坐标。
+        <strong style="color:#a29bfe;">零 DOM 查询，零 getBoundingClientRect。</strong>
+      </p>
+      <div class="code-block" id="code2"></div>
+      <div class="cursor-area" id="cursor-area">
+        <div class="text-layer" id="text-layer">PreMarkdown 是一个高性能 Markdown 引擎。
+它使用 @chenglou/pretext 进行零 DOM 重排的文本布局。
+所有光标位置和选区矩形都通过纯算术计算得出。
+试试点击这段文字的不同位置，拖拽选择文字！
+中文、English、日本語の混排テキストも正確に処理できます。</div>
+      </div>
+      <div class="stat-grid">
+        <div class="stat-card">
+          <div class="label">点击坐标</div>
+          <div class="value" id="stat-click" style="font-size:16px;">--</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">文本偏移量</div>
+          <div class="value" id="stat-offset">--</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">所在行</div>
+          <div class="value" id="stat-line">--</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">定位耗时</div>
+          <div class="value" id="stat-cursor-time">--</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== Demo 3: 选区高亮 ===== -->
+    <div class="card">
+      <h2>3. 选区高亮矩形计算 <span class="tag tag-orange">getSelectionRects</span></h2>
+      <p>
+        在上方的文本区域中<strong style="color:#fdcb6e;">按住鼠标拖拽</strong>选中文字，
+        蓝色高亮矩形完全由 <code>CursorEngine.getSelectionRects(start, end)</code> 计算，
+        每个矩形对应一个视觉行的选区部分。无需任何 DOM Selection API。
+      </p>
+      <div class="code-block" id="code3"></div>
+      <div id="selection-info" class="log-area" style="min-height: 40px;">
+        <div class="log-line" style="color: #555;">← 在上方文本区域拖拽选择文字查看选区矩形数据</div>
+      </div>
+    </div>
+
+    <!-- ===== Demo 4: 自动换行 + 行号 ===== -->
+    <div class="card">
+      <h2>4. Pretext 自动换行 + 精确行号 <span class="tag tag-green">LineRenderer</span></h2>
+      <p>
+        调整下方区域宽度（拖拽右边缘），观察 pretext 如何纯算术计算自动换行和行号对齐。
+        每个源代码行的行号只出现一次，软折行不显示额外行号。
+      </p>
+      <div class="columns">
+        <div>
+          <div class="col-label">✏️ 编辑内容</div>
+          <div class="demo-editor-wrap">
+            <textarea class="demo-editor" id="editor4" rows="6"># Pretext Layout Engine
+
+这是一段很长的中文文本，当窗口宽度不够时它会自动换行。换行完全由 pretext 计算，不依赖浏览器 DOM reflow。
+
+```typescript
+const engine = new LayoutEngine({ font: '14px monospace', lineHeight: 24, maxWidth: 600 })
+```
+
+短行不折行。</textarea>
+          </div>
+        </div>
+        <div>
+          <div class="col-label">📏 Pretext 行号渲染</div>
+          <div class="line-demo-wrap" id="line-demo" style="resize: horizontal; overflow: auto; max-width: 100%; min-width: 200px;">
+            <div class="line-gutter" id="line-gutter"></div>
+            <div class="line-content" id="line-content"></div>
+          </div>
+        </div>
+      </div>
+      <div class="stat-grid">
+        <div class="stat-card">
+          <div class="label">源代码行</div>
+          <div class="value" id="stat-src-lines">--</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">视觉行（含换行）</div>
+          <div class="value" id="stat-vis-lines">--</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">布局耗时</div>
+          <div class="value" id="stat-layout-time">--</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">容器宽度</div>
+          <div class="value" id="stat-wrap-width">--</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== Demo 5: 性能压测 ===== -->
+    <div class="card">
+      <h2>5. 性能压测：DOM 测量 vs Pretext <span class="tag tag-green">零重排</span></h2>
+      <p>
+        对比传统 DOM 测量方案（创建隐藏 div 触发 reflow）和 pretext 的纯算术方案。
+        点击按钮运行不同规模的压测。
+      </p>
+      <div>
+        <button class="btn" id="bench-100">压测 100 段</button>
+        <button class="btn" id="bench-500">压测 500 段</button>
+        <button class="btn" id="bench-1000">压测 1000 段</button>
+        <button class="btn btn-secondary" id="bench-clear">清除结果</button>
+      </div>
+      <div class="log-area" id="bench-log">
+        <div class="log-line" style="color: #555;">← 点击按钮开始性能压测</div>
+      </div>
+      <div class="info-box">
+        💡 Pretext 的 <code>layout()</code> 在 prepare() 完成后是 O(1) 纯算术，耗时通常 &lt; 0.001ms。
+        DOM 方案每次都触发浏览器 reflow，耗时随文本量线性增长。
+      </div>
+    </div>
+
+    <!-- ===== Demo 6: 增量文档布局 ===== -->
+    <div class="card">
+      <h2>6. 增量文档布局 <span class="tag tag-purple">updateDocumentLayout</span></h2>
+      <p>
+        编辑文档时，<code>updateDocumentLayout()</code> 只重新计算变更的段落高度，复用未变更段落。
+        适用于实时编辑场景，性能接近 O(1)。
+      </p>
+      <div class="code-block" id="code6"></div>
+      <div class="demo-editor-wrap">
+        <textarea class="demo-editor" id="editor6" rows="6">第一段：这是不变的段落。
+
+第二段：试着修改这段文字，只有这段会被重新计算布局。
+
+第三段：这也是不变的段落。pretext 会复用已有的高度缓存。
+
+第四段：增量布局对于大文档编辑器至关重要，可以保证编辑时 < 1ms 响应。</textarea>
+      </div>
+      <div class="stat-grid">
+        <div class="stat-card">
+          <div class="label">总段落数</div>
+          <div class="value" id="stat-para-count">--</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">变更段落数</div>
+          <div class="value" id="stat-changed">--</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">总高度</div>
+          <div class="value" id="stat-doc-height">--</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">增量布局耗时</div>
+          <div class="value" id="stat-incr-time">--</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import {
+      LayoutEngine,
+      CursorEngine,
+      createFallbackBackend,
+    } from '@pre-markdown/layout'
+
+    // ============================================================
+    // Initialize LayoutEngine
+    // ============================================================
+
+    const FONT = '14px "JetBrains Mono", "Fira Code", monospace'
+    const LINE_HEIGHT = 24
+    const MAX_WIDTH = 600
+
+    let layoutEngine
+    let cursorEngine
+
+    try {
+      layoutEngine = new LayoutEngine({
+        font: FONT,
+        lineHeight: LINE_HEIGHT,
+        maxWidth: MAX_WIDTH,
+      })
+      cursorEngine = new CursorEngine(layoutEngine)
+    } catch {
+      const backend = createFallbackBackend(8)
+      layoutEngine = new LayoutEngine({
+        font: FONT,
+        lineHeight: LINE_HEIGHT,
+        maxWidth: MAX_WIDTH,
+      }, backend)
+      cursorEngine = new CursorEngine(layoutEngine)
+    }
+
+    // ============================================================
+    // Demo 1: Text Measurement
+    // ============================================================
+
+    document.getElementById('code1').innerHTML =
+`<span class="kw">import</span> { <span class="fn">LayoutEngine</span> } <span class="kw">from</span> <span class="str">'@pre-markdown/layout'</span>
+
+<span class="kw">const</span> engine = <span class="kw">new</span> <span class="fn">LayoutEngine</span>({
+  font: <span class="str">'14px "JetBrains Mono"'</span>,
+  lineHeight: <span class="num">24</span>,
+  maxWidth: <span class="num">600</span>,
+})
+
+<span class="cm">// 两阶段测量：prepare() → layout()</span>
+<span class="kw">const</span> result = engine.<span class="fn">computeLayoutWithLines</span>(text)
+console.<span class="fn">log</span>(result.height, result.lineCount, result.lines)`
+
+    const editor1 = document.getElementById('editor1')
+
+    function updateDemo1() {
+      const text = editor1.value
+      const t0 = performance.now()
+      // prepare phase (internal)
+      const result = layoutEngine.computeLayout(text)
+      const t1 = performance.now()
+      // layout with lines (uses cached prepare)
+      const resultLines = layoutEngine.computeLayoutWithLines(text)
+      const t2 = performance.now()
+
+      document.getElementById('stat-prepare').textContent = (t1 - t0).toFixed(3) + 'ms'
+      document.getElementById('stat-layout').textContent = (t2 - t1).toFixed(4) + 'ms'
+      document.getElementById('stat-height').textContent = result.height + 'px'
+      document.getElementById('stat-lines').textContent = String(resultLines.lineCount)
+    }
+
+    editor1.addEventListener('input', updateDemo1)
+    updateDemo1()
+
+    // ============================================================
+    // Demo 2 & 3: Cursor + Selection
+    // ============================================================
+
+    document.getElementById('code2').innerHTML =
+`<span class="kw">import</span> { <span class="fn">CursorEngine</span> } <span class="kw">from</span> <span class="str">'@pre-markdown/layout'</span>
+
+<span class="kw">const</span> cursor = <span class="kw">new</span> <span class="fn">CursorEngine</span>(layoutEngine)
+cursor.<span class="fn">setText</span>(text)
+
+<span class="cm">// 点击 → 文本偏移量</span>
+<span class="kw">const</span> offset = cursor.<span class="fn">xyToOffset</span>(clickX, clickY)
+
+<span class="cm">// 偏移量 → 像素坐标（渲染光标）</span>
+<span class="kw">const</span> pos = cursor.<span class="fn">offsetToPosition</span>(offset)
+<span class="cm">// pos = { x, y, visualLine, lineHeight }</span>`
+
+    document.getElementById('code3').innerHTML =
+`<span class="cm">// 拖拽选择：获取选区高亮矩形</span>
+<span class="kw">const</span> rects = cursor.<span class="fn">getSelectionRects</span>(selStart, selEnd)
+<span class="cm">// rects = [{ x, y, width, height }, ...]</span>
+<span class="cm">// 每个矩形对应一个视觉行的选区部分</span>
+
+<span class="cm">// 双击选词</span>
+<span class="kw">const</span> [start, end] = cursor.<span class="fn">getWordBoundary</span>(offset)`
+
+    const cursorArea = document.getElementById('cursor-area')
+    const textLayer = document.getElementById('text-layer')
+    const cursorText = textLayer.textContent
+
+    // Set up a cursor engine scoped to this area
+    const areaCursor = new CursorEngine(layoutEngine)
+
+    function initCursorDemo() {
+      const areaWidth = cursorArea.clientWidth - 32 // padding
+      layoutEngine.updateConfig({ maxWidth: areaWidth })
+      areaCursor.setText(cursorText)
+      areaCursor.recompute()
+    }
+
+    initCursorDemo()
+    window.addEventListener('resize', initCursorDemo)
+
+    let isDragging = false
+    let dragStart = 0
+    let dragEnd = 0
+
+    function getLocalXY(e) {
+      const rect = textLayer.getBoundingClientRect()
+      return {
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top,
+      }
+    }
+
+    function renderCursor(offset) {
+      // Remove old cursor
+      cursorArea.querySelectorAll('.cursor-line').forEach(el => el.remove())
+
+      const t0 = performance.now()
+      const pos = areaCursor.offsetToPosition(offset)
+      const t1 = performance.now()
+
+      const cursor = document.createElement('div')
+      cursor.className = 'cursor-line'
+      cursor.style.left = (pos.x + 16) + 'px' // 16px padding
+      cursor.style.top = (pos.y + 16) + 'px'
+      cursor.style.height = pos.lineHeight + 'px'
+      cursorArea.appendChild(cursor)
+
+      document.getElementById('stat-offset').textContent = String(offset)
+      document.getElementById('stat-line').textContent = String(pos.visualLine + 1)
+      document.getElementById('stat-cursor-time').innerHTML = `<span class="unit">${(t1 - t0).toFixed(3)}ms</span>`
+    }
+
+    function renderSelection(start, end) {
+      // Remove old selection rects
+      cursorArea.querySelectorAll('.selection-rect').forEach(el => el.remove())
+
+      if (start === end) {
+        document.getElementById('selection-info').innerHTML =
+          '<div class="log-line" style="color: #555;">← 在上方文本区域拖拽选择文字查看选区矩形数据</div>'
+        return
+      }
+
+      const s = Math.min(start, end)
+      const e = Math.max(start, end)
+      const t0 = performance.now()
+      const rects = areaCursor.getSelectionRects(s, e)
+      const t1 = performance.now()
+
+      for (const r of rects) {
+        const div = document.createElement('div')
+        div.className = 'selection-rect'
+        div.style.left = (r.x + 16) + 'px'
+        div.style.top = (r.y + 16) + 'px'
+        div.style.width = r.width + 'px'
+        div.style.height = r.height + 'px'
+        cursorArea.appendChild(div)
+      }
+
+      // Show selection info
+      const selectedText = cursorText.slice(s, e)
+      const logHtml = [
+        `<div class="log-line"><span class="log-label">选区范围:</span> <span class="log-value">[${s}, ${e}]</span> (${e - s} 字符)</div>`,
+        `<div class="log-line"><span class="log-label">高亮矩形:</span> <span class="log-value">${rects.length} 个</span></div>`,
+        `<div class="log-line"><span class="log-label">计算耗时:</span> <span class="log-time">${(t1 - t0).toFixed(3)}ms</span></div>`,
+        ...rects.map((r, i) =>
+          `<div class="log-line">  rect[${i}]: x=<span class="log-value">${r.x.toFixed(1)}</span> y=<span class="log-value">${r.y.toFixed(1)}</span> w=<span class="log-value">${r.width.toFixed(1)}</span> h=<span class="log-value">${r.height.toFixed(1)}</span></div>`
+        ),
+        `<div class="log-line"><span class="log-label">选中文字:</span> <span class="log-value">"${selectedText.length > 60 ? selectedText.slice(0, 60) + '…' : selectedText}"</span></div>`,
+      ]
+      document.getElementById('selection-info').innerHTML = logHtml.join('')
+    }
+
+    cursorArea.addEventListener('mousedown', (e) => {
+      const { x, y } = getLocalXY(e)
+      const t0 = performance.now()
+      const offset = areaCursor.xyToOffset(x, y)
+      const t1 = performance.now()
+
+      document.getElementById('stat-click').textContent = `${x.toFixed(0)}, ${y.toFixed(0)}`
+      document.getElementById('stat-cursor-time').innerHTML = `<span class="unit">${(t1 - t0).toFixed(3)}ms</span>`
+
+      dragStart = offset
+      dragEnd = offset
+      isDragging = true
+      renderSelection(offset, offset)
+      renderCursor(offset)
+    })
+
+    document.addEventListener('mousemove', (e) => {
+      if (!isDragging) return
+      const { x, y } = getLocalXY(e)
+      dragEnd = areaCursor.xyToOffset(Math.max(0, x), Math.max(0, y))
+      renderSelection(dragStart, dragEnd)
+      renderCursor(dragEnd)
+    })
+
+    document.addEventListener('mouseup', () => {
+      isDragging = false
+    })
+
+    // Double-click: word selection
+    cursorArea.addEventListener('dblclick', (e) => {
+      const { x, y } = getLocalXY(e)
+      const offset = areaCursor.xyToOffset(x, y)
+      const [wStart, wEnd] = areaCursor.getWordBoundary(offset)
+      dragStart = wStart
+      dragEnd = wEnd
+      renderSelection(wStart, wEnd)
+      renderCursor(wEnd)
+    })
+
+    // ============================================================
+    // Demo 4: Line Numbers + Wrapping
+    // ============================================================
+
+    const editor4 = document.getElementById('editor4')
+    const lineGutter = document.getElementById('line-gutter')
+    const lineContent = document.getElementById('line-content')
+    const lineDemo = document.getElementById('line-demo')
+
+    function updateDemo4() {
+      const text = editor4.value
+      const contentWidth = lineContent.clientWidth || 400
+      layoutEngine.updateConfig({ maxWidth: contentWidth })
+
+      const localCursor = new CursorEngine(layoutEngine)
+      const t0 = performance.now()
+      localCursor.setText(text)
+      const t1 = performance.now()
+
+      const lineNumbers = localCursor.getLineNumbers()
+      const visualLines = localCursor.getVisualLines()
+
+      // Render line numbers
+      let gutterHtml = ''
+      for (const ln of lineNumbers) {
+        // First visual line shows line number; extra visual lines show empty (soft wrap)
+        gutterHtml += `<div style="height:${ln.height}px;line-height:${LINE_HEIGHT}px;" class="${ln.lineNumber === 1 ? 'ln-active' : ''}">${ln.lineNumber}</div>`
+      }
+      lineGutter.innerHTML = gutterHtml
+
+      // Render content with visual lines
+      lineContent.textContent = text
+
+      // Stats
+      document.getElementById('stat-src-lines').textContent = String(localCursor.getSourceLineCount())
+      document.getElementById('stat-vis-lines').textContent = String(localCursor.getVisualLineCount())
+      document.getElementById('stat-layout-time').innerHTML = `<span class="unit">${(t1 - t0).toFixed(2)}ms</span>`
+      document.getElementById('stat-wrap-width').textContent = contentWidth + 'px'
+    }
+
+    editor4.addEventListener('input', updateDemo4)
+    // Observe resize of the line demo container
+    const resizeObs = new ResizeObserver(() => updateDemo4())
+    resizeObs.observe(lineDemo)
+    updateDemo4()
+
+    // ============================================================
+    // Demo 5: Benchmark
+    // ============================================================
+
+    const benchLog = document.getElementById('bench-log')
+
+    function generateParagraphs(count) {
+      const samples = [
+        'PreMarkdown 是一个基于 pretext 的高性能 Markdown 引擎。',
+        'The quick brown fox jumps over the lazy dog. This is a longer English sentence for testing text layout performance.',
+        '零 DOM 重排布局引擎通过 Canvas API 测量文本，完全避免触发浏览器布局计算。',
+        '性能优化策略：LRU 缓存、增量布局、虚拟化视口、Web Worker 离线准备。',
+        'Mixed 中英文 content with code like `const x = 42` and **bold** text for realistic testing.',
+      ]
+      return Array.from({ length: count }, (_, i) => samples[i % samples.length])
+    }
+
+    function runBenchmark(count) {
+      const paragraphs = generateParagraphs(count)
+
+      // Pretext benchmark
+      const t0 = performance.now()
+      const docLayout = layoutEngine.computeDocumentLayout(paragraphs)
+      const t1 = performance.now()
+      const pretextTime = t1 - t0
+
+      // Second call (cached prepare, only layout)
+      const t2 = performance.now()
+      layoutEngine.computeDocumentLayout(paragraphs)
+      const t3 = performance.now()
+      const cachedTime = t3 - t2
+
+      // DOM measurement benchmark
+      const t4 = performance.now()
+      const measureDiv = document.createElement('div')
+      measureDiv.style.cssText = `position:absolute;top:-9999px;left:-9999px;width:${MAX_WIDTH}px;font:${FONT};line-height:${LINE_HEIGHT}px;white-space:pre-wrap;word-wrap:break-word;`
+      document.body.appendChild(measureDiv)
+      let domTotalHeight = 0
+      for (const p of paragraphs) {
+        measureDiv.textContent = p
+        domTotalHeight += measureDiv.offsetHeight
+      }
+      document.body.removeChild(measureDiv)
+      const t5 = performance.now()
+      const domTime = t5 - t4
+
+      const speedup = (domTime / pretextTime).toFixed(1)
+      const cachedSpeedup = domTime > 0 ? (domTime / cachedTime).toFixed(0) : '∞'
+
+      const lines = [
+        `<div class="log-line"><span class="log-label">── ${count} 段落压测结果 ──</span></div>`,
+        `<div class="log-line"><span class="log-label">Pretext (首次):</span> <span class="log-time">${pretextTime.toFixed(2)}ms</span> <span style="color:#555;">(含 prepare() 缓存)</span></div>`,
+        `<div class="log-line"><span class="log-label">Pretext (缓存):</span> <span class="log-time">${cachedTime.toFixed(4)}ms</span> <span style="color:#555;">(纯 layout() 算术)</span></div>`,
+        `<div class="log-line"><span class="log-label">DOM reflow:    </span> <span class="log-value">${domTime.toFixed(2)}ms</span> <span style="color:#555;">(offsetHeight)</span></div>`,
+        `<div class="log-line"><span class="log-label">首次加速比:    </span> <span class="log-time">${speedup}x</span></div>`,
+        `<div class="log-line"><span class="log-label">缓存后加速比:  </span> <span class="log-time">${cachedSpeedup}x</span></div>`,
+        `<div class="log-line"><span class="log-label">总高度:        </span> <span class="log-value">${docLayout.totalHeight}px</span></div>`,
+        `<div class="log-line"></div>`,
+      ]
+
+      benchLog.innerHTML += lines.join('')
+      benchLog.scrollTop = benchLog.scrollHeight
+    }
+
+    document.getElementById('bench-100').addEventListener('click', () => runBenchmark(100))
+    document.getElementById('bench-500').addEventListener('click', () => runBenchmark(500))
+    document.getElementById('bench-1000').addEventListener('click', () => runBenchmark(1000))
+    document.getElementById('bench-clear').addEventListener('click', () => {
+      benchLog.innerHTML = '<div class="log-line" style="color: #555;">← 点击按钮开始性能压测</div>'
+    })
+
+    // ============================================================
+    // Demo 6: Incremental Document Layout
+    // ============================================================
+
+    document.getElementById('code6').innerHTML =
+`<span class="cm">// 增量布局：只重算变更段落</span>
+<span class="kw">const</span> result = engine.<span class="fn">updateDocumentLayout</span>(paragraphs)
+
+result.totalHeight      <span class="cm">// 文档总高度</span>
+result.paragraphOffsets <span class="cm">// 每段 Y 偏移</span>
+result.paragraphHeights <span class="cm">// 每段高度</span>
+result.changedIndices   <span class="cm">// 本次变更的段落索引</span>
+
+<span class="cm">// 第二次调用时，未变更段落直接复用缓存高度</span>
+<span class="cm">// → 接近 O(changed) 而非 O(total)</span>`
+
+    const editor6 = document.getElementById('editor6')
+
+    function updateDemo6() {
+      const text = editor6.value
+      const paragraphs = text.split('\n\n').filter(p => p.trim())
+
+      const t0 = performance.now()
+      const result = layoutEngine.updateDocumentLayout(paragraphs)
+      const t1 = performance.now()
+
+      document.getElementById('stat-para-count').textContent = String(paragraphs.length)
+      document.getElementById('stat-changed').textContent = String(result.changedIndices.length)
+      document.getElementById('stat-doc-height').textContent = result.totalHeight + 'px'
+      document.getElementById('stat-incr-time').innerHTML = `<span class="unit">${(t1 - t0).toFixed(3)}ms</span>`
+    }
+
+    editor6.addEventListener('input', updateDemo6)
+    updateDemo6()
+  </script>
+</body>
+</html>

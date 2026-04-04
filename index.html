@@ -4,6 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>PreMarkdown — Demo</title>
+  <!-- highlight.js for code block syntax highlighting -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
   <style>
     :root {
       --bg: #0f1117;
@@ -207,6 +210,11 @@
       border-right: 1px solid var(--border);
       background: rgba(15, 17, 23, 0.5);
     }
+    .line-numbers div {
+      box-sizing: border-box;
+      white-space: nowrap;
+      overflow: hidden;
+    }
     .line-numbers .active-line { color: var(--accent); font-weight: 600; }
 
     .toolbar {
@@ -287,6 +295,11 @@
       padding: 0;
       color: var(--text);
       font-size: 13px;
+    }
+    /* highlight.js overrides for dark theme */
+    #preview pre code.hljs {
+      background: none !important;
+      padding: 0 !important;
     }
 
     #preview blockquote {
@@ -454,7 +467,7 @@
 </main>
 
 <footer>
-  <span>Powered by <b>@chenglou/pretext</b> layout engine &amp; custom incremental parser</span>
+  <span>Powered by <b>@chenglou/pretext</b> zero-DOM layout engine &amp; CursorEngine</span>
   <span class="perf" id="stat-total">Ready</span>
 </footer>
 

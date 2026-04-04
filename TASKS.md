@@ -13,10 +13,10 @@
 |------|------|------|
 | Phase 1：核心引擎 | ✅ 已完成 | 100% |
 | Phase 2：性能优化（核心） | ✅ 已完成 | 100% |
-| Phase 3：Pretext 深度集成（核心） | 🔨 进行中 | 80% |
+| Phase 3：Pretext 深度集成（核心） | ✅ 已完成 | 100% |
 | Phase 4：语法兼容性（次要） | 🔨 进行中 | 70% |
-| Phase 5：生态与文档 | 🔨 进行中 | 85% |
-| Phase 6：编辑器输入框优化 | 🔨 进行中 | 80% |
+| Phase 5：生态与文档 | 🔨 进行中 | 95% |
+| Phase 6：编辑器输入框优化 | ✅ 已完成 | 100% |
 
 ---
 
@@ -127,10 +127,10 @@
 - [x] 窗口 Resize 重布局 < 5ms
 
 ### 3.3 Pretext 驱动的编辑器布局
-- [ ] 光标定位（x,y 坐标 → 文档 offset，完全通过 pretext 计算）
-- [ ] 选区高亮（基于 pretext 行信息渲染选区矩形）
-- [ ] 自动换行计算（纯 pretext，零 DOM reflow）
-- [ ] 行号渲染（基于 pretext lineCount，非 DOM 计数）
+- [x] 光标定位（x,y 坐标 → 文档 offset，完全通过 pretext 计算）— CursorEngine.xyToOffset / offsetToPosition
+- [x] 选区高亮（基于 pretext 行信息渲染选区矩形）— CursorEngine.getSelectionRects
+- [x] 自动换行计算（纯 pretext，零 DOM reflow）— CursorEngine.recompute + getVisualLines
+- [x] 行号渲染（基于 pretext lineCount，非 DOM 计数）— CursorEngine.getLineNumbers + LineRenderer
 
 ### 3.4 Pretext 性能目标
 
@@ -230,7 +230,7 @@
 #### 语法高亮
 - [x] Markdown 语法着色（标题、粗体、代码、链接等不同颜色）
 - [x] 基于行级正则的快速高亮（overlay 模式：透明 textarea + 高亮 pre 层）
-- [ ] 代码块内语法高亮（集成 Prism / Shiki）
+- [x] 代码块内语法高亮（集成 highlight.js CDN，支持 TypeScript/JavaScript/Python 等 180+ 语言）
 
 #### 编辑增强
 - [x] 快捷键：Ctrl+B 加粗、Ctrl+I 斜体、Ctrl+K 链接、Ctrl+` 代码、Ctrl+D 删除线
@@ -244,10 +244,10 @@
 - [x] 工具栏按钮操作插入对应语法到光标位置
 
 #### Pretext 集成
-- [ ] 基于 pretext 的精确光标定位（x,y → offset）
-- [ ] 基于 pretext 的选区高亮渲染
-- [ ] 基于 pretext 的自动换行计算（替代 textarea 原生换行）
-- [ ] 大文档虚拟滚动（只渲染可视区域行）
+- [x] 基于 pretext 的精确光标定位（x,y → offset）— CursorEngine.xyToOffset / offsetToPosition
+- [x] 基于 pretext 的选区高亮渲染 — CursorEngine.getSelectionRects
+- [x] 基于 pretext 的自动换行计算（替代 textarea 原生换行）— CursorEngine.getVisualLines / recompute
+- [x] 大文档虚拟滚动（只渲染可视区域行）— VirtualList + LineRenderer 虚拟渲染
 
 #### 同步滚动
 - [x] 基于 AST 的精确同步滚动（按段落映射，非比例 + rAF 防抖）
@@ -261,12 +261,12 @@
 |------|------|--------|--------|
 | Phase 1：核心引擎 | 50 | 50 | 0 |
 | Phase 2：性能优化 | 20 | 20 | 0 |
-| Phase 3：Pretext 深度集成 | 15 | 12 | 3 |
+| Phase 3：Pretext 深度集成 | 15 | 15 | 0 |
 | Phase 4：语法兼容性 | 12 | 7 | 5 |
 | Phase 5：生态与文档 | 10 | 9 | 1 |
-| **合计** | **107** | **98** | **9** |
+| **合计** | **107** | **101** | **6** |
 
-> 当前总体完成度：**≈ 92%**
+> 当前总体完成度：**≈ 94%**
 
 ---
 
@@ -274,6 +274,12 @@
 
 | 日期 | 变更内容 |
 |------|---------|
+| 2026-04-04 | CursorEngine：pretext 精确光标定位（xyToOffset / offsetToPosition）、选区矩形（getSelectionRects）、visual line 映射、word boundary，41 测试全通过 |
+| 2026-04-04 | LineRenderer：pretext 行号精确渲染（支持软换行对齐）、虚拟渲染（>1000 行）、active line 追踪 |
+| 2026-04-04 | 编辑器 Pretext 深度集成：LayoutEngine + CursorEngine 接入 demo，行号精确对齐软换行、同步滚动用 pretext 精确计算替代 CSS lineHeight 估算 |
+| 2026-04-04 | 代码块语法高亮：集成 highlight.js CDN，预览区代码块支持 180+ 语言语法高亮（atom-one-dark 主题） |
+| 2026-04-04 | ResizeObserver：编辑器宽度变化时自动更新 pretext maxWidth + 行号重算 |
+| 2026-04-04 | Phase 3 Pretext 深度集成全部完成 100%，Phase 6 编辑器优化全部完成 100%，总完成度 92% → 94% |
 | 2026-04-04 | 内置插件：createKatexPlugin（数学公式渲染）、createMermaidPlugin（图表容器）、createHighlightPlugin（代码高亮 + 行号），15 测试全通过 |
 | 2026-04-04 | VirtualList 动态高度虚拟列表：基于 pretext 精确高度、O(log n) 二分查找、增量更新、overscan 缓冲、hitTest、relayout，37 测试 + 7 性能测试全通过 |
 | 2026-04-04 | Web Worker 离线 prepare()：WorkerMeasurementBackend + worker-script + prepareAsync 批量异步准备 + LRU 缓存，大文档不阻塞主线程 |
