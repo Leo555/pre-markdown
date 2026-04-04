@@ -2,7 +2,7 @@
 
 <div align="center">
 
-<img src="./generated-images/logo-icon-only.png" alt="PreMarkdown Logo" width="160" />
+<img src="./generated-images/logo.png" alt="PreMarkdown Logo" width="160" />
 
 **High-performance Markdown Engine** — Built with [pretext](https://github.com/chenglou/pretext) zero-reflow layout
 
@@ -310,7 +310,7 @@ Commits follow [Conventional Commits](https://www.conventionalcommits.org): `fea
 
 ## License
 
-[MIT](./LICENSE) © 2024 PreMarkdown Contributors
+[MIT](./LICENSE) © 2024-2026 PreMarkdown Contributors
 
 ---
 

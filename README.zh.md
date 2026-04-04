@@ -2,7 +2,7 @@
 
 <div align="center">
 
-<img src="./generated-images/logo-icon-only.png" alt="PreMarkdown Logo" width="160" />
+<img src="./generated-images/logo.png" alt="PreMarkdown Logo" width="160" />
 
 **高性能 Markdown 引擎** — 基于 [pretext](https://github.com/chenglou/pretext) 零 DOM 重排布局
 
@@ -315,7 +315,7 @@ core + parser + renderer = **19.2KB** gzip（不含 layout）。含 layout 全�
 
 ## 许可证
 
-[MIT](./LICENSE) © 2024 PreMarkdown Contributors
+[MIT](./LICENSE) © 2024-2026 PreMarkdown Contributors
 
 ---
 
