@@ -293,65 +293,21 @@ export function parseInline(input: string): InlineNode[] {
         continue
       }
 
-      // HTML inline tag (open or self-closing)
-      const htmlMatch = execAt(RE_HTML_INLINE_OPEN, input, pos)
-      if (htmlMatch) {
-        flushText()
-        nodes.push(createHtmlInline(htmlMatch[0]))
-        pos = pos + htmlMatch[0].length
-        textStart = pos
-        continue
+      // HTML inline tags: try all patterns in order, first match wins
+      const htmlPatterns = [RE_HTML_INLINE_OPEN, RE_HTML_INLINE_CLOSE, RE_HTML_COMMENT, RE_HTML_PI, RE_HTML_CDATA, RE_HTML_DECL]
+      let htmlMatched = false
+      for (let hi = 0; hi < htmlPatterns.length; hi++) {
+        const hm = execAt(htmlPatterns[hi]!, input, pos)
+        if (hm) {
+          flushText()
+          nodes.push(createHtmlInline(hm[0]))
+          pos = pos + hm[0].length
+          textStart = pos
+          htmlMatched = true
+          break
+        }
       }
-
-      // HTML inline close tag (no attributes allowed)
-      const htmlCloseMatch = execAt(RE_HTML_INLINE_CLOSE, input, pos)
-      if (htmlCloseMatch) {
-        flushText()
-        nodes.push(createHtmlInline(htmlCloseMatch[0]))
-        pos = pos + htmlCloseMatch[0].length
-        textStart = pos
-        continue
-      }
-
-      // HTML comment inline
-      const commentMatch = execAt(RE_HTML_COMMENT, input, pos)
-      if (commentMatch) {
-        flushText()
-        nodes.push(createHtmlInline(commentMatch[0]))
-        pos = pos + commentMatch[0].length
-        textStart = pos
-        continue
-      }
-
-      // Processing instruction inline
-      const piMatch = execAt(RE_HTML_PI, input, pos)
-      if (piMatch) {
-        flushText()
-        nodes.push(createHtmlInline(piMatch[0]))
-        pos = pos + piMatch[0].length
-        textStart = pos
-        continue
-      }
-
-      // CDATA inline
-      const cdataMatch = execAt(RE_HTML_CDATA, input, pos)
-      if (cdataMatch) {
-        flushText()
-        nodes.push(createHtmlInline(cdataMatch[0]))
-        pos = pos + cdataMatch[0].length
-        textStart = pos
-        continue
-      }
-
-      // Declaration inline
-      const declMatch = execAt(RE_HTML_DECL, input, pos)
-      if (declMatch) {
-        flushText()
-        nodes.push(createHtmlInline(declMatch[0]))
-        pos = pos + declMatch[0].length
-        textStart = pos
-        continue
-      }
+      if (htmlMatched) continue
     }
 
     // Emphasis/Strong: * or _
@@ -580,24 +536,36 @@ function tryInlineCode(input: string, start: number): InlineResult | null {
     pos++
   }
 
-  // Find closing backticks
-  const closePattern = '`'.repeat(ticks)
-  let closePos = input.indexOf(closePattern, pos)
-  while (closePos !== -1) {
-    if (closePos + ticks >= input.length || input.charCodeAt(closePos + ticks) !== 96) {
-      const content = input.slice(pos, closePos)
-      const trimmed = content.replace(/\n/g, ' ')
+  // Find closing backtick run of exactly `ticks` length using charCodeAt scan
+  let searchPos = pos
+  while (searchPos < input.length) {
+    // Find next backtick
+    while (searchPos < input.length && input.charCodeAt(searchPos) !== 96) searchPos++
+    if (searchPos >= input.length) return null
+
+    // Count consecutive backticks
+    let runStart = searchPos
+    while (searchPos < input.length && input.charCodeAt(searchPos) === 96) searchPos++
+    const runLen = searchPos - runStart
+
+    // Must match exactly `ticks` backticks
+    if (runLen === ticks) {
+      const content = input.slice(pos, runStart)
+      // Replace newlines with spaces (CommonMark spec)
+      let trimmed = content
+      if (content.includes('\n')) trimmed = content.replace(/\n/g, ' ')
+      // Strip one leading+trailing space if both present and content is not all spaces
       const normalized =
-        trimmed.length > 0 && trimmed.trim().length > 0 && trimmed.charCodeAt(0) === 32 && trimmed.charCodeAt(trimmed.length - 1) === 32
+        trimmed.length > 0 && trimmed.charCodeAt(0) === 32 && trimmed.charCodeAt(trimmed.length - 1) === 32 && trimmed.trim().length > 0
           ? trimmed.slice(1, -1)
           : trimmed
 
       return {
         node: createInlineCode(normalized),
-        end: closePos + ticks,
+        end: runStart + ticks,
       }
     }
-    closePos = input.indexOf(closePattern, closePos + 1)
+    // Otherwise keep scanning (searchPos already past the run)
   }
 
   return null
@@ -644,38 +612,55 @@ function tryLink(input: string, start: number): InlineResult | null {
 }
 
 function tryEmphasis(input: string, start: number): InlineResult | null {
-  const ch = input[start]!
-  let count = 0
-  let pos = start
-  while (pos < input.length && input[pos] === ch) {
-    count++
-    pos++
-  }
+  const charCode = input.charCodeAt(start)
+  let count = 1
+  while (start + count < input.length && input.charCodeAt(start + count) === charCode) count++
 
-  if (count === 0 || count > 3) return null
+  // CommonMark: handle runs of 1, 2, or 3 delimiter chars
+  // For runs > 3, we try to match as ***...*** (strong+em) first, then ** (strong), then * (em)
+  if (count > 3) count = 3
 
-  const closePattern = ch.repeat(count)
+  const pos = start + count
+
+  // Fast path: scan for closing delimiter using charCodeAt instead of indexOf + string creation
   let searchPos = pos
   while (searchPos < input.length) {
-    const closeIdx = input.indexOf(closePattern, searchPos)
+    // Find next occurrence of the delimiter character
+    let closeIdx = -1
+    for (let k = searchPos; k < input.length; k++) {
+      if (input.charCodeAt(k) === charCode) { closeIdx = k; break }
+    }
     if (closeIdx === -1) return null
 
-    if (closeIdx + count < input.length && input[closeIdx + count] === ch) {
-      searchPos = closeIdx + 1
+    // Check if we have enough consecutive delimiter chars
+    let closeCount = 1
+    while (closeIdx + closeCount < input.length && input.charCodeAt(closeIdx + closeCount) === charCode) closeCount++
+
+    // Closing delimiter run must have at least `count` chars and end exactly at `count`
+    // (i.e., no extra same-char after the closing run, or the extra chars belong to a different run)
+    if (closeCount < count) {
+      searchPos = closeIdx + closeCount
       continue
     }
 
-    const content = input.slice(pos, closeIdx)
-    if (content.length === 0) return null
+    // If the closing run is longer than needed, use exactly `count` from the end of the run
+    // This follows CommonMark's rule: match the most inner delimiter first
+    const actualCloseStart = closeIdx + closeCount - count
+    const content = input.slice(pos, actualCloseStart)
+    if (content.length === 0) {
+      searchPos = closeIdx + closeCount
+      continue
+    }
 
     const children = parseInlineFast(content)
+    const end = actualCloseStart + count
 
     if (count === 1) {
-      return { node: createEmphasis(children), end: closeIdx + count }
+      return { node: createEmphasis(children), end }
     } else if (count === 2) {
-      return { node: createStrong(children), end: closeIdx + count }
+      return { node: createStrong(children), end }
     } else {
-      return { node: createStrong([createEmphasis(children)]), end: closeIdx + count }
+      return { node: createStrong([createEmphasis(children)]), end }
     }
   }
 
@@ -683,19 +668,27 @@ function tryEmphasis(input: string, start: number): InlineResult | null {
 }
 
 function tryStrikethrough(input: string, start: number): InlineResult | null {
-  const closeIdx = input.indexOf('~~', start + 2)
-  if (closeIdx === -1) return null
-  const content = input.slice(start + 2, closeIdx)
-  if (content.length === 0) return null
-  return { node: createStrikethrough(parseInlineFast(content)), end: closeIdx + 2 }
+  // Find closing ~~ using charCodeAt
+  for (let k = start + 2; k < input.length - 1; k++) {
+    if (input.charCodeAt(k) === 126 && input.charCodeAt(k + 1) === 126) {
+      const content = input.slice(start + 2, k)
+      if (content.length === 0) return null
+      return { node: createStrikethrough(parseInlineFast(content)), end: k + 2 }
+    }
+  }
+  return null
 }
 
 function tryHighlight(input: string, start: number): InlineResult | null {
-  const closeIdx = input.indexOf('==', start + 2)
-  if (closeIdx === -1) return null
-  const content = input.slice(start + 2, closeIdx)
-  if (content.length === 0) return null
-  return { node: createHighlight(parseInlineFast(content)), end: closeIdx + 2 }
+  // Find closing == using charCodeAt
+  for (let k = start + 2; k < input.length - 1; k++) {
+    if (input.charCodeAt(k) === 61 && input.charCodeAt(k + 1) === 61) {
+      const content = input.slice(start + 2, k)
+      if (content.length === 0) return null
+      return { node: createHighlight(parseInlineFast(content)), end: k + 2 }
+    }
+  }
+  return null
 }
 
 function trySuperscript(input: string, start: number): InlineResult | null {
