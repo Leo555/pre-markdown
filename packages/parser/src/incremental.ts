@@ -39,6 +39,62 @@ function combineHashes(hashes: number[], from: number, to: number): number {
   return h >>> 0
 }
 
+/**
+ * LRU cache mapping block fingerprints to previously parsed BlockNode subtrees.
+ * When an edit only shifts blocks around without changing their content,
+ * the fingerprint will match and we can reuse the old AST node (with already-
+ * resolved inline content), avoiding a full reparse.
+ *
+ * Capacity is capped to prevent unbounded memory growth.
+ */
+class LRUBlockCache {
+  private map = new Map<number, BlockNode>()
+  private readonly capacity: number
+
+  constructor(capacity: number = 256) {
+    this.capacity = capacity
+  }
+
+  get(fingerprint: number): BlockNode | undefined {
+    const node = this.map.get(fingerprint)
+    if (node !== undefined) {
+      // Move to end (most recently used) by re-inserting
+      this.map.delete(fingerprint)
+      this.map.set(fingerprint, node)
+    }
+    return node
+  }
+
+  set(fingerprint: number, node: BlockNode): void {
+    // If already present, delete first to refresh insertion order
+    if (this.map.has(fingerprint)) {
+      this.map.delete(fingerprint)
+    }
+    this.map.set(fingerprint, node)
+    // Evict oldest entries if over capacity
+    if (this.map.size > this.capacity) {
+      // Map iterator yields in insertion order — first key is the LRU entry
+      const oldest = this.map.keys().next().value as number
+      this.map.delete(oldest)
+    }
+  }
+
+  /** Bulk-populate cache from an array of fingerprint→node pairs */
+  populate(metas: BlockMeta[], nodes: BlockNode[]): void {
+    for (let i = 0; i < metas.length; i++) {
+      this.set(metas[i]!.fingerprint, nodes[i]!)
+    }
+  }
+
+  clear(): void {
+    this.map.clear()
+  }
+
+  get size(): number {
+    return this.map.size
+  }
+}
+
 /** Describes an edit operation */
 export interface EditOperation {
   /** Start line index (0-based, inclusive) */
@@ -90,6 +146,8 @@ export class IncrementalParser {
   private eventBus: EventBus<EditorEvents> | null = null
   /** Per-block metadata tracking source line ranges and fingerprints */
   private blockMetas: BlockMeta[] = []
+  /** LRU cache: block fingerprint → previously parsed BlockNode subtree */
+  private blockCache = new LRUBlockCache(256)
 
   constructor(
     initialText: string = '',
@@ -183,8 +241,30 @@ export class IncrementalParser {
       : []
 
     // 5. Splice new blocks into the existing AST, reusing unchanged blocks
+    //    For each newly parsed block, compute its fingerprint from the source lines.
+    //    If the fingerprint matches a cached block, reuse the old AST node
+    //    (which may already have resolved inline content from lazy parsing).
     const oldBlockCount = blockEnd - blockStart
     const oldChildren = this.document.children
+
+    // Compute fingerprints for new blocks and attempt cache reuse
+    let cacheHits = 0
+    if (newBlocks.length > 0) {
+      let newLineAcc = reparseFromClamped
+      for (let bi = 0; bi < newBlocks.length; bi++) {
+        const block = newBlocks[bi]!
+        const blockLineCount = this.estimateBlockLineCount(block)
+        const blockEndLine = Math.min(newLineAcc + blockLineCount, this.lines.length)
+        const fp = combineHashes(this.lineHashes, newLineAcc, blockEndLine)
+        // Try to reuse a cached block with the same fingerprint
+        const cached = this.blockCache.get(fp)
+        if (cached && cached.type === block.type) {
+          newBlocks[bi] = cached
+          cacheHits++
+        }
+        newLineAcc = blockEndLine
+      }
+    }
 
     // Blocks before the edit range are reused as-is (same object references)
     const beforeBlocks = oldChildren.slice(0, blockStart)
@@ -197,7 +277,7 @@ export class IncrementalParser {
       ...afterBlocks,
     ]
 
-    const reusedBlockCount = beforeBlocks.length + afterBlocks.length
+    const reusedBlockCount = beforeBlocks.length + afterBlocks.length + cacheHits
 
     this.document = createDocument(updatedChildren)
 
@@ -264,11 +344,10 @@ export class IncrementalParser {
       const lc = this.estimateBlockLineCount(children[i]!)
       const startLine = lineAcc
       const endLine = Math.min(lineAcc + lc, this.lines.length)
-      metas[i] = {
-        startLine,
-        endLine,
-        fingerprint: combineHashes(this.lineHashes, startLine, endLine),
-      }
+      const fingerprint = combineHashes(this.lineHashes, startLine, endLine)
+      metas[i] = { startLine, endLine, fingerprint }
+      // Populate LRU cache: fingerprint → block node
+      this.blockCache.set(fingerprint, children[i]!)
       lineAcc = endLine
     }
 

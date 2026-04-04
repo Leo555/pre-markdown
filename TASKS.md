@@ -12,7 +12,7 @@
 | 阶段 | 状态 | 进度 |
 |------|------|------|
 | Phase 1：核心引擎 | ✅ 已完成 | 100% |
-| Phase 2：性能优化（核心） | 🔨 进行中 | 75% |
+| Phase 2：性能优化（核心） | 🔨 进行中 | 80% |
 | Phase 3：Pretext 深度集成（核心） | 🔨 进行中 | 55% |
 | Phase 4：语法兼容性（次要） | 🔨 进行中 | 65% |
 | Phase 5：生态与文档 | 🔨 进行中 | 30% |
@@ -83,7 +83,7 @@
 ### 2.3 增量解析优化
 - [x] 行级 hash 指纹（FNV-1a 快速定位变更范围）
 - [x] AST 节点复用（未变更块直接复用引用 + 二分查找变更范围 + block fingerprint）
-- [ ] 编辑感知缓存（LRU 按段落粒度缓存 AST 子树）
+- [x] 编辑感知缓存（LRU 按段落粒度缓存 AST 子树）
 
 ### 2.4 性能压测与 CI
 - [x] 6 引擎性能压测页面（benchmark/index.html）
@@ -273,6 +273,7 @@
 
 | 日期 | 变更内容 |
 |------|---------|
+| 2026-04-04 | 增量解析 LRU 缓存：基于 FNV-1a 指纹的段落粒度 BlockNode 缓存复用，256 容量 LRU 淘汰 |
 | 2026-04-04 | AST 节点 Flyweight：Break/SoftBreak/ThematicBreak 单例化，减少对象创建 |
 | 2026-04-04 | 内联解析器优化：tryEmphasis/tryInlineCode charCodeAt 快速路径 + HTML inline 分支合并；Code spans 64%→82% → 402/652 (61.7%) |
 | 2026-04-04 | 块级解析器 RE→charCodeAt 优化（strip3/isBlank/isIndentCode）；Block quotes 25/25 + Fenced code 29/29 满分 → 398/652 (61.0%) |
