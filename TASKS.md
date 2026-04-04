@@ -15,7 +15,7 @@
 | Phase 2：性能优化（核心） | ✅ 已完成 | 100% |
 | Phase 3：Pretext 深度集成（核心） | ✅ 已完成 | 100% |
 | Phase 4：语法兼容性（次要） | 🔨 进行中 | 70% |
-| Phase 5：生态与文档 | 🔨 进行中 | 95% |
+| Phase 5：生态与文档 | ✅ 已完成 | 100% |
 | Phase 6：编辑器输入框优化 | ✅ 已完成 | 100% |
 
 ---
@@ -202,7 +202,7 @@
 - [x] ESM + CJS + .d.ts 构建（tsup，4 个核心包全部通过）
 - [x] 包体积审计：core 2KB + parser 10.8KB + renderer 2.7KB + layout 3KB = **18.5KB gzip**（目标 < 30KB ✅）
 - [x] package.json exports (types + import + require) + sideEffects: false + license
-- [ ] npm publish 流程（changeset）
+- [x] npm publish 流程（changeset）
 
 ### 5.3 文档
 - [x] `docs/architecture.md` — 架构设计（两阶段流水线、AST 设计、性能优化策略、pretext 集成）
@@ -213,7 +213,7 @@
 ### 5.4 CI/CD + Demo
 - [x] 6 引擎压测 + 兼容性测试页面
 - [x] GitHub Actions (test + typecheck + lint + build + bench regression)
-- [ ] 在线 Playground
+- [x] 在线 Playground
 
 ### 5.5 Markdown 输入框优化（Demo 编辑器体验）
 
@@ -279,11 +279,11 @@
 | Phase 2：性能优化 | 20 | 20 | 0 |
 | Phase 3：Pretext 深度集成 | 15 | 15 | 0 |
 | Phase 4：语法兼容性 | 12 | 7 | 5 |
-| Phase 5：生态与文档 | 12 | 10 | 2 |
+| Phase 5：生态与文档 | 12 | 12 | 0 |
 | Phase 6：编辑器输入框优化 | 35 | 35 | 0 |
-| **合计** | **144** | **137** | **7** |
+| **合计** | **144** | **139** | **5** |
 
-> 当前总体完成度：**≈ 95%**
+> 当前总体完成度：**≈ 97%**
 
 ---
 
@@ -291,6 +291,9 @@
 
 | 日期 | 变更内容 |
 |------|---------|
+| 2026-04-04 | 在线 Playground：standalone.html 重写为 Vite 驱动的完整 Playground（语法高亮 + 行号 + 快捷键 + URL 分享 + 导出 + 可拖拽分隔栏），demo/playground.ts 独立入口 |
+| 2026-04-04 | npm publish 流程：@changesets/cli + @changesets/changelog-github 集成，linked 四核心包版本同步，changeset/changeset:version/changeset:publish/release 脚本 |
+| 2026-04-04 | Phase 5 生态与文档全部完成 100%，总完成度 95% → 97% |
 | 2026-04-04 | 编辑器高级 UI 补全：亮色/暗色主题切换（CSS 变量双主题 + localStorage）、当前行背景高亮（半透明紫色追踪条）、快捷键帮助面板（F1/Ctrl+? 模态框）、Markdown 导出（HTML+MD Blob 下载）、URL 分享（Base64 编码 hash + 复制链接）；统计表修正：Phase 5 拆分为 5.1-5.4 生态文档 + 5.5 编辑器（独立为 Phase 6） |
 | 2026-04-04 | 编辑器高级优化：搜索/替换（Ctrl+F/H，正则+大小写）、Minimap 代码小地图（Canvas 语法着色缩略图）、大纲导航面板（AST 标题树 + 双向跳转）、字数/字符/阅读时间统计 |
 | 2026-04-04 | 编辑增强：退格智能删除配对括号、关闭符号跳过、自动括号配对 (()[]{})、Undo/Redo 自定义历史栈 (200 步，Ctrl+Z/Shift+Z) |

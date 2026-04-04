@@ -64,6 +64,6 @@ export default defineConfig(({ command }) => ({
   },
   optimizeDeps: {
     exclude: ['@chenglou/pretext'],
-    entries: ['index.html', 'demo/main.ts', 'benchmark/index.html', 'benchmark/main.ts', 'benchmark/compat.html', 'benchmark/compat.ts', 'benchmark/compat-inline.ts'],
+    entries: ['index.html', 'standalone.html', 'demo/main.ts', 'demo/playground.ts', 'benchmark/index.html', 'benchmark/main.ts', 'benchmark/compat.html', 'benchmark/compat.ts', 'benchmark/compat-inline.ts'],
   },
 }))
