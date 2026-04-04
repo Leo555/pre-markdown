@@ -129,6 +129,40 @@ const RE_DETAIL_CLOSE = /^\+\+\+\s*$/
 const RE_FRONTMATTER_OPEN = /^-{3,}\s*$/
 
 /**
+ * Fast indented code check. Line starts with 4+ spaces or a tab.
+ */
+function isIndentCode(s: string): boolean {
+  const c = s.charCodeAt(0)
+  if (c === 9) return true  // tab
+  return c === 32 && s.charCodeAt(1) === 32 && s.charCodeAt(2) === 32 && s.charCodeAt(3) === 32
+}
+
+/**
+ * Fast blank line check. Replaces `RE_BLANK.test(line)` — avoids regex overhead.
+ */
+function isBlank(s: string): boolean {
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charCodeAt(i)
+    if (c !== 32 && c !== 9) return false  // not space or tab
+  }
+  return true
+}
+
+/**
+ * Strip up to 3 leading spaces from a line.
+ * Replaces the frequently used `line.replace(/^ {0,3}/, '')` with a fast charCodeAt-based version.
+ */
+function strip3(s: string): string {
+  const c0 = s.charCodeAt(0)
+  if (c0 !== 32) return s
+  const c1 = s.charCodeAt(1)
+  if (c1 !== 32) return s.slice(1)
+  const c2 = s.charCodeAt(2)
+  if (c2 !== 32) return s.slice(2)
+  return s.slice(3)
+}
+
+/**
  * Parse a Markdown string into a Document AST.
  */
 export function parseBlocks(input: string, options?: BlockParserOptions): Document {
@@ -154,7 +188,7 @@ function parseBlockLines(
     const line = lines[i]!
 
     // Skip blank lines
-    if (RE_BLANK.test(line)) {
+    if (isBlank(line)) {
       i++
       continue
     }
@@ -163,7 +197,12 @@ function parseBlockLines(
 
     // Fast path: use first non-space character to skip impossible rules
     const firstChar = line.charCodeAt(0)
-    const trimStart = line.search(/\S/)
+    // Find first non-space index (replaces line.search(/\S/))
+    let trimStart = -1
+    for (let k = 0; k < line.length; k++) {
+      const c = line.charCodeAt(k)
+      if (c !== 32 && c !== 9) { trimStart = k; break }
+    }
     const fc = trimStart >= 0 ? line.charCodeAt(trimStart) : firstChar
 
     // 0. FrontMatter (only at start of document, first non-blank line)
@@ -343,7 +382,7 @@ function tryATXHeading(
 ): ParseResult | null {
   let line = lines[i]!
   // Strip up to 3 leading spaces (CommonMark spec)
-  const stripped = line.replace(/^ {0,3}/, '')
+  const stripped = strip3(line)
   const match = RE_ATX_HEADING.exec(stripped)
   if (!match) return null
 
@@ -368,7 +407,7 @@ function tryATXHeading(
 function tryThematicBreak(lines: string[], i: number): ParseResult | null {
   const line = lines[i]!
   // Strip up to 3 leading spaces (CommonMark spec)
-  const stripped = line.replace(/^ {0,3}/, '')
+  const stripped = strip3(line)
   if (!RE_THEMATIC_BREAK.test(stripped)) return null
 
   return {
@@ -379,8 +418,9 @@ function tryThematicBreak(lines: string[], i: number): ParseResult | null {
 
 function tryFencedCode(lines: string[], i: number, end: number): ParseResult | null {
   const line = lines[i]!
-  // Strip up to 3 leading spaces
-  const indent = line.match(/^ {0,3}/)![0].length
+  // Count up to 3 leading spaces
+  let indent = 0
+  while (indent < 3 && indent < line.length && line.charCodeAt(indent) === 32) indent++
   const stripped = line.slice(indent)
   const openMatch = RE_FENCE_OPEN.exec(stripped)
   if (!openMatch) return null
@@ -390,8 +430,11 @@ function tryFencedCode(lines: string[], i: number, end: number): ParseResult | n
   const isBacktick = fence[0] === '`'
   const fenceLen = fence.length
 
-  // Backtick fences: info string must not contain backticks (CommonMark spec)
-  if (isBacktick && rawLang && rawLang.includes('`')) return null
+  // Backtick fences: the entire info string (everything after the opening fence) must not contain backticks (CommonMark spec)
+  if (isBacktick) {
+    const afterFence = stripped.slice(fenceLen)
+    if (afterFence.includes('`')) return null
+  }
 
   // Decode backslash escapes and HTML entities in info string
   const lang = rawLang ? decodeInfoString(rawLang) : undefined
@@ -401,7 +444,7 @@ function tryFencedCode(lines: string[], i: number, end: number): ParseResult | n
   while (j < end) {
     const current = lines[j]!
     // Strip up to 3 leading spaces for close fence detection
-    const closeStripped = current.replace(/^ {0,3}/, '')
+    const closeStripped = strip3(current)
     // Check for closing fence (must be at least as long as opening, only fence chars + optional spaces)
     if (isBacktick && /^`{3,}\s*$/.test(closeStripped) && closeStripped.trim().length >= fenceLen) {
       j++
@@ -520,7 +563,7 @@ function tryBlockquote(
 ): ParseResult | null {
   const line = lines[i]!
   // Strip up to 3 leading spaces
-  const stripped = line.replace(/^ {0,3}/, '')
+  const stripped = strip3(line)
   if (!RE_BLOCKQUOTE.test(stripped)) return null
 
   // Gather all consecutive blockquote lines
@@ -528,23 +571,30 @@ function tryBlockquote(
   let j = i
   while (j < end) {
     const current = lines[j]!
-    const curStripped = current.replace(/^ {0,3}/, '')
+    const curStripped = strip3(current)
     if (RE_BLOCKQUOTE.test(curStripped)) {
       contentLines.push(curStripped.replace(RE_BLOCKQUOTE, ''))
       j++
     } else if (
-      !RE_BLANK.test(current) &&
+      !isBlank(current) &&
       contentLines.length > 0 &&
       // Don't lazily continue after a blank content line (empty > line)
       contentLines[contentLines.length - 1]!.trim().length > 0 &&
       // Don't lazily continue if the line starts a new block element
-      !RE_ATX_HEADING.test(current.replace(/^ {0,3}/, '')) &&
-      !RE_THEMATIC_BREAK.test(current.replace(/^ {0,3}/, '')) &&
-      !RE_FENCE_OPEN.test(current.replace(/^ {0,3}/, '')) &&
-      !RE_UL_MARKER.test(current.replace(/^ {0,3}/, '')) &&
-      !RE_OL_MARKER.test(current.replace(/^ {0,3}/, '')) &&
+      // (reuse curStripped instead of re-computing strip3)
+      !RE_ATX_HEADING.test(curStripped) &&
+      !RE_THEMATIC_BREAK.test(curStripped) &&
+      !RE_FENCE_OPEN.test(curStripped) &&
+      !RE_UL_MARKER.test(curStripped) &&
+      !RE_OL_MARKER.test(curStripped) &&
       !RE_HTML_BLOCK_1.test(current) &&
-      !RE_HTML_BLOCK_6.test(current)
+      !RE_HTML_BLOCK_6.test(current) &&
+      // Only lazily continue paragraphs, not code blocks or other blocks
+      // Check that last content line is not inside an open fenced code block
+      !isInsideOpenFencedCode(contentLines) &&
+      // Don't lazily continue if blockquote content ends with indented code
+      // (i.e., last non-blank content line is indented code)
+      !lastContentIsIndentedCode(contentLines)
     ) {
       // Lazy continuation
       contentLines.push(current)
@@ -560,6 +610,55 @@ function tryBlockquote(
     node: createBlockquote(children),
     nextLine: j,
   }
+}
+
+/** Check if the accumulated content lines end inside an open (unclosed) fenced code block */
+function isInsideOpenFencedCode(contentLines: string[]): boolean {
+  let insideFence = false
+  let fenceChar = ''
+  let fenceLen = 0
+  for (const line of contentLines) {
+    const stripped = strip3(line)
+    if (!insideFence) {
+      const openMatch = RE_FENCE_OPEN.exec(stripped)
+      if (openMatch) {
+        insideFence = true
+        fenceChar = openMatch[1]![0]!
+        fenceLen = openMatch[1]!.length
+      }
+    } else {
+      // Check for close
+      const closeStripped = stripped
+      if (fenceChar === '`' && /^`{3,}\s*$/.test(closeStripped) && closeStripped.trim().length >= fenceLen) {
+        insideFence = false
+      } else if (fenceChar === '~' && /^~{3,}\s*$/.test(closeStripped) && closeStripped.trim().length >= fenceLen) {
+        insideFence = false
+      }
+    }
+  }
+  return insideFence
+}
+
+/**
+ * Check if the last block-level element in the blockquote content lines
+ * would be an indented code block (4+ spaces).
+ * If so, lazy continuation should be rejected.
+ *
+ * We walk backwards from the end of contentLines to find the last
+ * non-blank line(s). If those lines all have 4+ space indent (indented code),
+ * return true.
+ */
+function lastContentIsIndentedCode(contentLines: string[]): boolean {
+  // Walk backwards to find last non-blank line
+  let idx = contentLines.length - 1
+  while (idx >= 0 && isBlank(contentLines[idx]!)) {
+    idx--
+  }
+  if (idx < 0) return false
+
+  // Check if the last non-blank line is indented code (4+ spaces or tab)
+  const lastLine = contentLines[idx]!
+  return isIndentCode(lastLine)
 }
 
 function tryList(
@@ -591,10 +690,10 @@ function tryList(
 
     if (!isListItem && j > i) {
       // Check if it's continuation content (indented) or blank line within list
-      if (RE_BLANK.test(currentLine)) {
+      if (isBlank(currentLine)) {
         // Check if next non-blank line is a list item
         let k = j + 1
-        while (k < end && RE_BLANK.test(lines[k]!)) k++
+        while (k < end && isBlank(lines[k]!)) k++
         if (k < end) {
           const nextUl = RE_UL_MARKER.exec(lines[k]!)
           const nextOl = RE_OL_MARKER.exec(lines[k]!)
@@ -634,7 +733,7 @@ function tryList(
     j++
     while (j < end) {
       const itemLine = lines[j]!
-      if (RE_BLANK.test(itemLine)) {
+      if (isBlank(itemLine)) {
         // Check if next line continues this item
         if (j + 1 < end && /^(?: {2,}|\t)/.test(lines[j + 1]!)) {
           itemLines.push('')
@@ -671,7 +770,7 @@ function tryList(
 function tryHtmlBlock(lines: string[], i: number, end: number): ParseResult | null {
   const line = lines[i]!
   // Strip up to 3 leading spaces for matching
-  const stripped = line.replace(/^ {0,3}/, '')
+  const stripped = strip3(line)
 
   // Type 1: <script>, <pre>, <style>, <textarea> — ends at closing tag
   if (RE_HTML_BLOCK_1.test(stripped)) {
@@ -750,7 +849,7 @@ function tryHtmlBlock(lines: string[], i: number, end: number): ParseResult | nu
     const htmlLines: string[] = []
     let j = i
     while (j < end) {
-      if (j > i && RE_BLANK.test(lines[j]!)) break
+      if (j > i && isBlank(lines[j]!)) break
       htmlLines.push(lines[j]!)
       j++
     }
@@ -765,7 +864,7 @@ function tryHtmlBlock(lines: string[], i: number, end: number): ParseResult | nu
     const htmlLines: string[] = []
     let j = i
     while (j < end) {
-      if (j > i && RE_BLANK.test(lines[j]!)) break
+      if (j > i && isBlank(lines[j]!)) break
       htmlLines.push(lines[j]!)
       j++
     }
@@ -815,7 +914,7 @@ function tryTable(
   let j = i + 2
   while (j < end) {
     const rowLine = lines[j]!
-    if (RE_BLANK.test(rowLine)) break
+    if (isBlank(rowLine)) break
     if (!rowLine.includes('|')) break
 
     const cells = parseTableRow(rowLine)
@@ -864,16 +963,16 @@ function parseTableRow(line: string): string[] {
 
 function tryIndentedCode(lines: string[], i: number, end: number): ParseResult | null {
   const line = lines[i]!
-  if (!RE_INDENT_CODE.test(line)) return null
+  if (!isIndentCode(line)) return null
 
   const codeLines: string[] = []
   let j = i
   while (j < end) {
     const current = lines[j]!
-    if (RE_INDENT_CODE.test(current)) {
+    if (isIndentCode(current)) {
       codeLines.push(current.replace(/^(?: {4}|\t)/, ''))
       j++
-    } else if (RE_BLANK.test(current)) {
+    } else if (isBlank(current)) {
       // Blank lines within indented code
       codeLines.push('')
       j++
@@ -907,7 +1006,7 @@ function tryParagraphOrSetext(
   while (j < end) {
     const current = lines[j]!
 
-    if (RE_BLANK.test(current)) break
+    if (isBlank(current)) break
 
     // Check for setext heading underline
     if (paragraphLines.length > 0) {
@@ -934,7 +1033,7 @@ function tryParagraphOrSetext(
     // Check for interrupt patterns (block elements that interrupt a paragraph)
     if (paragraphLines.length > 0) {
       // Strip up to 3 spaces for interrupt check
-      const currentStripped = current.replace(/^ {0,3}/, '')
+      const currentStripped = strip3(current)
       if (
         RE_ATX_HEADING.test(currentStripped) ||
         RE_THEMATIC_BREAK.test(currentStripped) ||
@@ -1054,7 +1153,7 @@ function tryFootnoteDefinition(
   let j = i + 1
   while (j < end) {
     const current = lines[j]!
-    if (RE_BLANK.test(current)) {
+    if (isBlank(current)) {
       // Check if next line continues the footnote (indented)
       if (j + 1 < end && /^(?: {2,}|\t)/.test(lines[j + 1]!)) {
         contentLines.push('')

@@ -3,7 +3,7 @@
 > **目标**：基于 pretext 构建全行业性能最佳的 Markdown 引擎，充分利用 pretext 零 DOM 重排布局能力  
 > **核心原则**：性能第一，语法兼容性够用即可（CommonMark 主流 sections 通过，不追求 100%）  
 > 每个任务完成后标记 `[x]`，进行中标记 `[-]`，未开始标记 `[ ]`。  
-> 最后更新：2026-04-03
+> 最后更新：2026-04-04
 
 ---
 
@@ -14,7 +14,7 @@
 | Phase 1：核心引擎 | ✅ 已完成 | 100% |
 | Phase 2：性能优化（核心） | 🔨 进行中 | 75% |
 | Phase 3：Pretext 深度集成（核心） | 🔨 进行中 | 55% |
-| Phase 4：语法兼容性（次要） | 🔨 进行中 | 60% |
+| Phase 4：语法兼容性（次要） | 🔨 进行中 | 65% |
 | Phase 5：生态与文档 | 🔨 进行中 | 30% |
 | Phase 6：编辑器输入框优化 | 🔨 进行中 | 70% |
 
@@ -58,7 +58,7 @@
 
 ## Phase 2：性能优化（核心）🔨
 
-> **里程碑**：在 benchmark 7 引擎对比中，PreMarkdown 全面领先  
+> **里程碑**：在 benchmark 6 引擎对比中，PreMarkdown 全面领先  
 > **验证标准**：所有文件规模下解析+渲染耗时 ≤ marked，显著快于 markdown-it/Cherry  
 > **原则**：这是项目的核心竞争力，最高优先级
 
@@ -69,7 +69,7 @@
 - [x] 块级解析器首字符快速路径（charCodeAt 分发，减少 ~80% 无效正则测试）
 - [x] parseInlineFast 快速路径（纯文本内容跳过递归，emphasis 2.3x 提速）
 - [ ] 内联解析器：进一步减少回溯，合并条件分支
-- [ ] 块级解析器：减少 RE.exec 重复编译
+- [x] 块级解析器：正则替换为 charCodeAt 快速路径（strip3/isBlank/isIndentCode），减少 RE.exec
 - [ ] AST 节点对象池（复用节点减少 GC 压力）
 - [x] 懒解析内联（lazyInline — 仅在渲染时才解析段落内联内容，解析阶段 5.6x 提速）
 
@@ -86,7 +86,7 @@
 - [ ] 编辑感知缓存（LRU 按段落粒度缓存 AST 子树）
 
 ### 2.4 性能压测与 CI
-- [x] 7 引擎性能压测页面（benchmark/index.html）
+- [x] 6 引擎性能压测页面（benchmark/index.html）
 - [x] 13 个测试文件覆盖 1KB ~ 50MB
 - [ ] 自动化 CI 性能回归（每次 PR 跑 benchmark，对比基线）
 - [ ] 性能报告生成（P50/P95/P99、吞吐量、内存峰值）
@@ -150,37 +150,35 @@
 > **验证标准**：CommonMark 主流 sections 通过率 ≥ 80%，日常使用无感知差异  
 > **原则**：不追求 100% 合规，focus 在用户最常用的语法子集
 
-### 4.1 当前 CommonMark 通过率：333/652 (51.1%)
+### 4.1 当前 CommonMark 通过率：398/652 (61.0%)
 
-**已满分 sections (7个)**：
+**已满分 sections (10个)**：
 - [x] Precedence, Paragraphs, Blank lines, Inlines
 - [x] Hard line breaks, Soft line breaks, Textual content
+- [x] ATX headings, Fenced code blocks, Block quotes
 
 **高通过率 sections (够用，暂不投入)**：
-- Autolinks 95%, Raw HTML 70%, Code spans 64%, Paragraphs 100%
+- HTML blocks 98%, Autolinks 95%, Raw HTML 95%, Entity references 94%
+- Setext headings 89%, Indented code blocks 83%, Thematic breaks 79%
+- Code spans 64%
 
 **中等通过率 sections (视需要修复)**：
-- [ ] ATX headings (17% → 目标 80%)
-- [ ] Fenced code blocks (24% → 目标 80%)
-- [ ] Setext headings (70%, 可接受)
-- [ ] Block quotes (33% → 目标 60%)
-- [ ] Thematic breaks (63%, 可接受)
+- [ ] Thematic breaks (79% → 目标 90%)
+- [ ] Setext headings (89%, 可接受)
 - [ ] Indented code blocks (83%, 可接受)
-- [ ] HTML blocks (64% → 目标 80%)
 
 **低通过率 sections (复杂规则，低优先)**：
 - Emphasis (39%) — 规则极复杂，投入产出比低
-- Links (34%) — 需实现完整 link reference definitions
-- Lists/List items (8-35%) — 需实现完整缩进规则
-- Entity references (0%) — 需 HTML entity 解码
-- Images (8%) — 依赖 link reference
+- Links (39%) — 需实现完整 link reference definitions
+- Lists/List items (12-38%) — 需实现完整缩进规则
+- Images (27%) — 依赖 link reference
 
 ### 4.2 适度修复（投入产出比高的）
 - [x] ATX heading 尾部 # 关闭 + 空标题 + 1-3 前导空格 → 336/652 (51.5%)
 - [x] Fenced code 1-3 前导空格 + 关闭 fence 前导空格 + backtick info 不含 ` → 342/652 (52.5%)
 - [x] Thematic break 1-3 前导空格 + blockquote 前导空格/懒续行收紧 + setext 前导空格 + backslash escape 解码 → 356/652 (54.6%)
-- [ ] Fenced code 关闭条件宽松化
-- [ ] Block quote 延迟续行
+- [x] Fenced code backtick info string 全行检查 + 关闭条件修正 → 29/29 满分
+- [x] Block quote 懒续行：禁止续行到 fenced code / indented code → 25/25 满分
 - [ ] 实体引用快速路径（&amp; &lt; &gt; &quot;）
 
 ### 4.3 不优先修复（复杂度高、用户无感）
@@ -212,7 +210,7 @@
 - [ ] `docs/plugins.md` — 插件开发指南
 
 ### 5.4 CI/CD + Demo
-- [x] 7 引擎压测 + 兼容性测试页面
+- [x] 6 引擎压测 + 兼容性测试页面
 - [ ] GitHub Actions (test + bench + publish)
 - [ ] 在线 Playground
 
@@ -275,6 +273,7 @@
 
 | 日期 | 变更内容 |
 |------|---------|
+| 2026-04-04 | 块级解析器 RE→charCodeAt 优化（strip3/isBlank/isIndentCode）；Block quotes 25/25 + Fenced code 29/29 满分 → 398/652 (61.0%) |
 | 2026-04-03 | 懒解析内联 lazyInline 5.6x 提速 + 行级 FNV-1a hash + AST 节点复用 + 二分查找变更范围 |
 | 2026-04-03 | renderToDOM — 直接创建 DOM 节点跳过 innerHTML |
 | 2026-04-03 | 全屏编辑/预览切换 + 响应式布局 + AST 段落映射双向同步滚动 + rAF 防抖 |
