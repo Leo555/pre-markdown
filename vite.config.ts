@@ -1,9 +1,26 @@
 import { defineConfig } from 'vite'
 import { resolve } from 'path'
+import { cpSync, existsSync } from 'fs'
 
 const benchNodeModules = resolve(__dirname, 'benchmark/node_modules')
 
+/** Copy benchmark fixtures to build output so fetch('./fixtures/...') works on GitHub Pages */
+function copyBenchmarkFixtures() {
+  return {
+    name: 'copy-benchmark-fixtures',
+    closeBundle() {
+      const src = resolve(__dirname, 'benchmark/fixtures')
+      const dest = resolve(__dirname, '_site/benchmark/fixtures')
+      if (existsSync(src)) {
+        cpSync(src, dest, { recursive: true })
+        console.log('✓ Copied benchmark/fixtures → _site/benchmark/fixtures')
+      }
+    },
+  }
+}
+
 export default defineConfig({
+  plugins: [copyBenchmarkFixtures()],
   resolve: {
     alias: {
       '@pre-markdown/core': resolve(__dirname, 'packages/core/src'),
@@ -44,6 +61,6 @@ export default defineConfig({
   },
   optimizeDeps: {
     exclude: ['@chenglou/pretext'],
-    entries: ['index.html', 'demo/main.ts', 'benchmark/index.html', 'benchmark/main.ts', 'benchmark/compat.html', 'benchmark/compat.ts'],
+    entries: ['index.html', 'demo/main.ts', 'benchmark/index.html', 'benchmark/main.ts', 'benchmark/compat.html', 'benchmark/compat.ts', 'benchmark/compat-inline.ts'],
   },
 })

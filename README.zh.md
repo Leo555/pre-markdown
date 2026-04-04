@@ -10,7 +10,7 @@
 
 **高性能 Markdown 引擎** — 基于 [pretext](https://github.com/chenglou/pretext) 零 DOM 重排布局，打造 JavaScript 生态中最快的 Markdown 解析和渲染系统。
 
-**[中文](./README.zh.md) | [English](./README.en.md) | [性能对标](./benchmark) | [完整 API](./docs/api.md)**
+**[中文](./README.zh.md) | [English](./README.en.md) | [🚀 性能对标](https://leo555.github.io/pre-markdown/benchmark/) | [完整 API](./docs/api.md)**
 
 </div>
 
@@ -36,6 +36,8 @@
 **一句话：** 通过零 DOM 重排布局和增量解析，实现比 marked 快 3 倍、比 markdown-it 快 10 倍的 Markdown 引擎，同时保持 < 30KB gzip 的轻量级体积。
 
 ### 性能对标
+
+**[👉 在线性能对标页面（点击即用）](https://leo555.github.io/pre-markdown/benchmark/)** — 在浏览器中实时对比 7 引擎性能和语法兼容性
 
 | 特性 | PreMarkdown | marked | markdown-it | commonmark.js | Cherry |
 |------|:---:|:---:|:---:|:---:|:---:|
@@ -210,7 +212,7 @@ const viewport = engine.computeViewportLayout(
 | **自定义渲染器** | `/examples/custom-renderer.html` | 代码高亮、链接处理、主题定制 |
 | **增量解析** | `/examples/incremental-parsing.html` | 全量 vs 增量性能对比、大文档处理 |
 | **完整编辑器 Demo** | `/demo` | 二分屏实时编辑器、工具栏、快捷键 |
-| **性能压测** | `/benchmark` | 7 引擎实时性能对比、语法兼容性测试 |
+| **性能压测** | [在线体验 →](https://leo555.github.io/pre-markdown/benchmark/) | 7 引擎实时性能对比、语法兼容性测试 |
 
 ### 快速访问示例
 

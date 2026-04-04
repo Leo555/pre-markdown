@@ -10,7 +10,7 @@
 
 **High-performance Markdown Engine** — Built with [pretext](https://github.com/chenglou/pretext) zero-reflow layout engine, delivering the fastest Markdown parser and renderer in the JavaScript ecosystem.
 
-**[中文](./README.zh.md) | [English](./README.en.md) | [Benchmarks](./benchmark) | [Full API](./docs/api.md)**
+**[中文](./README.zh.md) | [English](./README.en.md) | [🚀 Benchmarks](https://leo555.github.io/pre-markdown/benchmark/) | [Full API](./docs/api.md)**
 
 </div>
 
@@ -36,6 +36,8 @@
 **TL;DR:** 3x faster than marked, 10x faster than markdown-it, with zero DOM reflow, incremental parsing, and only < 30KB gzip bundle size.
 
 ### Performance Comparison
+
+**[👉 Try Live Benchmarks (no install needed)](https://leo555.github.io/pre-markdown/benchmark/)** — Compare 7 engines in real-time, directly in your browser
 
 | Feature | PreMarkdown | marked | markdown-it | commonmark.js | Cherry |
 |---------|:---:|:---:|:---:|:---:|:---:|
@@ -210,7 +212,7 @@ Run these example pages locally during development:
 | **Custom Renderer** | `/examples/custom-renderer.html` | Syntax highlighting, link handling, themes |
 | **Incremental Parse** | `/examples/incremental-parsing.html` | Full vs incremental performance, large docs |
 | **Full Editor Demo** | `/demo` | Split-pane real-time editor, toolbar, shortcuts |
-| **Performance Benchmarks** | `/benchmark` | 7-engine real-time comparison, compatibility |
+| **Performance Benchmarks** | [Live Demo →](https://leo555.github.io/pre-markdown/benchmark/) | 7-engine real-time comparison, compatibility |
 
 ### Quick Access
 

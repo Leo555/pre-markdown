@@ -10,7 +10,7 @@
 
 **高性能 Markdown 引擎** — 基于 [pretext](https://github.com/chenglou/pretext) 零 DOM 重排布局，打造 JavaScript 生态中最快的 Markdown 解析和渲染系统。
 
-[**简体中文**](./README.md) • [**English**](./README.en.md) • [**性能对标**](./benchmark) • [**完整 API**](./docs/api.md)
+[**简体中文**](./README.md) • [**English**](./README.en.md) • [**🚀 性能对标**](https://leo555.github.io/pre-markdown/benchmark/) • [**完整 API**](./docs/api.md)
 
 </div>
 
@@ -37,13 +37,11 @@
 
 ### 性能 & 功能对标
 
-启动开发服务器后，可在浏览器中查看 **7 引擎实时对比**：
+**[👉 在线性能对标页面（点击即用）](https://leo555.github.io/pre-markdown/benchmark/)**
 
-```bash
-pnpm dev
-# 性能压测：http://localhost:9527/benchmark/
-# 语法兼容性：http://localhost:9527/benchmark/compat.html
-```
+在浏览器中实时对比 **7 引擎性能** 和 **语法兼容性**，无需安装。
+
+> 也可本地运行：`pnpm dev` → 打开 http://localhost:9527/benchmark/
 
 ---
 
@@ -208,7 +206,7 @@ const viewport = engine.computeViewportLayout(
 | **自定义渲染器** | `/examples/custom-renderer.html` | 代码高亮、链接处理、主题定制 |
 | **增量解析** | `/examples/incremental-parsing.html` | 全量 vs 增量性能对比、大文档处理 |
 | **完整编辑器 Demo** | `/demo` | 二分屏实时编辑器、工具栏、快捷键 |
-| **性能压测** | `/benchmark` | 7 引擎实时性能对比、语法兼容性测试 |
+| **性能压测** | [在线体验 →](https://leo555.github.io/pre-markdown/benchmark/) | 7 引擎实时性能对比、语法兼容性测试 |
 
 ### 快速访问示例
 
@@ -411,7 +409,7 @@ pre-markdown/
 
 ### Q: PreMarkdown 和 marked、markdown-it 有什么区别？
 
-**A:** 启动 `pnpm dev` 后打开 [性能压测页面](http://localhost:9527/benchmark/) 和 [兼容性测试页面](http://localhost:9527/benchmark/compat.html)，可在浏览器中实时对比 7 个主流引擎的解析速度和语法覆盖率。
+**A:** 打开 [在线性能压测页面](https://leo555.github.io/pre-markdown/benchmark/)，可在浏览器中实时对比 7 个主流引擎的解析速度和语法覆盖率。也可在本地运行 `pnpm dev` 后访问 http://localhost:9527/benchmark/ 。
 
 ### Q: 我需要自定义 Markdown 语法吗？
 
