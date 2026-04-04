@@ -12,7 +12,7 @@ import MarkdownIt from 'markdown-it'
 import * as commonmark from 'commonmark'
 import Showdown from 'showdown'
 import { Remarkable } from 'remarkable'
-import CherryEngine from 'cherry-markdown/engine'
+import CherryEngine from 'cherry-markdown'
 
 // ============================================================
 // Engines

@@ -18,7 +18,7 @@ import MarkdownIt from 'markdown-it'
 import * as commonmark from 'commonmark'
 import Showdown from 'showdown'
 import { Remarkable } from 'remarkable'
-import CherryEngine from 'cherry-markdown/engine'
+import CherryEngine from 'cherry-markdown'
 
 // ============================================================
 // DOM
@@ -26,21 +26,10 @@ import CherryEngine from 'cherry-markdown/engine'
 const $log = document.getElementById('log')!
 const $status = document.getElementById('status')!
 const $results = document.getElementById('results')!
-const $cherryStatus = document.getElementById('cherry-status')!
 
 // ============================================================
 // Engine setup
 // ============================================================
-
-// Cherry Engine (ESM import)
-let cherryAvailable = false
-try {
-  if (typeof CherryEngine === 'function') {
-    cherryAvailable = true
-  }
-} catch { /* ignore */ }
-$cherryStatus.textContent = cherryAvailable ? '✓ Cherry Engine 已加载' : '✗ Cherry Engine 未加载'
-$cherryStatus.className = cherryAvailable ? 'cherry-status cherry-ok' : 'cherry-status cherry-fail'
 
 // markdown-it instance
 const mdit = new MarkdownIt()
@@ -55,19 +44,8 @@ const sdConverter = new Showdown.Converter()
 // remarkable instance
 const remarkableInst = new Remarkable()
 
-// Cherry engine instance (lazy)
-let cherryEngineInstance: any = null
-function getCherryEngine(): any {
-  if (cherryEngineInstance) return cherryEngineInstance
-  if (!cherryAvailable) return null
-  try {
-    cherryEngineInstance = new CherryEngine({ global: { flowSessionContext: false } })
-    return cherryEngineInstance
-  } catch (e: any) {
-    log(`Cherry Engine 创建失败: ${e.message}`, 'err')
-    return null
-  }
-}
+// Cherry engine instance
+const cherryEngine = new CherryEngine({ global: { flowSessionContext: false } })
 
 // ============================================================
 // Logging
@@ -262,20 +240,15 @@ async function runBenchmark() {
     log(`    Render: ${fms(pre.render)}  |  Total: ${fms(pre.total)}`, 'info')
 
     // 2. Cherry
-    if (!skipHeavy && cherryAvailable) {
+    if (!skipHeavy) {
       log(`  Cherry...`)
       await new Promise(r => setTimeout(r, 5))
-      const engine = getCherryEngine()
-      if (engine) {
-        const r = benchEngine('Cherry', (m) => engine.makeHtml(m), md, iterations)
-        results.push(r)
-        log(`    ${r.all.map(fms).join(', ')}  |  median: ${fms(r.total)}`, 'info')
-      } else {
-        results.push({ name: 'Cherry', total: -1, parse: 0, render: 0, all: [] })
-      }
+      const rCherry = benchEngine('Cherry', (m) => cherryEngine.makeHtml(m), md, iterations)
+      results.push(rCherry)
+      log(`    ${rCherry.all.map(fms).join(', ')}  |  median: ${fms(rCherry.total)}`, 'info')
     } else {
       results.push({ name: 'Cherry', total: -1, parse: 0, render: 0, all: [] })
-      if (skipHeavy) log(`  Cherry: 跳过 (>5MB)`, 'warn')
+      log(`  Cherry: 跳过 (>5MB)`, 'warn')
     }
 
     // 3. marked
