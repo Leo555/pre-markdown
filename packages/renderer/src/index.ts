@@ -390,15 +390,17 @@ function renderInlineNode(node: InlineNode, opts: Required<RendererOptions>): st
       return node.value
     case 'audio': {
       const safeAudioUrl = opts.sanitize ? sanitizeUrl(node.url) : node.url
-      let r = '<audio controls src="' + escapeAttr(safeAudioUrl) + '"'
+      let r = '<audio controls preload="metadata" src="' + escapeAttr(safeAudioUrl) + '"'
       if (node.title) r += ' title="' + escapeAttr(node.title) + '"'
-      return r + '></audio>'
+      const audioAlt = node.title || 'Audio'
+      return r + '>' + escapeHtml(audioAlt) + '</audio>'
     }
     case 'video': {
       const safeVideoUrl = opts.sanitize ? sanitizeUrl(node.url) : node.url
-      let r = '<video controls src="' + escapeAttr(safeVideoUrl) + '"'
+      let r = '<video controls preload="metadata" src="' + escapeAttr(safeVideoUrl) + '"'
       if (node.title) r += ' title="' + escapeAttr(node.title) + '"'
-      return r + '></video>'
+      const videoAlt = node.title || 'Video'
+      return r + '>' + escapeHtml(videoAlt) + '</video>'
     }
     case 'autolink':
       return '<a href="' + escapeAttr(node.url) + '">' + escapeHtml(node.url.replace(/^mailto:/, '')) + '</a>'
@@ -794,13 +796,17 @@ function renderInlineToDOM(node: InlineNode, opts: Required<RendererOptions>): N
     case 'audio': {
       const audio = document.createElement('audio')
       audio.controls = true
+      audio.preload = 'metadata'
       audio.src = node.url
+      audio.textContent = node.title || 'Audio'
       return audio
     }
     case 'video': {
       const video = document.createElement('video')
       video.controls = true
+      video.preload = 'metadata'
       video.src = node.url
+      video.textContent = node.title || 'Video'
       return video
     }
     case 'underline': {

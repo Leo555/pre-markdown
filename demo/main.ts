@@ -73,6 +73,12 @@ console.log(fibonacci(10)) // 55
 
 ---
 
+## 图片
+
+![Markdown Logo](https://upload.wikimedia.org/wikipedia/commons/thumb/4/48/Markdown-mark.svg/208px-Markdown-mark.svg.png "Markdown Logo")
+
+---
+
 ## 扩展语法
 
 ### 数学公式
@@ -131,9 +137,9 @@ $$
 
 ### 音视频
 
-!audio[示例音频](https://example.com/audio.mp3)
+!audio[示例音频](https://www.w3schools.com/html/horse.mp3)
 
-!video[示例视频](https://example.com/video.mp4)
+!video[示例视频](https://www.w3schools.com/html/mov_bbb.mp4)
 
 ---
 
@@ -226,11 +232,6 @@ function updateActiveLine(): void {
     currentLine = line
   }
 }
-
-// Initialize
-editor.value = DEFAULT_CONTENT
-update(DEFAULT_CONTENT)
-updateLineNumbers(DEFAULT_CONTENT)
 
 // Live update with debounce
 editor.addEventListener('input', () => {
@@ -407,7 +408,20 @@ function insertAtCursor(text: string): void {
 // ============================================================
 
 let lastAST: Document | null = null
-let syncScrollEnabled = true
+
+// Scroll lock: tracks which pane initiated the scroll.
+// While locked, the other pane's scroll handler is suppressed.
+let scrollSource: 'editor' | 'preview' | null = null
+let scrollLockTimer: ReturnType<typeof setTimeout> | null = null
+
+function lockScroll(source: 'editor' | 'preview'): void {
+  scrollSource = source
+  if (scrollLockTimer) clearTimeout(scrollLockTimer)
+  scrollLockTimer = setTimeout(() => {
+    scrollSource = null
+    scrollLockTimer = null
+  }, 150)
+}
 
 /** Build line→block index map from source text */
 function buildLineBlockMap(value: string): number[] {
@@ -438,8 +452,9 @@ function updateSyncData(value: string, ast: Document): void {
 
 /** Sync editor scroll → preview scroll using block mapping */
 function syncEditorToPreview(): void {
-  if (!syncScrollEnabled) return
-  // Sync line numbers
+  if (scrollSource === 'preview') return
+
+  // Sync line numbers (always, no lock needed)
   lineNumbers.scrollTop = editor.scrollTop
 
   // Find which line is at the top of the editor viewport
@@ -451,15 +466,14 @@ function syncEditorToPreview(): void {
   const previewChildren = preview.children
   if (blockIndex < previewChildren.length) {
     const targetEl = previewChildren[blockIndex] as HTMLElement
-    syncScrollEnabled = false
+    lockScroll('editor')
     preview.scrollTop = targetEl.offsetTop - 20
-    requestAnimationFrame(() => { syncScrollEnabled = true })
   }
 }
 
 /** Sync preview scroll → editor scroll using block mapping */
 function syncPreviewToEditor(): void {
-  if (!syncScrollEnabled) return
+  if (scrollSource === 'editor') return
 
   // Find which block is at the top of the preview viewport
   const previewChildren = preview.children
@@ -476,10 +490,9 @@ function syncPreviewToEditor(): void {
   for (let i = 0; i < lineBlockMap.length; i++) {
     if (lineBlockMap[i] === blockIndex) {
       const lineHeight = parseFloat(getComputedStyle(editor).lineHeight) || 24
-      syncScrollEnabled = false
+      lockScroll('preview')
       editor.scrollTop = i * lineHeight
       lineNumbers.scrollTop = editor.scrollTop
-      requestAnimationFrame(() => { syncScrollEnabled = true })
       break
     }
   }
@@ -656,3 +669,18 @@ viewControls.addEventListener('click', (e) => {
     previewPane.style.flex = ''
   }
 })
+
+// ============================================================
+// Initialize (after all event listeners are registered)
+// ============================================================
+
+try {
+  editor.value = DEFAULT_CONTENT
+  update(DEFAULT_CONTENT)
+  updateLineNumbers(DEFAULT_CONTENT)
+} catch (err) {
+  console.error('[PreMarkdown] Initialization error:', err)
+  // Even if parse/render fails, the editor and buttons still work
+  editor.value = DEFAULT_CONTENT
+  updateLineNumbers(DEFAULT_CONTENT)
+}
