@@ -1,3 +1,5 @@
+/// <reference lib="webworker" />
+
 /**
  * @pre-markdown/layout — Web Worker Script
  *

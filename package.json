@@ -17,7 +17,7 @@
     "bench:report": "tsx harness/benchmarks/runner.ts",
     "lint": "eslint packages/ --ext .ts,.tsx",
     "format": "prettier --write 'packages/**/*.{ts,tsx}'",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit -p tsconfig.check.json",
     "clean": "pnpm -r clean && rimraf node_modules",
     "changeset": "changeset",
     "changeset:version": "changeset version",

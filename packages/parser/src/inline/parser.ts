@@ -42,7 +42,7 @@ import {
 
 const RE_ESCAPE = /[!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~]/
 const RE_FOOTNOTE_REF = /\[\^([^\]]+)\]/y
-const RE_AUTOLINK_URI = /<([a-zA-Z][a-zA-Z0-9+.\-]{1,31}:[^\s<>]*)>/y
+const RE_AUTOLINK_URI = /<([a-zA-Z][a-zA-Z0-9+.-]{1,31}:[^\s<>]*)>/y
 const RE_AUTOLINK_EMAIL = /<([a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*)>/y
 const RE_HTML_INLINE_OPEN = /<[a-zA-Z][a-zA-Z0-9-]*(?:\s+[a-zA-Z_:][a-zA-Z0-9_.:-]*(?:\s*=\s*(?:[^\s"'=<>`]+|'[^']*'|"[^"]*"))?)*\s*\/?>/y
 const RE_HTML_INLINE_CLOSE = /<\/[a-zA-Z][a-zA-Z0-9-]*\s*>/y
@@ -518,6 +518,7 @@ interface InlineResult {
 }
 
 // Special chars that trigger inline parsing — if content has none, just return [Text]
+// eslint-disable-next-line no-useless-escape
 const INLINE_SPECIAL_CHARS = /[`*_~\[!<$\\={^:/{}\n]/
 
 /** Fast path: if content has no special inline chars, return single Text node */
@@ -544,7 +545,7 @@ function tryInlineCode(input: string, start: number): InlineResult | null {
     if (searchPos >= input.length) return null
 
     // Count consecutive backticks
-    let runStart = searchPos
+    const runStart = searchPos
     while (searchPos < input.length && input.charCodeAt(searchPos) === 96) searchPos++
     const runLen = searchPos - runStart
 

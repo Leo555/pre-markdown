@@ -1,12 +1,22 @@
 {
   "name": "@pre-markdown/harness",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "description": "Test harness, benchmarks, and fixtures for PreMarkdown",
   "type": "module",
   "dependencies": {
     "@pre-markdown/core": "workspace:*",
     "@pre-markdown/parser": "workspace:*",
-    "@pre-markdown/renderer": "workspace:*"
+    "@pre-markdown/renderer": "workspace:*",
+    "marked": "^15.0.0",
+    "markdown-it": "^14.0.0",
+    "commonmark": "^0.31.0",
+    "showdown": "^2.1.0",
+    "remarkable": "^2.0.1"
+  },
+  "devDependencies": {
+    "@types/markdown-it": "^14.0.0",
+    "@types/commonmark": "^0.27.0",
+    "@types/showdown": "^2.0.0"
   }
 }

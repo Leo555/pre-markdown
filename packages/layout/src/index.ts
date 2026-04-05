@@ -191,7 +191,7 @@ export function createFallbackBackend(avgCharWidth = 8): MeasurementBackend {
     layoutWithLines(prepared: PreparedTextWithSegments, maxWidth: number, lineHeight: number): PretextLinesResult {
       const text = (prepared as unknown as { text: string }).text ?? ''
       const wrappedLines = wrapText(text, maxWidth, avgCharWidth)
-      const lines = wrappedLines.map((line, i) => ({
+      const lines = wrappedLines.map((line, _i) => ({
         text: line,
         width: line.length * avgCharWidth,
         start: { segmentIndex: 0, graphemeIndex: 0 },
@@ -272,7 +272,7 @@ export class LayoutEngine {
 
   /** Update layout configuration. Invalidates cache if font changes. */
   updateConfig(config: Partial<LayoutConfig>): void {
-    const fontChanged = config.font && config.font !== this.config.font
+    const fontChanged = config.font !== undefined && config.font !== this.config.font
     this.config = { ...this.config, ...config }
     if (fontChanged) {
       this.clearAllCaches()
@@ -512,7 +512,7 @@ export class LayoutEngine {
 
   /** Invalidate cache for a specific text block. */
   invalidateCache(text?: string): void {
-    if (text) {
+    if (text !== undefined) {
       const key = this.cacheKey(text)
       this.preparedCache.delete(key)
       this.preparedSegCache.delete(key)

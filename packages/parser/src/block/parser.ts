@@ -380,7 +380,7 @@ function tryATXHeading(
   i: number,
   _opts: Required<BlockParserOptions>,
 ): ParseResult | null {
-  let line = lines[i]!
+  const line = lines[i]!
   // Strip up to 3 leading spaces (CommonMark spec)
   const stripped = strip3(line)
   const match = RE_ATX_HEADING.exec(stripped)
@@ -1104,6 +1104,7 @@ function tryFrontMatter(lines: string[], i: number, end: number): ParseResult | 
   const hasContent = contentLines.some((l) => l.trim().length > 0)
   if (!hasContent) return null
   // Content must look like YAML/JSON (contain : or { or [) — avoid matching thematic break sequences
+  // eslint-disable-next-line no-useless-escape
   const looksLikeYaml = contentLines.some((l) => /[:{\[]/.test(l))
   if (!looksLikeYaml) return null
 

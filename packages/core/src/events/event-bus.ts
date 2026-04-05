@@ -28,7 +28,8 @@ export interface EditorEvents {
 }
 
 export class EventBus<Events extends object = EditorEvents> {
-  private handlers = new Map<keyof Events, Set<Handler>>()
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+  private handlers = new Map<keyof Events, Set<Function>>()
 
   /** Subscribe to an event */
   on<K extends keyof Events>(event: K, handler: Handler<Events[K]>): () => void {
@@ -37,12 +38,12 @@ export class EventBus<Events extends object = EditorEvents> {
       set = new Set()
       this.handlers.set(event, set)
     }
-    set.add(handler as Handler)
+    set.add(handler)
 
     // Return unsubscribe function
-    return () => {
-      set!.delete(handler as Handler)
-      if (set!.size === 0) {
+    return (): void => {
+      set.delete(handler)
+      if (set.size === 0) {
         this.handlers.delete(event)
       }
     }
@@ -50,10 +51,11 @@ export class EventBus<Events extends object = EditorEvents> {
 
   /** Subscribe to an event, auto-unsubscribe after first call */
   once<K extends keyof Events>(event: K, handler: Handler<Events[K]>): () => void {
-    const unsub = this.on(event, ((data: Events[K]) => {
+    const wrapper: Handler<Events[K]> = (data: Events[K]) => {
       unsub()
       handler(data)
-    }) as Handler<Events[K]>)
+    }
+    const unsub = this.on(event, wrapper)
     return unsub
   }
 
@@ -69,7 +71,7 @@ export class EventBus<Events extends object = EditorEvents> {
 
   /** Remove all handlers for an event, or all events */
   off<K extends keyof Events>(event?: K): void {
-    if (event) {
+    if (event !== undefined) {
       this.handlers.delete(event)
     } else {
       this.handlers.clear()

@@ -68,7 +68,7 @@ export function createHighlightPlugin(
 
         // Skip mermaid (handled by mermaid plugin) and user-specified languages
         if (lang === 'mermaid') return undefined
-        if (lang && skipSet.has(lang)) return undefined
+        if (lang !== undefined && skipSet.has(lang)) return undefined
 
         let code = node.value
         if (code.length > 0 && code.charCodeAt(code.length - 1) !== 10) {
@@ -89,10 +89,10 @@ export function createHighlightPlugin(
         }
 
         // Build HTML
-        const langClass = node.lang ? ` class="${classPrefix}${escapeAttr(node.lang)}"` : ''
+        const langClass = node.lang !== undefined ? ` class="${classPrefix}${escapeAttr(node.lang)}"` : ''
         const codeHtml = `<pre><code${langClass}>${highlighted}</code></pre>\n`
 
-        if (wrapperClass) {
+        if (wrapperClass !== undefined) {
           return `<div class="${wrapperClass}">${codeHtml}</div>\n`
         }
 

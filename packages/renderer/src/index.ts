@@ -185,7 +185,7 @@ function renderBlockNode(node: BlockNode, opts: Required<RendererOptions>): stri
       renderChildren: (children) => {
         // Determine if children are block or inline
         if (children.length > 0 && 'type' in children[0]!) {
-          const first = children[0] as any
+          const first = children[0] as { type: string }
           if (first.type === 'text' || first.type === 'emphasis' || first.type === 'strong' ||
               first.type === 'inlineCode' || first.type === 'link' || first.type === 'image') {
             return renderInlineNodes(children as InlineNode[], opts)
