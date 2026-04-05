@@ -1142,9 +1142,8 @@ function tryDetail(
 
   const children = parseBlockLines(contentLines, 0, contentLines.length, opts)
 
-  // Use Details node — summary field stores the title
-  // isOpen is encoded by prefixing summary with a marker
-  const detailSummary = isOpen ? summary : summary
+  // Pass the open state: prefix summary with a marker for the renderer
+  const detailSummary = isOpen ? `[open]${summary}` : summary
 
   return {
     node: createDetails(detailSummary, children),

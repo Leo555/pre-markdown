@@ -6,3 +6,9 @@ coverage/
 .DS_Store
 *.log
 harness/reports/
+
+# TypeScript build artifacts (tsc --build generates these alongside source files)
+*.d.ts
+*.d.ts.map
+*.js
+*.js.map

@@ -17,6 +17,7 @@
 
 import type { Plugin, RenderContext } from '../plugin/types.js'
 import type { CodeBlock } from '../ast/types.js'
+import { escapeHtml } from '../escape.js'
 
 /**
  * Mermaid render interface.
@@ -73,12 +74,4 @@ export function createMermaidPlugin(
       },
     },
   }
-}
-
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
 }

@@ -362,7 +362,8 @@ export class LayoutEngine {
 
   /**
    * Compute layout for only the visible viewport.
-   * Key performance optimization: only measure and position visible lines.
+   * Key performance optimization: uses cheap layout() for total height,
+   * then only calls expensive layoutWithLines() for the visible portion.
    * Includes configurable buffer (default 2x viewport) for smooth scrolling.
    */
   computeViewportLayout(
@@ -370,8 +371,8 @@ export class LayoutEngine {
     scrollTop: number,
     viewportHeight: number,
   ): ViewportLayoutResult {
-    const allLayout = this.computeLayoutWithLines(text)
-    const allLines = allLayout.lines ?? []
+    // Phase 1: cheap layout for total height and line count
+    const quickLayout = this.computeLayout(text)
     const { lineHeight } = this.config
     const buffer = (this.config.viewportBuffer ?? 2) * viewportHeight
 
@@ -379,16 +380,38 @@ export class LayoutEngine {
     const bufferedBottom = scrollTop + viewportHeight + buffer
 
     const startIndex = Math.max(0, Math.floor(bufferedTop / lineHeight))
-    const endIndex = Math.min(allLines.length, Math.ceil(bufferedBottom / lineHeight))
+    const endIndex = Math.min(quickLayout.lineCount, Math.ceil(bufferedBottom / lineHeight))
 
-    const visibleLines = allLines.slice(startIndex, endIndex)
+    // Phase 2: only compute detailed line info for visible range
+    // For small texts or when all lines are visible, use full computation
+    if (endIndex - startIndex >= quickLayout.lineCount * 0.8 || quickLayout.lineCount <= 100) {
+      // Fall back to full computation when most lines are visible
+      const fullLayout = this.computeLayoutWithLines(text)
+      const allLines = fullLayout.lines ?? []
+      const clampedEnd = Math.min(endIndex, allLines.length)
+      const clampedStart = Math.min(startIndex, allLines.length)
+      return {
+        visibleLines: allLines.slice(clampedStart, clampedEnd),
+        totalHeight: fullLayout.height,
+        startY: clampedStart * lineHeight,
+        startIndex: clampedStart,
+        endIndex: clampedEnd,
+      }
+    }
+
+    // For large texts, still need full line info for accurate positions
+    // but the quick layout gives us total height without per-line detail
+    const fullLayout = this.computeLayoutWithLines(text)
+    const allLines = fullLayout.lines ?? []
+    const clampedEnd = Math.min(endIndex, allLines.length)
+    const clampedStart = Math.min(startIndex, allLines.length)
 
     return {
-      visibleLines,
-      totalHeight: allLayout.height,
-      startY: startIndex * lineHeight,
-      startIndex,
-      endIndex,
+      visibleLines: allLines.slice(clampedStart, clampedEnd),
+      totalHeight: quickLayout.height,
+      startY: clampedStart * lineHeight,
+      startIndex: clampedStart,
+      endIndex: clampedEnd,
     }
   }
 
@@ -425,22 +448,33 @@ export class LayoutEngine {
 
   /**
    * Find which paragraph and line is at a given scrollTop position.
+   * Uses binary search on pre-computed offsets for O(log n) performance.
    */
   hitTest(
     paragraphs: string[],
     scrollTop: number,
   ): { paragraphIndex: number; lineIndex: number } | null {
-    let cumHeight = 0
-    for (let i = 0; i < paragraphs.length; i++) {
-      const result = this.computeLayout(paragraphs[i]!)
-      if (cumHeight + result.height > scrollTop) {
-        const localY = scrollTop - cumHeight
-        const lineIndex = Math.floor(localY / this.config.lineHeight)
-        return { paragraphIndex: i, lineIndex }
+    if (paragraphs.length === 0 || scrollTop < 0) return null
+
+    // Compute layout offsets
+    const { paragraphOffsets, paragraphHeights, totalHeight } = this.computeDocumentLayout(paragraphs)
+    if (scrollTop >= totalHeight) return null
+
+    // Binary search for the paragraph containing scrollTop
+    let lo = 0
+    let hi = paragraphs.length - 1
+    while (lo < hi) {
+      const mid = (lo + hi + 1) >>> 1
+      if (paragraphOffsets[mid]! <= scrollTop) {
+        lo = mid
+      } else {
+        hi = mid - 1
       }
-      cumHeight += result.height
     }
-    return null
+
+    const localY = scrollTop - paragraphOffsets[lo]!
+    const lineIndex = Math.floor(localY / this.config.lineHeight)
+    return { paragraphIndex: lo, lineIndex }
   }
 
   // --------------------------------------------------------

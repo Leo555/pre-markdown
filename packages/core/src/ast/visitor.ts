@@ -65,26 +65,29 @@ export function findFirst<T extends ASTNode>(
   return found
 }
 
+/** Module-level constant Sets for type guards (avoid creating new Set on every call) */
+const BLOCK_TYPES: ReadonlySet<string> = new Set([
+  'heading', 'paragraph', 'blockquote', 'list', 'listItem',
+  'codeBlock', 'thematicBreak', 'htmlBlock', 'table', 'tableRow',
+  'tableCell', 'footnoteDefinition', 'mathBlock', 'container',
+  'details', 'toc',
+])
+
+const INLINE_TYPES: ReadonlySet<string> = new Set([
+  'text', 'emphasis', 'strong', 'strikethrough', 'inlineCode',
+  'link', 'image', 'htmlInline', 'break', 'softBreak',
+  'footnoteReference', 'mathInline', 'highlight', 'superscript',
+  'subscript', 'fontColor', 'fontSize', 'fontBgColor', 'ruby',
+  'emoji', 'audio', 'video', 'autolink', 'underline',
+])
+
 /** Type guard helpers */
 export function isBlockNode(node: ASTNode): node is BlockNode {
-  const blockTypes = new Set([
-    'heading', 'paragraph', 'blockquote', 'list', 'listItem',
-    'codeBlock', 'thematicBreak', 'htmlBlock', 'table', 'tableRow',
-    'tableCell', 'footnoteDefinition', 'mathBlock', 'container',
-    'details', 'toc',
-  ])
-  return blockTypes.has(node.type)
+  return BLOCK_TYPES.has(node.type)
 }
 
 export function isInlineNode(node: ASTNode): node is InlineNode {
-  const inlineTypes = new Set([
-    'text', 'emphasis', 'strong', 'strikethrough', 'inlineCode',
-    'link', 'image', 'htmlInline', 'break', 'softBreak',
-    'footnoteReference', 'mathInline', 'highlight', 'superscript',
-    'subscript', 'fontColor', 'fontSize', 'fontBgColor', 'ruby',
-    'emoji', 'audio', 'video', 'autolink', 'underline',
-  ])
-  return inlineTypes.has(node.type)
+  return INLINE_TYPES.has(node.type)
 }
 
 /** Get plain text content from an inline node tree */

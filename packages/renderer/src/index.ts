@@ -49,6 +49,7 @@ import type {
   Emoji,
 } from '@pre-markdown/core'
 import type { PluginManager, RenderContext } from '@pre-markdown/core'
+import { escapeHtml, escapeAttr, isInlineNode } from '@pre-markdown/core'
 
 /** Renderer options */
 export interface RendererOptions {
@@ -64,60 +65,6 @@ export interface RendererOptions {
   inlineParser?: ((raw: string) => InlineNode[]) | null
   /** Plugin manager for render hooks */
   plugins?: PluginManager | null
-}
-
-// ============================================================
-// Fast escapeHtml — single-pass scan, no intermediate strings
-// ============================================================
-
-const ESCAPE_HTML_RE = /[&<>"]/
-
-function escapeHtml(str: string): string {
-  // Fast path: no special chars → return original (zero-copy)
-  if (!ESCAPE_HTML_RE.test(str)) return str
-
-  let out = ''
-  let last = 0
-  for (let i = 0; i < str.length; i++) {
-    const ch = str.charCodeAt(i)
-    let esc: string | undefined
-    if (ch === 38) esc = '&amp;'       // &
-    else if (ch === 60) esc = '&lt;'   // <
-    else if (ch === 62) esc = '&gt;'   // >
-    else if (ch === 34) esc = '&quot;' // "
-    if (esc !== undefined) {
-      if (last < i) out += str.slice(last, i)
-      out += esc
-      last = i + 1
-    }
-  }
-  if (last === 0) return str
-  if (last < str.length) out += str.slice(last)
-  return out
-}
-
-function escapeAttr(str: string): string {
-  if (!ESCAPE_HTML_RE.test(str) && !str.includes("'")) return str
-
-  let out = ''
-  let last = 0
-  for (let i = 0; i < str.length; i++) {
-    const ch = str.charCodeAt(i)
-    let esc: string | undefined
-    if (ch === 38) esc = '&amp;'
-    else if (ch === 34) esc = '&quot;'
-    else if (ch === 39) esc = '&#39;'
-    else if (ch === 60) esc = '&lt;'
-    else if (ch === 62) esc = '&gt;'
-    if (esc !== undefined) {
-      if (last < i) out += str.slice(last, i)
-      out += esc
-      last = i + 1
-    }
-  }
-  if (last === 0) return str
-  if (last < str.length) out += str.slice(last)
-  return out
 }
 
 // ============================================================
@@ -183,13 +130,9 @@ function renderBlockNode(node: BlockNode, opts: Required<RendererOptions>): stri
       node,
       defaultHtml,
       renderChildren: (children) => {
-        // Determine if children are block or inline
-        if (children.length > 0 && 'type' in children[0]!) {
-          const first = children[0] as { type: string }
-          if (first.type === 'text' || first.type === 'emphasis' || first.type === 'strong' ||
-              first.type === 'inlineCode' || first.type === 'link' || first.type === 'image') {
-            return renderInlineNodes(children as InlineNode[], opts)
-          }
+        // Determine if children are block or inline using proper type guard
+        if (children.length > 0 && 'type' in children[0]! && isInlineNode(children[0] as ASTNode)) {
+          return renderInlineNodes(children as InlineNode[], opts)
         }
         return renderBlockNodes(children as BlockNode[], opts)
       },

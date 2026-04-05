@@ -23,6 +23,7 @@
 
 import type { Plugin, RenderContext } from '../plugin/types.js'
 import type { CodeBlock } from '../ast/types.js'
+import { escapeHtml, escapeAttr } from '../escape.js'
 
 /**
  * A function that highlights code and returns HTML.
@@ -112,21 +113,4 @@ function addLineNumbers(html: string): string {
   return lines
     .map((line, i) => `<span class="line-number" data-line="${i + 1}"></span>${line}`)
     .join('\n') + '\n'
-}
-
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-}
-
-function escapeAttr(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
 }

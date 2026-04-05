@@ -1,8 +1,9 @@
 /**
  * PreMarkdown Demo — Main Entry Point
  */
-import { parse } from '@pre-markdown/parser'
-import { renderToHtml } from '@pre-markdown/renderer'
+import { IncrementalParser } from '@pre-markdown/parser'
+import type { EditOperation } from '@pre-markdown/parser'
+import { renderToDOM } from '@pre-markdown/renderer'
 import { walk } from '@pre-markdown/core'
 import type { Document } from '@pre-markdown/core'
 import { LayoutEngine, CursorEngine } from '@pre-markdown/layout'
@@ -669,15 +670,78 @@ function countNodes(doc: Document): number {
   return count
 }
 
+// ============================================================
+// IncrementalParser Instance (replaces parse() for all updates)
+// ============================================================
+
+let incrementalParser: IncrementalParser | null = null
+let lastEditorValue = ''
+
+/**
+ * Compute an EditOperation from old → new text.
+ * Finds the first and last differing lines for a minimal edit range.
+ */
+function computeEdit(oldText: string, newText: string): EditOperation {
+  const oldLines = oldText.split('\n')
+  const newLines = newText.split('\n')
+
+  // Find first differing line from top
+  let fromLine = 0
+  const minLen = Math.min(oldLines.length, newLines.length)
+  while (fromLine < minLen && oldLines[fromLine] === newLines[fromLine]) {
+    fromLine++
+  }
+
+  // Find first differing line from bottom
+  let oldEnd = oldLines.length
+  let newEnd = newLines.length
+  while (oldEnd > fromLine && newEnd > fromLine && oldLines[oldEnd - 1] === newLines[newEnd - 1]) {
+    oldEnd--
+    newEnd--
+  }
+
+  return {
+    fromLine,
+    toLine: oldEnd,
+    newText: newLines.slice(fromLine, newEnd).join('\n'),
+  }
+}
+
 function update(value: string): void {
   const t0 = performance.now()
-  const ast = parse(value)
+
+  let ast: Document
+
+  if (!incrementalParser) {
+    // First call: initialize IncrementalParser
+    incrementalParser = new IncrementalParser(value, { lazyInline: false })
+    ast = incrementalParser.getDocument()
+  } else if (value !== lastEditorValue) {
+    // Subsequent calls: incremental parse
+    const edit = computeEdit(lastEditorValue, value)
+    try {
+      const result = incrementalParser.applyEdit(edit)
+      ast = result.document
+    } catch {
+      // Fallback to full reparse on error
+      incrementalParser = new IncrementalParser(value, { lazyInline: false })
+      ast = incrementalParser.getDocument()
+    }
+  } else {
+    // No change: reuse current document
+    ast = incrementalParser.getDocument()
+  }
+
+  lastEditorValue = value
+
   const t1 = performance.now()
-  const html = renderToHtml(ast, { sanitize: true, highlight: highlightCodeBlock })
+
+  // Use renderToDOM for direct DOM rendering (skips innerHTML parsing)
+  const fragment = renderToDOM(ast, { sanitize: true, highlight: highlightCodeBlock })
   const t2 = performance.now()
 
-  // Incremental DOM update: only replace changed blocks
-  patchPreview(preview, html)
+  // Incremental DOM update: patch preview with new fragment
+  patchPreviewDOM(preview, fragment)
 
   // Update syntax highlight backdrop
   updateHighlight(value)
@@ -697,8 +761,8 @@ function update(value: string): void {
   const lines = value.split('\n').length
   const visualLines = cursorEngine.getVisualLineCount()
 
-  statParse.textContent = `${parseMs}ms`
-  statRender.textContent = `${renderMs}ms`
+  statParse.textContent = `${parseMs}ms (incr)`
+  statRender.textContent = `${renderMs}ms (DOM)`
   statNodes.textContent = String(nodes)
   statLines.textContent = `${lines} (${visualLines} visual)`
   statTotal.textContent = `Total: ${totalMs}ms (layout: ${layoutMs}ms)`
@@ -1217,31 +1281,28 @@ function insertLinePrefix(prefix: string): void {
 // ============================================================
 
 /**
- * Patch the preview container with new HTML, only replacing changed blocks.
- * Compares top-level children and only replaces those that differ.
- * Falls back to full innerHTML for first render.
+ * Patch the preview container using a DocumentFragment (from renderToDOM).
+ * Uses isEqualNode for DOM comparison — faster than outerHTML string comparison.
  */
-function patchPreview(container: HTMLElement, html: string): void {
-  // First render or empty: full replace
+function patchPreviewDOM(container: HTMLElement, fragment: DocumentFragment): void {
+  const newChildren = Array.from(fragment.children)
+
+  // First render: append all at once
   if (container.children.length === 0) {
-    container.innerHTML = html
+    container.appendChild(fragment)
     return
   }
 
-  // Parse new HTML into a temporary container
-  const temp = document.createElement('div')
-  temp.innerHTML = html
-
   const oldLen = container.children.length
-  const newLen = temp.children.length
+  const newLen = newChildren.length
   const minLen = Math.min(oldLen, newLen)
 
-  // Compare and update existing children
+  // Compare and update existing children using isEqualNode (DOM-level comparison)
   for (let i = 0; i < minLen; i++) {
     const oldChild = container.children[i]!
-    const newChild = temp.children[i]!
-    if (oldChild.outerHTML !== newChild.outerHTML) {
-      container.replaceChild(newChild.cloneNode(true), oldChild)
+    const newChild = newChildren[i]!
+    if (!oldChild.isEqualNode(newChild)) {
+      container.replaceChild(newChild, oldChild)
     }
   }
 
@@ -1251,8 +1312,8 @@ function patchPreview(container: HTMLElement, html: string): void {
   }
 
   // Append new children
-  for (let i = oldLen; i < newLen; i++) {
-    container.appendChild(temp.children[i]!.cloneNode(true))
+  for (let i = minLen; i < newLen; i++) {
+    container.appendChild(newChildren[i]!)
   }
 }
 

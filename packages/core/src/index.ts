@@ -150,3 +150,6 @@ export type {
   HighlightFunction,
   HighlightPluginOptions,
 } from './plugins/index.js'
+
+// HTML Escaping Utilities (shared by renderer + plugins)
+export { escapeHtml, escapeAttr } from './escape.js'

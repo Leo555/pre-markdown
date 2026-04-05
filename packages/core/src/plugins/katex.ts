@@ -17,6 +17,7 @@
 
 import type { Plugin, RenderContext } from '../plugin/types.js'
 import type { MathBlock, MathInline } from '../ast/types.js'
+import { escapeHtml } from '../escape.js'
 
 /**
  * KaTeX render function interface.
@@ -105,12 +106,4 @@ export function createKatexPlugin(
       },
     },
   }
-}
-
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
 }

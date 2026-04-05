@@ -3,7 +3,8 @@
  * Lightweight standalone playground with syntax highlighting, live preview,
  * URL sharing, and export capabilities.
  */
-import { parse } from '@pre-markdown/parser'
+import { IncrementalParser } from '@pre-markdown/parser'
+import type { EditOperation } from '@pre-markdown/parser'
 import { renderToHtml } from '@pre-markdown/renderer'
 import { walk } from '@pre-markdown/core'
 import type { Document } from '@pre-markdown/core'
@@ -332,10 +333,41 @@ function highlightTableRow(raw: string): string {
 }
 
 // ============================================================
-// Core: Parse + Render + Update
+// Core: Parse + Render + Update (IncrementalParser)
 // ============================================================
 
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
+
+let incrementalParser: IncrementalParser | null = null
+let lastEditorValue = ''
+
+/**
+ * Compute an EditOperation from old → new text.
+ * Finds the first and last differing lines for a minimal edit range.
+ */
+function computeEdit(oldText: string, newText: string): EditOperation {
+  const oldLines = oldText.split('\n')
+  const newLines = newText.split('\n')
+
+  let fromLine = 0
+  const minLen = Math.min(oldLines.length, newLines.length)
+  while (fromLine < minLen && oldLines[fromLine] === newLines[fromLine]) {
+    fromLine++
+  }
+
+  let oldEnd = oldLines.length
+  let newEnd = newLines.length
+  while (oldEnd > fromLine && newEnd > fromLine && oldLines[oldEnd - 1] === newLines[newEnd - 1]) {
+    oldEnd--
+    newEnd--
+  }
+
+  return {
+    fromLine,
+    toLine: oldEnd,
+    newText: newLines.slice(fromLine, newEnd).join('\n'),
+  }
+}
 
 function countNodes(doc: Document): number {
   let count = 0
@@ -345,7 +377,27 @@ function countNodes(doc: Document): number {
 
 function update(value: string): void {
   const t0 = performance.now()
-  const ast = parse(value)
+
+  let ast: Document
+
+  if (!incrementalParser) {
+    incrementalParser = new IncrementalParser(value, { lazyInline: false })
+    ast = incrementalParser.getDocument()
+  } else if (value !== lastEditorValue) {
+    const edit = computeEdit(lastEditorValue, value)
+    try {
+      const result = incrementalParser.applyEdit(edit)
+      ast = result.document
+    } catch {
+      incrementalParser = new IncrementalParser(value, { lazyInline: false })
+      ast = incrementalParser.getDocument()
+    }
+  } else {
+    ast = incrementalParser.getDocument()
+  }
+
+  lastEditorValue = value
+
   const t1 = performance.now()
   const html = renderToHtml(ast, { sanitize: true, highlight: highlightCodeBlock })
   const t2 = performance.now()
@@ -361,7 +413,7 @@ function update(value: string): void {
   const totalMs = (t2 - t0).toFixed(2)
   const lines = value.split('\n').length
 
-  statParse.textContent = `${parseMs}ms`
+  statParse.textContent = `${parseMs}ms (incr)`
   statRender.textContent = `${renderMs}ms`
   statLines.textContent = `${lines}`
   statChars.textContent = `${value.length} 字符`

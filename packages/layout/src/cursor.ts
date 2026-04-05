@@ -243,6 +243,8 @@ export class CursorEngine {
   /**
    * Convert pixel coordinates (from a click event) to a text offset.
    * This is the reverse of offsetToPosition().
+   * Optimized: measures full line once, then uses proportional estimation
+   * with refinement, reducing layout calls from ~9 to ~3 per click.
    */
   xyToOffset(x: number, y: number): number {
     const lineHeight = this.engine.getConfig().lineHeight
@@ -257,39 +259,54 @@ export class CursorEngine {
     const lineText = vl.text
     if (lineText.length === 0) return vl.startOffset
 
-    // Binary search: find the offset where measured width crosses x
-    let lo = 0
-    let hi = lineText.length
+    // Quick exit: if x is beyond the full line width, return end of line
+    if (x >= vl.width) return vl.startOffset + lineText.length
 
-    while (lo < hi) {
-      const mid = (lo + hi) >>> 1
-      const prefix = lineText.slice(0, mid + 1)
+    // Quick exit: if x is at or before 0, return start of line
+    if (x <= 0) return vl.startOffset
+
+    // Estimate initial position using proportional width
+    const avgCharWidth = vl.width / lineText.length
+    let estimate = Math.round(x / avgCharWidth)
+    estimate = Math.max(0, Math.min(estimate, lineText.length))
+
+    // Measure at estimate and nearby to find exact position
+    const measureWidth = (charCount: number): number => {
+      if (charCount <= 0) return 0
+      if (charCount >= lineText.length) return vl.width
+      const prefix = lineText.slice(0, charCount)
       const layout = this.engine.computeLayoutWithLines(prefix)
-      const lastLine = layout.lines?.[layout.lines.length - 1]
-      const w = lastLine?.width ?? 0
-
-      if (w <= x) {
-        lo = mid + 1
-      } else {
-        hi = mid
-      }
+      return layout.lines?.[layout.lines.length - 1]?.width ?? 0
     }
 
-    // Fine-tune: check if click is closer to lo or lo-1
-    if (lo > 0 && lo <= lineText.length) {
-      const prefixPrev = lineText.slice(0, lo - 1)
-      const prefixCurr = lineText.slice(0, lo)
-      const layoutPrev = this.engine.computeLayoutWithLines(prefixPrev)
-      const layoutCurr = this.engine.computeLayoutWithLines(prefixCurr)
-      const wPrev = layoutPrev.lines?.[layoutPrev.lines.length - 1]?.width ?? 0
-      const wCurr = layoutCurr.lines?.[layoutCurr.lines.length - 1]?.width ?? 0
+    // Refine: check estimate and neighbors (typically 2-3 calls instead of ~9)
+    let wEst = measureWidth(estimate)
 
-      if (x - wPrev < wCurr - x) {
-        lo = lo - 1
+    if (wEst <= x) {
+      // Search forward
+      while (estimate < lineText.length) {
+        const wNext = measureWidth(estimate + 1)
+        if (wNext > x) {
+          // Choose closer side
+          return vl.startOffset + (x - wEst < wNext - x ? estimate : estimate + 1)
+        }
+        estimate++
+        wEst = wNext
       }
+      return vl.startOffset + lineText.length
+    } else {
+      // Search backward
+      while (estimate > 0) {
+        const wPrev = measureWidth(estimate - 1)
+        if (wPrev <= x) {
+          // Choose closer side
+          return vl.startOffset + (x - wPrev < wEst - x ? estimate - 1 : estimate)
+        }
+        estimate--
+        wEst = wPrev
+      }
+      return vl.startOffset
     }
-
-    return vl.startOffset + Math.min(lo, lineText.length)
   }
 
   // --------------------------------------------------------
