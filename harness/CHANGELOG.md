@@ -1,5 +1,14 @@
 # @pre-markdown/harness
 
+## 0.1.2
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @pre-markdown/core@0.2.1
+  - @pre-markdown/parser@0.2.1
+  - @pre-markdown/renderer@0.2.1
+
 ## 0.1.1
 
 ### Patch Changes

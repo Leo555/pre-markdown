@@ -3,7 +3,7 @@
 > **目标**：基于 pretext 构建全行业性能最佳的 Markdown 引擎，充分利用 pretext 零 DOM 重排布局能力  
 > **核心原则**：性能第一，语法兼容性够用即可（CommonMark 主流 sections 通过，不追求 100%）  
 > 每个任务完成后标记 `[x]`，进行中标记 `[-]`，未开始标记 `[ ]`。  
-> 最后更新：2026-04-04
+> 最后更新：2026-04-05
 
 ---
 
@@ -291,6 +291,9 @@
 
 | 日期 | 变更内容 |
 |------|---------|
+| 2026-04-05 | CI 修复：harness 添加 marked/markdown-it/commonmark/showdown/remarkable 依赖；worker-script.ts 添加 webworker 三斜线引用修复 DedicatedWorkerGlobalScope 类型；tsconfig.check.json 适配 composite 项目类型检查；ESLint 配置重构（分层 type-checked + tests 宽松规则）；性能测试阈值调整 |
+| 2026-04-05 | @pre-markdown/layout README.md：完整 API 文档覆盖 LayoutEngine/VirtualList/CursorEngine/LineRenderer/WorkerBackend 5 大模块 |
+| 2026-04-05 | .changeset/config.json：修复 changelog 字段从错误的 @changesets/cli/changelog 改为 @changesets/changelog-github |
 | 2026-04-04 | 在线 Playground：standalone.html 重写为 Vite 驱动的完整 Playground（语法高亮 + 行号 + 快捷键 + URL 分享 + 导出 + 可拖拽分隔栏），demo/playground.ts 独立入口 |
 | 2026-04-04 | npm publish 流程：@changesets/cli + @changesets/changelog-github 集成，linked 四核心包版本同步，changeset/changeset:version/changeset:publish/release 脚本 |
 | 2026-04-04 | Phase 5 生态与文档全部完成 100%，总完成度 95% → 97% |

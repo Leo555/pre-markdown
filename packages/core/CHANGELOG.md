@@ -1,5 +1,11 @@
 # @pre-markdown/core
 
+## 0.2.1
+
+### Patch Changes
+
+- Add detailed README documentation for all packages
+
 ## 0.2.0
 
 ### Minor Changes
