@@ -193,7 +193,9 @@ pnpm dev
 
 ## Syntax Support
 
-### ✅ CommonMark (≥ 80% passing)
+### ✅ CommonMark (64.1% — 418/652 specs passing)
+
+> 10 sections at 100% (ATX headings, Fenced code, Block quotes, Paragraphs, Blank lines, Precedence, Inlines, Hard/Soft line breaks, Textual content). Focus on practical usage over 100% spec compliance.
 
 Headings, paragraphs, block quotes, lists, code blocks, horizontal rules, links, images, emphasis, inline code, raw HTML, hard line breaks, escaping
 

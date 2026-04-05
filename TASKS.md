@@ -9,21 +9,25 @@
 
 ## 项目进度总览
 
-| 阶段 | 状态 | 进度 |
-|------|------|------|
-| Phase 1：核心引擎 | ✅ 已完成 | 100% |
-| Phase 2：性能优化（核心） | ✅ 已完成 | 100% |
-| Phase 3：Pretext 深度集成（核心） | ✅ 已完成 | 100% |
-| Phase 4：语法兼容性（次要） | 🔨 进行中 | 70% |
-| Phase 5：生态与文档 | ✅ 已完成 | 100% |
-| Phase 6：编辑器输入框优化 | ✅ 已完成 | 100% |
+| 阶段 | 状态 | 进度 | 审计偏差 |
+|------|------|------|---------|
+| Phase 1：核心引擎 | ✅ 已完成 | ~95% | 缺 link ref def、emphasis 无 delimiter stack |
+| Phase 2：性能优化（核心） | ✅ 已完成 | ~95% | 缺增量 benchmark、buildBlockMetas O(n) |
+| Phase 3：Pretext 深度集成（核心） | ✅ 已完成 | ~92% | viewportLayout 伪虚拟化、hitTest O(n)、xyToOffset 冗余调用 |
+| Phase 4：语法兼容性（次要） | 🔨 进行中 | 70% | 准确 |
+| Phase 5：生态与文档 | ✅ 已完成 | ~90% | layout/README 空文件、README CommonMark 声称不实 |
+| Phase 6：编辑器输入框优化 | ✅ 已完成 | ~98% | Undo/Redo 快照式（非操作式） |
+| Phase 7：Editor 包重建（核心差距） | ⏳ 未开始 | 0% | — |
+| Phase 8：Demo 集成完善 | ⏳ 未开始 | 0% | — |
+| Phase 9：代码质量与测试补全 | ⏳ 未开始 | 0% | — |
 
 ---
 
-## Phase 1：核心引擎 ✅
+## Phase 1：核心引擎 ✅ (~95%)
 
 > **里程碑**：完整的 Parse → AST → Render 流水线  
-> **验证标准**：376 测试通过，所有已实现语法 Demo 可渲染
+> **验证标准**：376 测试通过，所有已实现语法 Demo 可渲染  
+> **审计偏差**：缺 link reference definitions `[text][id]`；emphasis 无 delimiter stack（`_` 字边界规则缺失）；Details 缺 `open` 字段（tryDetail 死代码）；HTML 实体表仅 ~90 条 vs 标准 2000+
 
 ### 1.1 AST 类型系统（@pre-markdown/core）
 - [x] `Position` / `SourceLocation` / `BaseNode` 基础类型
@@ -56,11 +60,12 @@
 
 ---
 
-## Phase 2：性能优化（核心）🔨
+## Phase 2：性能优化（核心）🔨 (~95%)
 
 > **里程碑**：在 benchmark 6 引擎对比中，PreMarkdown 全面领先  
 > **验证标准**：所有文件规模下解析+渲染耗时 ≤ marked，显著快于 markdown-it/Cherry  
-> **原则**：这是项目的核心竞争力，最高优先级
+> **原则**：这是项目的核心竞争力，最高优先级  
+> **审计偏差**：8 项核心优化全部真实实现 ✅；缺增量解析专项 benchmark；`buildBlockMetas()` 每次编辑 O(n) 全量重建；内存管理仅部分（无 object pool/ArrayBuffer）
 
 ### 2.1 解析器热路径优化
 - [x] 自定义 profiling 脚本（harness/profile.ts），基线测量
@@ -104,11 +109,12 @@
 
 ---
 
-## Phase 3：Pretext 深度集成（核心）🔨
+## Phase 3：Pretext 深度集成（核心）🔨 (~92%)
 
 > **里程碑**：充分发挥 pretext 零 DOM 重排布局的能力  
 > **验证标准**：文本测量、布局计算完全脱离 DOM，编辑器体验流畅无卡顿  
-> **原则**：pretext 是本项目的核心差异化技术，必须深度利用
+> **原则**：pretext 是本项目的核心差异化技术，必须深度利用  
+> **审计偏差**：pretext 6 个 API（prepare/prepareWithSegments/layout/layoutWithLines/clearCache/setLocale）深度集成确认 ✅；`computeViewportLayout` 先算所有行再切片（非真正按需虚拟化）；`hitTest` O(n) 线性扫描；`xyToOffset` 二分搜索每步调用 layout（~9次/click）；WorkerBackend + LineRenderer 零测试
 
 ### 3.1 Pretext 文本测量增强
 - [x] 集成 @chenglou/pretext prepare() / layout() / layoutWithLines()
@@ -190,9 +196,10 @@
 
 ---
 
-## Phase 5：生态与文档 ⏳
+## Phase 5：生态与文档 ⏳ (~90%)
 
-> 同前，不变
+> 同前，不变  
+> **审计偏差**：`packages/layout/README.md` 空文件（0字节）— 核心包文档缺失；README.md + README.zh.md 声称 "CommonMark ≥ 80%" 但实际 64.1%（418/652）
 
 ### 5.1 插件系统
 - [x] 插件接口 + 语法扩展 Hook + 渲染扩展 Hook（Plugin/PluginManager，block/inline/transform/render 四种 Hook）
@@ -271,19 +278,93 @@
 
 ---
 
+## Phase 7：Editor 包重建（核心差距）⏳
+
+> **里程碑**：@pre-markdown/editor 成为真正可用的编辑器组件，充分利用已有能力  
+> **验证标准**：编辑器使用 IncrementalParser + renderToDOM + VirtualList + CursorEngine  
+> **原则**：这是目标"用 pretext 构建高性能 Markdown 编辑器"的最核心短板
+
+### 7.1 重构 @pre-markdown/editor 核心流水线
+- [ ] 使用 IncrementalParser 替代 parse() 全量解析（当前 131 行，仅调用 parse()）
+- [ ] 使用 renderToDOM() 替代 innerHTML 赋值（当前直接 innerHTML = renderToHtml()）
+- [ ] 集成 LayoutEngine + CursorEngine（当前未使用 @pre-markdown/layout）
+- [ ] 集成 VirtualList 实现大文档虚拟滚动（当前未使用）
+
+### 7.2 编辑器增量更新流水线
+- [ ] 增量渲染：基于 AST diff 的 DOM patch（而非 outerHTML 字符串比较）
+- [ ] 增量布局：updateDocumentLayout() 仅重算变更段落高度
+- [ ] IME 输入合成处理（compositionstart/end 事件，当前完全缺失）
+
+### 7.3 Editor 包测试覆盖
+- [ ] @pre-markdown/editor 单元测试（当前零测试覆盖）
+
+---
+
+## Phase 8：Demo 集成完善 ⏳
+
+> **里程碑**：Demo 充分展示引擎全部能力  
+> **验证标准**：Demo 使用 IncrementalParser + VirtualList，大文档性能显著优于全量解析  
+> **原则**：Demo 是项目的门面，必须体现核心技术优势
+
+### 8.1 Demo 使用增量解析
+- [ ] 替换 parse(value) 为 IncrementalParser.update()（当前 demo/main.ts 第 674 行调用 parse()）
+- [ ] 实时编辑场景下验证增量解析性能提升
+
+### 8.2 Demo 使用虚拟滚动
+- [ ] 集成 VirtualList 实现预览区虚拟渲染（当前未使用，仅手写 patchPreview DOM patch）
+- [ ] 大文档（10K+ 行）虚拟滚动性能验证
+
+### 8.3 Demo 使用 WorkerBackend
+- [ ] 大文档 pretext prepare() 移至 Web Worker 异步执行（WorkerBackend 已实现但未接入 Demo）
+
+---
+
+## Phase 9：代码质量与测试补全 ⏳
+
+> **里程碑**：消除代码重复、修复性能隐患、补全测试覆盖  
+> **验证标准**：无重复代码、核心模块测试覆盖 ≥ 80%  
+> **原则**：代码质量是可维护性的基础
+
+### 9.1 代码去重
+- [ ] 提取 `escapeHtml` 为 @pre-markdown/core 公共导出（当前 5 处重复：renderer + 3 插件 + editor，且 editor 版本缺少 `"` 转义）
+- [ ] `escapeAttr` 同步提取，统一实现
+
+### 9.2 性能隐患修复
+- [ ] visitor.ts：`isBlockNode`/`isInlineNode` 的 Set 提升为模块级常量（当前每次调用 new Set()）
+- [ ] layout hitTest()：线性扫描 O(n) → 二分查找 O(log n)
+- [ ] layout computeViewportLayout()：先计算所有行再切片 → 真正按需计算
+- [ ] cursor.ts xyToOffset()：减少 computeLayoutWithLines() 重复调用（当前二分搜索每步调用一次）
+- [ ] block parser tryDetail()：修复死代码 `const detailSummary = isOpen ? summary : summary`
+
+### 9.3 测试覆盖补全
+- [ ] renderToDOM() 测试（当前 ~350 行代码零覆盖）
+- [ ] LineRenderer 测试覆盖
+- [ ] WorkerBackend 测试覆盖
+- [ ] LayoutEngine + CursorEngine + VirtualList 集成测试
+
+### 9.4 渲染器改进
+- [ ] 插件 renderChildren 类型检测扩展（当前仅硬编码 6 种 inline 类型，缺少 strikethrough/highlight 等）
+- [ ] Table parseTableRow 支持转义管道符 `\|`
+
+---
+
 ## 任务统计
 
-| 类别 | 总计 | 已完成 | 未开始 |
-|------|------|--------|--------|
-| Phase 1：核心引擎 | 50 | 50 | 0 |
-| Phase 2：性能优化 | 20 | 20 | 0 |
-| Phase 3：Pretext 深度集成 | 15 | 15 | 0 |
-| Phase 4：语法兼容性 | 12 | 7 | 5 |
-| Phase 5：生态与文档 | 12 | 12 | 0 |
-| Phase 6：编辑器输入框优化 | 35 | 35 | 0 |
-| **合计** | **144** | **139** | **5** |
+| 类别 | 总计 | 已完成 | 有偏差 | 未开始 |
+|------|------|--------|--------|--------|
+| Phase 1：核心引擎 | 50 | 47 | 3 | 0 |
+| Phase 2：性能优化 | 20 | 19 | 1 | 0 |
+| Phase 3：Pretext 深度集成 | 15 | 13 | 2 | 0 |
+| Phase 4：语法兼容性 | 12 | 7 | 0 | 5 |
+| Phase 5：生态与文档 | 12 | 10 | 2 | 0 |
+| Phase 6：编辑器输入框优化 | 35 | 35 | 0 | 0 |
+| Phase 7：Editor 包重建 | 7 | 0 | 0 | 7 |
+| Phase 8：Demo 集成完善 | 5 | 0 | 0 | 5 |
+| Phase 9：代码质量与测试补全 | 12 | 0 | 0 | 12 |
+| **合计** | **168** | **131** | **8** | **29** |
 
-> 当前总体完成度：**≈ 97%**
+> 当前总体完成度：**≈ 78%**（131 完成 + 8 有偏差待修复 + 29 未开始）  
+> 审计调整：原声称 83% → 实际 78%，8 项已完成任务存在质量偏差（详见各 Phase 审计标注）
 
 ---
 
@@ -291,6 +372,8 @@
 
 | 日期 | 变更内容 |
 |------|---------|
+| 2026-04-05 | Phase 1-6 已完成任务深度审计：Phase 1 ~95%（缺 link ref def、emphasis delimiter stack、Details open 字段、HTML 实体表不完整）；Phase 2 ~95%（缺增量 benchmark、buildBlockMetas O(n)）；Phase 3 ~92%（computeViewportLayout 伪虚拟化、hitTest O(n)、xyToOffset 冗余 layout 调用、WorkerBackend/LineRenderer 零测试）；Phase 5 ~90%（layout/README.md 空文件、README CommonMark ≥80% 声称不实，实际 64.1%）；Phase 6 ~98%（18+ 功能全部验证通过）。完成度调整 83%→78%，8 项任务标记"有偏差" |
+| 2026-04-05 | 全仓库 Review：新增 Phase 7（Editor 包重建）、Phase 8（Demo 集成完善）、Phase 9（代码质量与测试补全）共 24 项新任务。关键发现：Editor 包仅 131 行且未使用 IncrementalParser/VirtualList/renderToDOM；Demo 未使用增量解析和虚拟滚动；escapeHtml 5 处重复且 editor 版本有 XSS 风险；visitor.ts 每次调用创建 new Set；renderToDOM 350 行零测试。完成度调整 97%→83% |
 | 2026-04-05 | CI 修复：harness 添加 marked/markdown-it/commonmark/showdown/remarkable 依赖；worker-script.ts 添加 webworker 三斜线引用修复 DedicatedWorkerGlobalScope 类型；tsconfig.check.json 适配 composite 项目类型检查；ESLint 配置重构（分层 type-checked + tests 宽松规则）；性能测试阈值调整 |
 | 2026-04-05 | @pre-markdown/layout README.md：完整 API 文档覆盖 LayoutEngine/VirtualList/CursorEngine/LineRenderer/WorkerBackend 5 大模块 |
 | 2026-04-05 | .changeset/config.json：修复 changelog 字段从错误的 @changesets/cli/changelog 改为 @changesets/changelog-github |
